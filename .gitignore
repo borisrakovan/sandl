@@ -1,0 +1,38 @@
+### GENERAL
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# macOS
+.DS_Store
+.supported
+
+# IDEs and editors
+.idea/
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# local-only files (may be useful during development)
+*.local.*
+*.local
+
+**/dist/
+
+# node_module directories
+**/node_modules/*
+
+# dotenv files
+.env
+**/.env

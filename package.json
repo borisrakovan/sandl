@@ -1,0 +1,54 @@
+{
+	"name": "lambdaverse",
+	"version": "0.0.1",
+	"keywords": [
+		"lambdaverse",
+		"aws",
+		"lambda",
+		"typescript",
+		"aws-lambda"
+	],
+	"homepage": "https://github.com/borisrakovan/lambdaverse",
+	"bugs": {
+		"url": "https://github.com/borisrakovan/lambdaverse/issues"
+	},
+	"author": "Boris Rakovan <b.rakovan@gmail.com> (https://github.com/borisrakovan)",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/borisrakovan/lambdaverse.git"
+	},
+	"license": "MIT",
+	"files": [
+		"dist"
+	],
+	"type": "module",
+	"main": "dist/index.js",
+	"scripts": {
+		"build": "tsc",
+		"format": "prettier --write \"{src,scripts,test}/**/*.ts\"",
+		"format:check": "prettier --check \"{src,scripts,test}/**/*.ts\"",
+        "test": "vitest run",
+		"release": "changeset version && changeset publish"
+	},
+	"devDependencies": {
+		"@changesets/cli": "^2.29.5",
+		"@eslint/js": "^9.26.0",
+		"@total-typescript/ts-reset": "^0.6.1",
+		"@types/aws-lambda": "^8.10.149",
+		"@types/node": "^22.15.3",
+		"@types/node-fetch": "^2.6.12",
+		"dotenv": "^16.5.0",
+		"esbuild": "^0.25.3",
+		"eslint": "^9.26.0",
+		"node-fetch": "^3.3.2",
+		"prettier": "^3.5.3",
+		"prettier-plugin-organize-imports": "^4.1.0",
+		"ts-node": "^10.9.2",
+		"tsx": "^4.19.4",
+		"typescript": "^5.8.3",
+		"typescript-eslint": "^8.31.1",
+		"vite-tsconfig-paths": "^5.1.4",
+		"vitest": "^3.1.3"
+	},
+	"packageManager": "pnpm@9.13.0+sha512.beb9e2a803db336c10c9af682b58ad7181ca0fbd0d4119f2b33d5f2582e96d6c0d93c85b23869295b765170fbdaa92890c0da6ada457415039769edf3c959efe"
+}
