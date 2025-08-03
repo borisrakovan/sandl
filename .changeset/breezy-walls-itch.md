@@ -1,5 +1,0 @@
----
-'lambdaverse': patch
----
-
-Initial release

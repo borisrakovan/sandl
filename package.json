@@ -1,6 +1,6 @@
 {
 	"name": "lambdaverse",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"keywords": [
 		"lambdaverse",
 		"aws",
@@ -27,7 +27,7 @@
 		"build": "tsc",
 		"format": "prettier --write \"{src,scripts,test}/**/*.ts\"",
 		"format:check": "prettier --check \"{src,scripts,test}/**/*.ts\"",
-        "test": "vitest run",
+		"test": "vitest run",
 		"release": "changeset version && changeset publish"
 	},
 	"devDependencies": {
