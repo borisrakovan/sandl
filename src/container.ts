@@ -104,7 +104,6 @@ export class DependencyContainer<in TServices = never> {
 			})
 			.then((instance) => {
 				// On successful creation, ensure the promise is still in cache
-				// TODO:
 				if (this.cache.get(constructor) === instancePromise) {
 					return instance;
 				}
