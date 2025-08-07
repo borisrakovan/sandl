@@ -7,32 +7,36 @@ import { z } from 'zod/v4';
 import { ValidationError } from './internal/errors.js';
 
 export type ApiRequestValidatorOptions<
-	TBody extends z.ZodType,
-	TPath extends z.ZodType,
-	TQuery extends z.ZodType,
+	TBody extends z.ZodType | undefined,
+	TPath extends z.ZodType | undefined,
+	TQuery extends z.ZodType | undefined,
 > = {
 	bodySchema?: TBody;
 	pathSchema?: TPath;
 	querySchema?: TQuery;
 };
 
+type OptionallyParsed<T extends z.ZodType | undefined> = T extends undefined
+	? undefined
+	: z.infer<T>;
+
 export type ApiRequestValidatorState<
-	TBody extends z.ZodType,
-	TPath extends z.ZodType,
-	TQuery extends z.ZodType,
+	TBody extends z.ZodType | undefined,
+	TPath extends z.ZodType | undefined,
+	TQuery extends z.ZodType | undefined,
 > = {
-	body: z.infer<TBody>;
-	path: z.infer<TPath>;
-	query: z.infer<TQuery>;
+	body: OptionallyParsed<TBody>;
+	path: OptionallyParsed<TPath>;
+	query: OptionallyParsed<TQuery>;
 };
 
 export const apiRequestValidator = <
 	TEvent extends APIGatewayProxyEventV2,
 	TState extends State,
 	TRes,
-	TBody extends z.ZodType,
-	TPath extends z.ZodType,
-	TQuery extends z.ZodType,
+	TBody extends z.ZodType | undefined,
+	TPath extends z.ZodType | undefined,
+	TQuery extends z.ZodType | undefined,
 >(
 	options: ApiRequestValidatorOptions<TBody, TPath, TQuery>
 ): ResourceMiddleware<
@@ -130,9 +134,9 @@ export const apiRequestValidator = <
 			}
 
 			return {
-				body: parsedBody,
-				path: parsedPath,
-				query: parsedQuery,
+				body: parsedBody as OptionallyParsed<TBody>,
+				path: parsedPath as OptionallyParsed<TPath>,
+				query: parsedQuery as OptionallyParsed<TQuery>,
 			};
 		},
 	});
