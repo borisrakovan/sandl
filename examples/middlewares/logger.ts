@@ -2,8 +2,8 @@ import { BaseError } from '@/errors.js';
 import { middleware, Middleware } from '@/middleware.js';
 import { State } from '@/types.js';
 import { getKey } from '@/utils/object.js';
-import { ApiError } from './internal/errors.js';
-import log from './internal/logger.js';
+import { ApiError } from '../internal/errors.js';
+import log from '../internal/logger.js';
 
 // Flag to track cold start invocations
 let coldStartInvocation = true;

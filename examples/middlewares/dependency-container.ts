@@ -26,7 +26,7 @@ export const dependencyContainer = <
 	DependencyContainer<TServices>
 > => {
 	return resource('container', {
-		scope: 'request',
+		scope: 'runtime',
 		init: (request) => {
 			const layer = layerFactory(
 				request.state.env as EnvFromState<TState>,

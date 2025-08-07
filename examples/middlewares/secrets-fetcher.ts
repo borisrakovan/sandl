@@ -2,7 +2,7 @@ import { resource, ResourceMiddleware } from '@/resource.js';
 import { State } from '@/types.js';
 import { SecretValue } from 'examples/internal/secret-value.js';
 import { z } from 'zod/v4';
-import * as secretsManager from './internal/secrets-manager.js';
+import * as secretsManager from '../internal/secrets-manager.js';
 
 // We need this to let the caller conveniently define the type of the returned secret
 // e.g. secret<string>('secret-name')

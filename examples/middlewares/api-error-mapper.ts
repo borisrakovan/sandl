@@ -4,8 +4,8 @@ import {
 	APIGatewayProxyEventV2,
 	APIGatewayProxyStructuredResultV2,
 } from 'aws-lambda';
-import { ApiError, InternalServerError } from './internal/errors.js';
-import { errorResponse } from './internal/responses.js';
+import { ApiError, InternalServerError } from '../internal/errors.js';
+import { errorResponse } from '../internal/responses.js';
 
 export const apiErrorMapper = <
 	TEvent extends APIGatewayProxyEventV2,

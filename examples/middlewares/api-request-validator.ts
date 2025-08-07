@@ -4,7 +4,7 @@ import { jsonParse } from '@/utils/json.js';
 import { getKey } from '@/utils/object.js';
 import { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { z } from 'zod/v4';
-import { ValidationError } from './internal/errors.js';
+import { ValidationError } from '../internal/errors.js';
 
 export type ApiRequestValidatorOptions<
 	TBody extends z.ZodType | undefined,

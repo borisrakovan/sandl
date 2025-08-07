@@ -2,7 +2,7 @@ import { AwsContext } from '@/types.js';
 import { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { SecretValue } from 'examples/internal/secret-value.js';
 import { describe, expect, it } from 'vitest';
-import { handler } from './api.js';
+import { handler } from './complex-dependencies-handler.js';
 
 const event = {
 	httpMethod: 'POST',
@@ -13,7 +13,7 @@ const event = {
 const context = {} as AwsContext;
 
 describe('api.handler', () => {
-	it('should return a 200 response', async () => {
+	it('should return a 200 response for valid name', async () => {
 		const result = await handler
 			.test()
 			.skipMiddleware('auth')
@@ -36,7 +36,9 @@ describe('api.handler', () => {
 			})
 			.execute(event, context);
 
-		console.log(result);
 		expect(result.statusCode).toBe(200);
+		expect(JSON.parse(result.body ?? '{}')).toEqual({
+			message: 'Hello, John Doe!',
+		});
 	});
 });

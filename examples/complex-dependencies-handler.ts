@@ -4,16 +4,19 @@ import {
 	APIGatewayProxyEventV2,
 	APIGatewayProxyStructuredResultV2,
 } from 'aws-lambda';
-import { apiErrorMapper } from 'examples/api-error-mapper.js';
-import { apiKeyAuth } from 'examples/api-key-auth.js';
-import { apiRequestValidator } from 'examples/api-request-validator.js';
-import { apiResponseSerializer } from 'examples/api-response-serializer.js';
-import { dependencyContainer } from 'examples/dependency-container.js';
-import { envVariableLoader } from 'examples/env-variable-loader.js';
-import { AuthService } from 'examples/internal/auth.js';
-import { logger } from 'examples/logger.js';
-import { secret, secretsFetcher } from 'examples/secrets-fetcher.js';
+import { apiErrorMapper } from 'examples/middlewares/api-error-mapper.js';
+import { apiKeyAuth } from 'examples/middlewares/api-key-auth.js';
+import { apiRequestValidator } from 'examples/middlewares/api-request-validator.js';
+import { apiResponseSerializer } from 'examples/middlewares/api-response-serializer.js';
+import { dependencyContainer } from 'examples/middlewares/dependency-container.js';
+import { envVariableLoader } from 'examples/middlewares/env-variable-loader.js';
+import { logger } from 'examples/middlewares/logger.js';
+import {
+	secret,
+	secretsFetcher,
+} from 'examples/middlewares/secrets-fetcher.js';
 import z from 'zod/v4';
+import { AuthService } from './internal/auth.service.js';
 
 const EnvSchema = z.object({
 	ENCRYPTION_KEY_SECRET_ID: z.string(),
@@ -26,6 +29,11 @@ const RequestSchema = z.object({
 const ResponseSchema = z.object({
 	message: z.string(),
 });
+
+const authLayer = (encryptionKey: string) =>
+	layer<never, AuthService>((container) =>
+		container.register(AuthService, () => new AuthService(encryptionKey))
+	); 
 
 export const handler = lambda<
 	APIGatewayProxyEventV2,
@@ -47,12 +55,7 @@ export const handler = lambda<
 	.use(apiErrorMapper())
 	.use(
 		dependencyContainer((_env, secrets) =>
-			layer<never, AuthService>((container) =>
-				container.register(
-					AuthService,
-					() => new AuthService(secrets.encryptionKey.value())
-				)
-			)
+			authLayer(secrets.encryptionKey.value())
 		)
 	)
 	.use(apiKeyAuth())

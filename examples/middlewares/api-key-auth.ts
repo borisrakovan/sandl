@@ -1,8 +1,8 @@
 import { DependencyContainer } from '@/container.js';
 import { resource, ResourceMiddleware } from '@/resource.js';
 import { APIGatewayProxyEventV2 } from 'aws-lambda';
-import { AuthService } from './internal/auth.js';
-import { UnauthorizedError } from './internal/errors.js';
+import { AuthService } from 'examples/internal/auth.service.js';
+import { UnauthorizedError } from '../internal/errors.js';
 
 export interface AuthContext {
 	user: { id: string; name: string };

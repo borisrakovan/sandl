@@ -72,7 +72,7 @@ export class LambdaBuilder<
 				handler,
 				this.middlewares
 			);
-			// Execute the entire chain on the initial request
+			// Execute the entire chain with an initial empty state
 			return chain({
 				event,
 				context,

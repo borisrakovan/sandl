@@ -2,8 +2,8 @@ import { middleware, Middleware } from '@/middleware.js';
 import { State } from '@/types.js';
 import { APIGatewayProxyStructuredResultV2 } from 'aws-lambda';
 import { z } from 'zod/v4';
-import { ApiErrorOptions, InternalServerError } from './internal/errors.js';
-import { jsonResponse } from './internal/responses.js';
+import { ApiErrorOptions, InternalServerError } from '../internal/errors.js';
+import { jsonResponse } from '../internal/responses.js';
 
 export type ApiResponseSerializerOptions<TSchema extends z.ZodType> = {
 	schema: TSchema;
