@@ -26,6 +26,7 @@ export const handler = lambda<
 	.use(apiResponseSerializer({ schema: ResponseSchema }))
 	.use(apiRequestValidator({ bodySchema: RequestSchema }))
 	.handle((request) => {
+		const a = request.state.request.body.name;
 		const _event = request.event;
 		const _context = request.context;
 		const _env = request.state.env;

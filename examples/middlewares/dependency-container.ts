@@ -1,4 +1,4 @@
-import { DependencyContainer } from '@/container.js';
+import { DependencyContainer } from '@/di/container.js';
 import { DependencyLayer } from '@/layer.js';
 import { resource, ResourceMiddleware } from '@/resource.js';
 import { State } from '@/types.js';

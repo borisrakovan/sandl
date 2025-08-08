@@ -1,4 +1,4 @@
-import { DependencyContainer } from './container.js';
+import { DependencyContainer } from './di/container.js';
 
 export interface DependencyLayer<
 	TIn,

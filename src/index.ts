@@ -9,7 +9,7 @@ export {
 	DependencyContainerFinalizationError,
 	DependencyCreationError,
 	UnknownDependencyError,
-} from './container.js';
+} from './di/container.js';
 
 export { layer } from './layer.js';
 export type { DependencyLayer } from './layer.js';

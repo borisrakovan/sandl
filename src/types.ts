@@ -26,9 +26,3 @@ export type LambdaRequest<TEvent, TState extends State> = {
 	context: AwsContext;
 	state: Prettify<TState>;
 };
-
-export interface ClassConstructor<T = unknown> {
-	readonly name: string;
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	new (...args: any[]): T;
-}

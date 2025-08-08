@@ -1,4 +1,4 @@
-import { DependencyContainer } from '@/container.js';
+import { DependencyContainer } from '@/di/container.js';
 import { resource, ResourceMiddleware } from '@/resource.js';
 import { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { AuthService } from 'examples/internal/auth.service.js';
