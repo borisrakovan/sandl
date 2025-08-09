@@ -1,12 +1,16 @@
 import { ClassConstructor } from './types.js';
 
-const TagId: unique symbol = Symbol('tag');
+export const TagId: unique symbol = Symbol('tag');
 
 export type ValueTag<T, Id extends string | symbol> = Readonly<{
 	readonly [TagId]: Id;
 	// Phantom type to carry T
 	readonly __type: T;
 }>;
+
+export type ClassTag<Id extends string | symbol> = {
+	readonly [TagId]: Id;
+};
 
 export type Tag<T, Id extends string | symbol> =
 	| ClassConstructor<T>
@@ -29,8 +33,9 @@ export const Tag = {
 		};
 	},
 
-	// of: <Id extends string>(id: Id): <T>() => ValueTag<T, Id>;
-	Class: <Id extends string>(id: Id) => {
+	Class: <Id extends string | symbol>(
+		id: Id
+	): ClassConstructor<ClassTag<Id>> => {
 		return class Tagged {
 			readonly [TagId]: Id = id;
 		};
