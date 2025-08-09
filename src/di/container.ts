@@ -7,7 +7,7 @@ import {
 import { AnyTag, ServiceOf, Tag } from './tag.js';
 import { Factory, Finalizer } from './types.js';
 
-export class DependencyContainer<in TReg extends AnyTag = never> {
+export class DependencyContainer<TReg extends AnyTag = never> {
 	private readonly cache = new Map<AnyTag, Promise<unknown>>();
 	private readonly factories = new Map<
 		AnyTag,

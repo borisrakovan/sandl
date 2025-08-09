@@ -8,8 +8,8 @@ export interface DependencyLayer<
 > {
 	register: (
 		container: TContainer
-	) => TContainer extends DependencyContainer<infer TIn>
-		? DependencyContainer<TIn | TOut>
+	) => TContainer extends DependencyContainer<infer TContainerIn>
+		? DependencyContainer<TContainerIn | TOut>
 		: never;
 
 	/**
@@ -31,12 +31,9 @@ export interface DependencyLayer<
 	>;
 }
 
-/**
- * Create a layer from a register function
- */
 export function layer<
-	TIn extends AnyTag,
-	TOut extends AnyTag,
+	TIn extends AnyTag = never,
+	TOut extends AnyTag = never,
 	TContainer extends DependencyContainer<TIn> = DependencyContainer<TIn>,
 >(
 	register: (

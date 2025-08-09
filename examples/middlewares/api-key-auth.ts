@@ -12,7 +12,7 @@ export const API_KEY_HEADER = 'X-Api-Key';
 
 export const apiKeyAuth = <
 	TEvent extends APIGatewayProxyEventV2,
-	TState extends { container: DependencyContainer<AuthService> },
+	TState extends { container: DependencyContainer<typeof AuthService> },
 	TRes,
 >(): ResourceMiddleware<'auth', TEvent, TState, TRes, AuthContext> => {
 	return resource('auth', {

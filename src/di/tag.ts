@@ -10,6 +10,7 @@ export type ValueTag<T, Id extends string | symbol> = Readonly<{
 
 export type ClassTag<Id extends string | symbol> = {
 	readonly [TagId]: Id;
+	readonly __type: unknown;
 };
 
 export type Tag<T, Id extends string | symbol> =
@@ -38,6 +39,7 @@ export const Tag = {
 	): ClassConstructor<ClassTag<Id>> => {
 		return class Tagged {
 			readonly [TagId]: Id = id;
+			readonly __type: unknown;
 		};
 	},
 

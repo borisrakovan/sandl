@@ -1,16 +1,16 @@
 import { BaseError } from '@/errors.js';
-import { Tag } from './tag.js';
+import { AnyTag, Tag } from './tag.js';
 
 export class DependencyContainerError extends BaseError {}
 
 export class UnknownDependencyError extends DependencyContainerError {
-	constructor(tag: Tag<unknown>) {
+	constructor(tag: AnyTag) {
 		super(`No factory registered for dependency ${Tag.id(tag)}`);
 	}
 }
 
 export class DependencyCreationError extends DependencyContainerError {
-	constructor(tag: Tag<unknown>, error: unknown) {
+	constructor(tag: AnyTag, error: unknown) {
 		super(`Error creating instance of ${Tag.id(tag)}: ${error}`, {
 			cause: error,
 			detail: {

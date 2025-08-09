@@ -8,7 +8,7 @@ export interface ClassConstructor<T = unknown> {
 	new (...args: any[]): T;
 }
 
-export type Factory<T, in TReg extends AnyTag> = (
+export type Factory<T, TReg extends AnyTag> = (
 	container: DependencyContainer<TReg>
 ) => PromiseOrValue<T>;
 
