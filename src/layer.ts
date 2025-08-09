@@ -1,8 +1,9 @@
 import { DependencyContainer } from './di/container.js';
+import { AnyTag } from './di/tag.js';
 
 export interface DependencyLayer<
-	TIn,
-	TOut,
+	TIn extends AnyTag,
+	TOut extends AnyTag,
 	TContainer extends DependencyContainer<TIn> = DependencyContainer<TIn>,
 > {
 	register: (
@@ -17,8 +18,8 @@ export interface DependencyLayer<
 	 * outputs of both layers.
 	 */
 	provide: <
-		TOtherIn,
-		TOtherOut,
+		TOtherIn extends AnyTag,
+		TOtherOut extends AnyTag,
 		TOtherContainer extends
 			DependencyContainer<TOtherIn> = DependencyContainer<TOtherIn>,
 	>(
@@ -34,8 +35,8 @@ export interface DependencyLayer<
  * Create a layer from a register function
  */
 export function layer<
-	TIn,
-	TOut,
+	TIn extends AnyTag,
+	TOut extends AnyTag,
 	TContainer extends DependencyContainer<TIn> = DependencyContainer<TIn>,
 >(
 	register: (
@@ -54,11 +55,11 @@ export function layer<
 }
 
 function provideLayer<
-	TIn1,
-	TOut1,
+	TIn1 extends AnyTag,
+	TOut1 extends AnyTag,
 	TContainer1 extends DependencyContainer<TIn1>,
-	TIn2,
-	TOut2,
+	TIn2 extends AnyTag,
+	TOut2 extends AnyTag,
 	TContainer2 extends DependencyContainer<TIn2>,
 >(
 	layer1: DependencyLayer<TIn1, TOut1, TContainer1>,

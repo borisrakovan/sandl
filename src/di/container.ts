@@ -128,3 +128,7 @@ export class DependencyContainer<in TReg extends AnyTag = never> {
 		}
 	}
 }
+
+export function container(): DependencyContainer {
+	return new DependencyContainer();
+}
