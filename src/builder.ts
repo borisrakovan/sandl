@@ -2,9 +2,9 @@ import { LambdaHandler } from './handler.js';
 import {
 	AnyMiddleware,
 	createHandlerMiddlewareChain,
-	GetName,
 	Middleware,
 	MiddlewareName,
+	NameOf,
 } from './middleware.js';
 import { LambdaTestBuilder } from './test-builder.js';
 import {
@@ -34,7 +34,7 @@ export class LambdaBuilder<
 		NewState extends State = CurState,
 	>(
 		middleware: Middleware<
-			NewName extends GetName<CurMiddlewares> ? never : NewName, // This makes the type never if name is already used
+			NewName extends NameOf<CurMiddlewares> ? never : NewName, // This makes the type never if name is already used
 			TEvent,
 			CurState,
 			NewState,

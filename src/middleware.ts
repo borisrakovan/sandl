@@ -22,7 +22,7 @@ export interface Middleware<
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type AnyMiddleware = Middleware<any, any, any, any, any, any>;
 
-export type GetName<T extends AnyMiddleware> =
+export type NameOf<T extends AnyMiddleware> =
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	T extends Middleware<infer TName, any, any, any, any, any> ? TName : never;
 

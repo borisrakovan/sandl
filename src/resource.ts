@@ -25,7 +25,7 @@ export type ResourceMiddleware<
 	TVal,
 > = Middleware<TName, TEvent, TState, TState & Record<TName, TVal>, TRes, TRes>;
 
-export type GetResourceSpec<T extends AnyMiddleware> =
+export type ResourceSpecOf<T extends AnyMiddleware> =
 	T extends Middleware<
 		infer TName,
 		infer TEvent,

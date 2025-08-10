@@ -1,9 +1,9 @@
 import {
 	AnyMiddleware,
 	createHandlerMiddlewareChain,
-	GetName,
+	NameOf,
 } from './middleware.js';
-import { GetResourceSpec, resource } from './resource.js';
+import { resource, ResourceSpecOf } from './resource.js';
 import { AwsContext, LambdaRequest, State } from './types.js';
 
 export class LambdaTestBuilder<
@@ -14,7 +14,7 @@ export class LambdaTestBuilder<
 > {
 	private readonly originalMiddlewares: AnyMiddleware[] = [];
 	private readonly middlewareOverrides = new Map<
-		GetName<TMiddlewares>,
+		NameOf<TMiddlewares>,
 		AnyMiddleware
 	>();
 
@@ -27,7 +27,7 @@ export class LambdaTestBuilder<
 		this.originalMiddlewares = middlewares;
 	}
 
-	skipMiddleware(name: GetName<TMiddlewares>): this {
+	skipMiddleware(name: NameOf<TMiddlewares>): this {
 		this.middlewareOverrides.set(name, {
 			name,
 			// No-op middleware
@@ -36,7 +36,7 @@ export class LambdaTestBuilder<
 		return this;
 	}
 
-	withMiddleware<TName extends GetName<TMiddlewares>>(
+	withMiddleware<TName extends NameOf<TMiddlewares>>(
 		name: TName,
 		// Extract the middleware with the given name from the union type
 		overrideFn: Extract<TMiddlewares, { name: TName }>['apply']
@@ -48,9 +48,9 @@ export class LambdaTestBuilder<
 		return this;
 	}
 
-	withResource<TName extends GetName<TMiddlewares>>(
+	withResource<TName extends NameOf<TMiddlewares>>(
 		name: TName,
-		spec: GetResourceSpec<Extract<TMiddlewares, { name: TName }>>
+		spec: ResourceSpecOf<Extract<TMiddlewares, { name: TName }>>
 	): this {
 		this.middlewareOverrides.set(name, resource(name, spec));
 		return this;
