@@ -31,9 +31,9 @@ const ResponseSchema = z.object({
 });
 
 const authLayer = (encryptionKey: string) =>
-	layer<never, AuthService>((container) =>
+	layer<never, typeof AuthService>((container) =>
 		container.register(AuthService, () => new AuthService(encryptionKey))
-	); 
+	);
 
 export const handler = lambda<
 	APIGatewayProxyEventV2,
@@ -66,6 +66,7 @@ export const handler = lambda<
 		const _context = request.context;
 		const _encryptionKey = request.state.secrets.encryptionKey.value();
 		const _env = request.state.env;
+		const _c = request.state.env;
 
 		return {
 			message: `Hello, ${request.state.request.body.name}!`,

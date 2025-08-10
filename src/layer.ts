@@ -2,76 +2,132 @@ import { DependencyContainer } from './di/container.js';
 import { AnyTag } from './di/tag.js';
 
 export interface DependencyLayer<
-	TIn extends AnyTag,
-	TOut extends AnyTag,
-	TContainer extends DependencyContainer<TIn> = DependencyContainer<TIn>,
+	TRequires extends AnyTag = never,
+	TProvides extends AnyTag = never,
 > {
 	register: (
-		container: TContainer
-	) => TContainer extends DependencyContainer<infer TContainerIn>
-		? DependencyContainer<TContainerIn | TOut>
-		: never;
+		container: DependencyContainer<TRequires>
+	) => DependencyContainer<TRequires | TProvides>;
 
 	/**
-	 * Feeds the output services of one layer into the input of another layer,
-	 * resulting in a new layer with the inputs of the first layer, and the
-	 * outputs of both layers.
+	 * Provides services to another layer. The target layer's requirements
+	 * will be satisfied by this layer's provisions plus any remaining requirements.
 	 */
-	provide: <
-		TOtherIn extends AnyTag,
-		TOtherOut extends AnyTag,
-		TOtherContainer extends
-			DependencyContainer<TOtherIn> = DependencyContainer<TOtherIn>,
-	>(
-		other: DependencyLayer<TOtherIn, TOtherOut, TOtherContainer>
+	to: <TTargetRequires extends AnyTag, TTargetProvides extends AnyTag>(
+		target: DependencyLayer<TTargetRequires, TTargetProvides>
 	) => DependencyLayer<
-		TIn | Exclude<TOtherIn, TOut>,
-		TOut | TOtherOut,
-		DependencyContainer<TIn | Exclude<TOtherIn, TOut>>
+		TRequires | Exclude<TTargetRequires, TProvides>,
+		TProvides | TTargetProvides
+	>;
+
+	/**
+	 * Merges this layer with another layer, combining their requirements and provisions.
+	 */
+	and: <TOtherRequires extends AnyTag, TOtherProvides extends AnyTag>(
+		other: DependencyLayer<TOtherRequires, TOtherProvides>
+	) => DependencyLayer<
+		TRequires | TOtherRequires,
+		TProvides | TOtherProvides
 	>;
 }
 
 export function layer<
-	TIn extends AnyTag = never,
-	TOut extends AnyTag = never,
-	TContainer extends DependencyContainer<TIn> = DependencyContainer<TIn>,
+	TRequires extends AnyTag = never,
+	TProvides extends AnyTag = never,
 >(
 	register: (
-		container: TContainer
-	) => TContainer extends DependencyContainer<infer TInServices>
-		? DependencyContainer<TInServices | TOut>
-		: never
-): DependencyLayer<TIn, TOut, TContainer> {
-	const layer: DependencyLayer<TIn, TOut, TContainer> = {
+		container: DependencyContainer<TRequires>
+	) => DependencyContainer<TRequires | TProvides>
+): DependencyLayer<TRequires, TProvides> {
+	const layerImpl: DependencyLayer<TRequires, TProvides> = {
 		register,
-		provide(other) {
-			return provideLayer(layer, other);
+		to(target) {
+			return createComposedLayer(layerImpl, target);
+		},
+		and(other) {
+			return createMergedLayer(layerImpl, other);
 		},
 	};
-	return layer;
+	return layerImpl;
 }
 
-function provideLayer<
-	TIn1 extends AnyTag,
-	TOut1 extends AnyTag,
-	TContainer1 extends DependencyContainer<TIn1>,
-	TIn2 extends AnyTag,
-	TOut2 extends AnyTag,
-	TContainer2 extends DependencyContainer<TIn2>,
+function createComposedLayer<
+	TRequires1 extends AnyTag,
+	TProvides1 extends AnyTag,
+	TRequires2 extends AnyTag,
+	TProvides2 extends AnyTag,
 >(
-	layer1: DependencyLayer<TIn1, TOut1, TContainer1>,
-	layer2: DependencyLayer<TIn2, TOut2, TContainer2>
+	source: DependencyLayer<TRequires1, TProvides1>,
+	target: DependencyLayer<TRequires2, TProvides2>
 ): DependencyLayer<
-	TIn1 | Exclude<TIn2, TOut1>,
-	TOut1 | TOut2,
-	DependencyContainer<TIn1 | Exclude<TIn2, TOut1>>
+	TRequires1 | Exclude<TRequires2, TProvides1>,
+	TProvides1 | TProvides2
 > {
 	return layer((container) => {
-		const container1 = layer1.register(
-			container as TContainer1
-		) as DependencyContainer<TIn1 | TIn2 | TOut1>;
-		return layer2.register(
-			container1 as TContainer2
-		) as DependencyContainer<TIn1 | TIn2 | TOut1 | TOut2>;
-	});
+		const containerWithSource = source.register(container);
+		return target.register(
+			containerWithSource as DependencyContainer<TRequires2>
+		);
+	}) as DependencyLayer<
+		TRequires1 | Exclude<TRequires2, TProvides1>,
+		TProvides1 | TProvides2
+	>;
 }
+
+function createMergedLayer<
+	TRequires1 extends AnyTag,
+	TProvides1 extends AnyTag,
+	TRequires2 extends AnyTag,
+	TProvides2 extends AnyTag,
+>(
+	layer1: DependencyLayer<TRequires1, TProvides1>,
+	layer2: DependencyLayer<TRequires2, TProvides2>
+): DependencyLayer<TRequires1 | TRequires2, TProvides1 | TProvides2> {
+	return layer((container) => {
+		const container1 = layer1.register(container);
+		return layer2.register(container1 as DependencyContainer<TRequires2>);
+	}) as DependencyLayer<TRequires1 | TRequires2, TProvides1 | TProvides2>;
+}
+
+// Helper types for mergeAll
+type UnionOfRequires<T extends readonly DependencyLayer<AnyTag, AnyTag>[]> = {
+	[K in keyof T]: T[K] extends DependencyLayer<infer R, AnyTag> ? R : never;
+}[number];
+
+type UnionOfProvides<T extends readonly DependencyLayer<AnyTag, AnyTag>[]> = {
+	[K in keyof T]: T[K] extends DependencyLayer<AnyTag, infer P> ? P : never;
+}[number];
+
+export const Layer = {
+	empty(): DependencyLayer {
+		return layer((container) => container);
+	},
+
+	// merge<
+	// 	TRequires1 extends AnyTag,
+	// 	TProvides1 extends AnyTag,
+	// 	TRequires2 extends AnyTag,
+	// 	TProvides2 extends AnyTag,
+	// >(
+	// 	layer1: DependencyLayer<TRequires1, TProvides1>,
+	// 	layer2: DependencyLayer<TRequires2, TProvides2>
+	// ): DependencyLayer<TRequires1 | TRequires2, TProvides1 | TProvides2> {
+	// 	return createMergedLayer(layer1, layer2);
+	// },
+
+	/**
+	 * Merge multiple layers at once in a type-safe way
+	 */
+	merge<
+		T extends readonly [
+			DependencyLayer<AnyTag, AnyTag>,
+			DependencyLayer<AnyTag, AnyTag>,
+			...DependencyLayer<AnyTag, AnyTag>[],
+		],
+	>(...layers: T): DependencyLayer<UnionOfRequires<T>, UnionOfProvides<T>> {
+		return layers.reduce((acc, layer) => acc.and(layer)) as DependencyLayer<
+			UnionOfRequires<T>,
+			UnionOfProvides<T>
+		>;
+	},
+};
