@@ -55,7 +55,7 @@ export const handler = lambda<
 	.use(apiErrorMapper())
 	.use(
 		dependencyContainer((_env, secrets) =>
-			authLayer(secrets.encryptionKey.value())
+			authLayer({ encryptionKey: secrets.encryptionKey.value() })
 		)
 	)
 	.use(apiKeyAuth())

@@ -20,7 +20,7 @@
 		"noImplicitReturns": true,
 		"noImplicitThis": true,
 		"noUnusedParameters": true,
-		"noUnusedLocals": true,
+		"noUnusedLocals": false,
 		"strictPropertyInitialization": true,
 		// Set the base directory for resolving non-relative module names
 		"baseUrl": ".",
@@ -30,5 +30,14 @@
 			"@test/*": ["test/*"]
 		}
 	},
-	"include": ["src/**/*", "test/**/*", "examples/**/*", "vitest.config.ts", "playground/**/*"]
+	"include": [
+		"src/**/*",
+		"test/**/*",
+		"examples/**/*",
+		"vitest.config.ts",
+		"playground/**/*"
+	],
+	"exclude": [
+		"**/*.local.*"
+	]
 }

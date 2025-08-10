@@ -1,6 +1,4 @@
-import { ClassConstructor } from './types.js';
-
-export const TagId: unique symbol = Symbol('tag');
+export const TagId = '__tag_id__' as const;
 
 export type ValueTag<T, Id extends string | symbol> = Readonly<{
 	readonly [TagId]: Id;
@@ -8,16 +6,19 @@ export type ValueTag<T, Id extends string | symbol> = Readonly<{
 	readonly __type: T;
 }>;
 
-export type ClassTag<Id extends string | symbol> = {
+// Helper type for classes created by Tag.Class()
+export type TaggedClass<T, Id extends string | symbol> = {
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	new (...args: any[]): T & { readonly [TagId]: Id };
 	readonly [TagId]: Id;
-	readonly __type: unknown;
 };
 
-export type Tag<T, Id extends string | symbol> =
-	| ClassConstructor<T>
-	| ValueTag<T, Id>;
-
-export type AnyTag = Tag<unknown, string | symbol>;
+// A tag can be either a value tag or a tagged class
+export type AnyTag =
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	| ValueTag<any, string | symbol>
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	| TaggedClass<any, string | symbol>;
 
 export const Tag = {
 	of: <Id extends string>(id: Id) => {
@@ -34,27 +35,32 @@ export const Tag = {
 		};
 	},
 
-	Class: <Id extends string | symbol>(
-		id: Id
-	): ClassConstructor<ClassTag<Id>> & { [TagId]: Id } => {
-		const TaggedClass = class Tagged {
+	Class: <Id extends string | symbol>(id: Id) => {
+		class Tagged {
+			static readonly [TagId]: Id = id;
 			readonly [TagId]: Id = id;
 			readonly __type: unknown;
-		};
-		// Store the tag ID on the constructor itself
-		(TaggedClass as any)[TagId] = id;
-		return TaggedClass as ClassConstructor<ClassTag<Id>> & { [TagId]: Id };
+		}
+		return Tagged as TaggedClass<Tagged, Id>;
 	},
 
 	id: (tag: AnyTag): string => {
-		const id = tag[TagId as keyof AnyTag];
+		// For class constructors (TaggedClass), get the TagId from the static property
+		if (typeof tag === 'function') {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+			const id = (tag as any)[TagId];
+			return typeof id === 'symbol' ? id.toString() : String(id);
+		}
+
+		// For value tags, get the TagId directly
+		const id = tag[TagId];
 		return typeof id === 'symbol' ? id.toString() : String(id);
 	},
 };
 
 export type ServiceOf<T> =
-	T extends ClassConstructor<infer S>
+	T extends ValueTag<infer S, string | symbol>
 		? S
-		: T extends ValueTag<infer S, any>
+		: T extends TaggedClass<infer S, string | symbol>
 			? S
 			: never;
