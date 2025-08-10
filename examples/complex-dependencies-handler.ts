@@ -1,5 +1,5 @@
 import { lambda } from '@/builder.js';
-import { layer } from '@/layer.js';
+import { layer } from '@/di/layer.js';
 import {
 	APIGatewayProxyEventV2,
 	APIGatewayProxyStructuredResultV2,
@@ -30,10 +30,10 @@ const ResponseSchema = z.object({
 	message: z.string(),
 });
 
-const authLayer = (encryptionKey: string) =>
-	layer<never, typeof AuthService>((container) =>
+const authLayer = layer<never, typeof AuthService, { encryptionKey: string }>(
+	(container, { encryptionKey }) =>
 		container.register(AuthService, () => new AuthService(encryptionKey))
-	);
+);
 
 export const handler = lambda<
 	APIGatewayProxyEventV2,

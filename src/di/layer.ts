@@ -1,5 +1,5 @@
-import { DependencyContainer } from './di/container.js';
-import { AnyTag } from './di/tag.js';
+import { DependencyContainer } from './container.js';
+import { AnyTag } from './tag.js';
 
 export interface DependencyLayer<
 	TRequires extends AnyTag = never,

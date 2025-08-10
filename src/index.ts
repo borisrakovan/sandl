@@ -5,8 +5,8 @@ export type { LambdaHandler } from './handler.js';
 // Dependency container and layer exports
 export { DependencyContainer } from './di/container.js';
 
-export { layer } from './layer.js';
-export type { DependencyLayer } from './layer.js';
+export { layer } from './di/layer.js';
+export type { DependencyLayer } from './di/layer.js';
 
 // Middleware exports
 export { middleware } from './middleware.js';

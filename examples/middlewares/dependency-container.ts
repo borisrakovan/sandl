@@ -1,6 +1,6 @@
 import { DependencyContainer } from '@/di/container.js';
 import { AnyTag } from '@/di/tag.js';
-import { DependencyLayer } from '@/layer.js';
+import { DependencyLayer } from '@/di/layer.js';
 import { resource, ResourceMiddleware } from '@/resource.js';
 import { State } from '@/types.js';
 
