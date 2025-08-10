@@ -437,7 +437,7 @@ describe('DependencyContainer', () => {
 			expect(finalizer).not.toHaveBeenCalled();
 		});
 
-		it('should call finalizers in reverse registration order', async () => {
+		it('should call finalizers concurrently', async () => {
 			class ServiceA extends Tag.Class('ServiceA') {}
 			class ServiceB extends Tag.Class('ServiceB') {}
 			class ServiceC extends Tag.Class('ServiceC') {}
@@ -474,7 +474,11 @@ describe('DependencyContainer', () => {
 
 			await c.destroy();
 
-			expect(finalizationOrder).toEqual(['C', 'B', 'A']);
+			// Finalizers run concurrently, so we just verify all were called
+			expect(finalizationOrder).toHaveLength(3);
+			expect(finalizationOrder).toContain('A');
+			expect(finalizationOrder).toContain('B');
+			expect(finalizationOrder).toContain('C');
 		});
 
 		it('should handle async finalizers', async () => {

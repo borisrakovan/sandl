@@ -7,7 +7,7 @@ describe('DependencyContainer Type Safety', () => {
 		it('should start with never type for empty container', () => {
 			const c = container();
 
-			expectTypeOf(c).toEqualTypeOf<DependencyContainer>();
+			expectTypeOf(c).toEqualTypeOf<DependencyContainer<never>>();
 		});
 
 		it('should add tag to union type when registering', () => {
