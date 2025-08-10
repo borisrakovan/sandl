@@ -34,21 +34,30 @@ export interface DependencyLayer<
 export function layer<
 	TRequires extends AnyTag = never,
 	TProvides extends AnyTag = never,
+	TParams = undefined,
 >(
 	register: (
-		container: DependencyContainer<TRequires>
+		container: DependencyContainer<TRequires>,
+		params: TParams
 	) => DependencyContainer<TRequires | TProvides>
-): DependencyLayer<TRequires, TProvides> {
-	const layerImpl: DependencyLayer<TRequires, TProvides> = {
-		register,
-		to(target) {
-			return createComposedLayer(layerImpl, target);
-		},
-		and(other) {
-			return createMergedLayer(layerImpl, other);
-		},
+): TParams extends undefined
+	? () => DependencyLayer<TRequires, TProvides>
+	: (params: TParams) => DependencyLayer<TRequires, TProvides> {
+	const factory = (params?: TParams) => {
+		const layerImpl: DependencyLayer<TRequires, TProvides> = {
+			register: (container) => register(container, params as TParams),
+			to(target) {
+				return createComposedLayer(layerImpl, target);
+			},
+			and(other) {
+				return createMergedLayer(layerImpl, other);
+			},
+		};
+		return layerImpl;
 	};
-	return layerImpl;
+	return factory as TParams extends undefined
+		? () => DependencyLayer<TRequires, TProvides>
+		: (params: TParams) => DependencyLayer<TRequires, TProvides>;
 }
 
 function createComposedLayer<
@@ -68,7 +77,7 @@ function createComposedLayer<
 		return target.register(
 			containerWithSource as DependencyContainer<TRequires2>
 		);
-	}) as DependencyLayer<
+	})() as DependencyLayer<
 		TRequires1 | Exclude<TRequires2, TProvides1>,
 		TProvides1 | TProvides2
 	>;
@@ -86,7 +95,7 @@ function createMergedLayer<
 	return layer((container) => {
 		const container1 = layer1.register(container);
 		return layer2.register(container1 as DependencyContainer<TRequires2>);
-	}) as DependencyLayer<TRequires1 | TRequires2, TProvides1 | TProvides2>;
+	})() as DependencyLayer<TRequires1 | TRequires2, TProvides1 | TProvides2>;
 }
 
 // Helper types for mergeAll
@@ -100,7 +109,7 @@ type UnionOfProvides<T extends readonly DependencyLayer<AnyTag, AnyTag>[]> = {
 
 export const Layer = {
 	empty(): DependencyLayer {
-		return layer((container) => container);
+		return layer((container) => container)();
 	},
 
 	// merge<

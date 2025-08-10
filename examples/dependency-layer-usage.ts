@@ -136,23 +136,26 @@ export class AppService extends Tag.Class('AppService') {
 // Layer definitions
 
 // Infrastructure layers (no dependencies)
-const databaseLayer = (connectionString: string) =>
-	layer<never, typeof DatabaseConnection>((container) =>
-		container.register(
-			DatabaseConnection,
-			() => new DatabaseConnection(connectionString)
-		)
-	);
+const databaseLayer = layer<
+	never,
+	typeof DatabaseConnection,
+	{ connectionString: string }
+>((container, { connectionString }) =>
+	container.register(
+		DatabaseConnection,
+		() => new DatabaseConnection(connectionString)
+	)
+);
 
-const cacheLayer = (redisUrl: string) =>
-	layer<never, typeof CacheService>((container) =>
+const cacheLayer = layer<never, typeof CacheService, { redisUrl: string }>(
+	(container, { redisUrl }) =>
 		container.register(CacheService, () => new CacheService(redisUrl))
-	);
+);
 
-const emailLayer = (apiKey: string) =>
-	layer<never, typeof EmailService>((container) =>
+const emailLayer = layer<never, typeof EmailService, { apiKey: string }>(
+	(container, { apiKey }) =>
 		container.register(EmailService, () => new EmailService(apiKey))
-	);
+);
 
 // Repository layer (requires database)
 const userRepositoryLayer = layer<
@@ -209,45 +212,45 @@ const appServiceLayer = layer<
 
 // 1. Build infrastructure layers - now using merge!
 const infrastructure = Layer.merge(
-	databaseLayer('postgresql://localhost:5432/myapp'),
-	cacheLayer('redis://localhost:6379'),
-	emailLayer('email-api-key-123')
+	databaseLayer({ connectionString: 'postgresql://localhost:5432/myapp' }),
+	cacheLayer({ redisUrl: 'redis://localhost:6379' }),
+	emailLayer({ apiKey: 'email-api-key-123' })
 );
 
 // 2. Add repository layer that depends on database
-const withRepositories = infrastructure.to(userRepositoryLayer);
+const withRepositories = infrastructure.to(userRepositoryLayer());
 
 // 3. Add service layers that depend on repositories and infrastructure
 const businessServices = Layer.merge(
-	userServiceLayer,
-	notificationServiceLayer
+	userServiceLayer(),
+	notificationServiceLayer()
 );
 
 const withServices = withRepositories.to(businessServices);
 
 // 4. Finally add application layer
-const completeApplication = withServices.to(appServiceLayer);
+const completeApplication = withServices.to(appServiceLayer());
 
 // Alternative: Build the entire application in one go using merge
 const completeApplicationOneGo = Layer.merge(
-	databaseLayer('postgresql://localhost:5432/myapp'),
-	cacheLayer('redis://localhost:6379'),
-	emailLayer('email-api-key-123')
+	databaseLayer({ connectionString: 'postgresql://localhost:5432/myapp' }),
+	cacheLayer({ redisUrl: 'redis://localhost:6379' }),
+	emailLayer({ apiKey: 'email-api-key-123' })
 )
-	.to(userRepositoryLayer)
-	.to(Layer.merge(userServiceLayer, notificationServiceLayer))
-	.to(appServiceLayer);
+	.to(userRepositoryLayer())
+	.to(Layer.merge(userServiceLayer(), notificationServiceLayer()))
+	.to(appServiceLayer());
 
 // Working example - providing everything needed step by step
 export const workingExampleApp = Layer.merge(
-	databaseLayer('postgresql://localhost:5432/myapp'),
-	cacheLayer('redis://localhost:6379'),
-	emailLayer('email-api-key-123')
+	databaseLayer({ connectionString: 'postgresql://localhost:5432/myapp' }),
+	cacheLayer({ redisUrl: 'redis://localhost:6379' }),
+	emailLayer({ apiKey: 'email-api-key-123' })
 )
-	.to(userRepositoryLayer) // Database -> UserRepository ✓
-	.to(userServiceLayer) // UserRepository + Cache -> UserService ✓
-	.to(notificationServiceLayer) // Email -> NotificationService ✓
-	.to(appServiceLayer); // UserService + NotificationService -> AppService ✓
+	.to(userRepositoryLayer()) // Database -> UserRepository ✓
+	.to(userServiceLayer()) // UserRepository + Cache -> UserService ✓
+	.to(notificationServiceLayer()) // Email -> NotificationService ✓
+	.to(appServiceLayer()); // UserService + NotificationService -> AppService ✓
 
 // Usage example with step-by-step composition
 export async function demonstrateLayerUsage() {
@@ -297,35 +300,41 @@ export async function demonstrateOneGoLayerUsage() {
 
 // Example with many infrastructure layers
 export const bigInfrastructureLayer = Layer.merge(
-	databaseLayer('postgresql://localhost:5432/myapp'),
-	cacheLayer('redis://localhost:6379'),
-	emailLayer('email-api-key-123'),
+	databaseLayer({ connectionString: 'postgresql://localhost:5432/myapp' }),
+	cacheLayer({ redisUrl: 'redis://localhost:6379' }),
+	emailLayer({ apiKey: 'email-api-key-123' }),
 	// Could add more...
-	layer<never, typeof DatabaseConnection>((container) =>
-		container.register(
-			DatabaseConnection,
-			() => new DatabaseConnection('backup-db')
-		)
-	),
-	layer<never, typeof CacheService>((container) =>
-		container.register(CacheService, () => new CacheService('backup-cache'))
-	)
+	layer<never, typeof DatabaseConnection, { connectionString: string }>(
+		(container, { connectionString }) =>
+			container.register(
+				DatabaseConnection,
+				() => new DatabaseConnection(connectionString)
+			)
+	)({ connectionString: 'backup-db' }),
+	layer<never, typeof CacheService, { redisUrl: string }>(
+		(container, { redisUrl }) =>
+			container.register(CacheService, () => new CacheService(redisUrl))
+	)({ redisUrl: 'backup-cache' })
 );
 
 // Complete app using merge for business services too
 export const completeAppWithmerge = Layer.merge(
-	databaseLayer('postgresql://localhost:5432/myapp'),
-	cacheLayer('redis://localhost:6379'),
-	emailLayer('email-api-key-123')
+	databaseLayer({ connectionString: 'postgresql://localhost:5432/myapp' }),
+	cacheLayer({ redisUrl: 'redis://localhost:6379' }),
+	emailLayer({ apiKey: 'email-api-key-123' })
 )
-	.to(userRepositoryLayer)
-	.to(Layer.merge(userServiceLayer, notificationServiceLayer))
-	.to(appServiceLayer);
+	.to(userRepositoryLayer())
+	.to(Layer.merge(userServiceLayer(), notificationServiceLayer()))
+	.to(appServiceLayer());
 
 // Partial applications for specific use cases
-export const n = infrastructure.to(userRepositoryLayer).to(userServiceLayer);
+export const n = infrastructure
+	.to(userRepositoryLayer())
+	.to(userServiceLayer());
 
-export const notificationsOnly = emailLayer('prod-email-key').to(notificationServiceLayer);
+export const notificationsOnly = emailLayer({ apiKey: 'prod-email-key' }).to(
+	notificationServiceLayer()
+);
 
 // Type test - the complete application should require nothing external (never)
 // and provide all the services we defined
