@@ -60,6 +60,18 @@ export type TaggedClass<T, Id extends string | symbol> = {
 };
 
 /**
+ * Type representing a class-based dependency tag.
+ *
+ * This type is a shortcut for TaggedClass<T, string | symbol>.
+ *
+ * @template T - The type of instances created by this tagged class
+ * @returns A tagged class with a string or symbol identifier
+ *
+ * @internal - Users should use Tag.Class() instead of working with this type directly
+ */
+export type ClassTag<T> = TaggedClass<T, string | symbol>;
+
+/**
  * Union type representing any valid dependency tag in the system.
  *
  * A tag can be either a value tag (for non-class dependencies) or a tagged class
@@ -336,6 +348,6 @@ export const Tag = {
 export type ServiceOf<T> =
 	T extends ValueTag<infer S, string | symbol>
 		? S
-		: T extends TaggedClass<infer S, string | symbol>
+		: T extends ClassTag<infer S>
 			? S
 			: never;
