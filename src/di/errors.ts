@@ -9,6 +9,21 @@ export class UnknownDependencyError extends DependencyContainerError {
 	}
 }
 
+export class CircularDependencyError extends DependencyContainerError {
+	constructor(tag: AnyTag, dependencyChain: AnyTag[]) {
+		const chain = dependencyChain.map((t) => Tag.id(t)).join(' -> ');
+		super(
+			`Circular dependency detected for ${Tag.id(tag)}: ${chain} -> ${Tag.id(tag)}`,
+			{
+				detail: {
+					tag: Tag.id(tag),
+					dependencyChain: dependencyChain.map((t) => Tag.id(t)),
+				},
+			}
+		);
+	}
+}
+
 export class DependencyCreationError extends DependencyContainerError {
 	constructor(tag: AnyTag, error: unknown) {
 		super(`Error creating instance of ${Tag.id(tag)}: ${error}`, {

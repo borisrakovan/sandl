@@ -36,15 +36,19 @@ export const Tag = {
 
 	Class: <Id extends string | symbol>(
 		id: Id
-	): ClassConstructor<ClassTag<Id>> => {
-		return class Tagged {
+	): ClassConstructor<ClassTag<Id>> & { [TagId]: Id } => {
+		const TaggedClass = class Tagged {
 			readonly [TagId]: Id = id;
 			readonly __type: unknown;
 		};
+		// Store the tag ID on the constructor itself
+		(TaggedClass as any)[TagId] = id;
+		return TaggedClass as ClassConstructor<ClassTag<Id>> & { [TagId]: Id };
 	},
 
 	id: (tag: AnyTag): string => {
-		return tag[TagId as keyof AnyTag] as string;
+		const id = tag[TagId as keyof AnyTag];
+		return typeof id === 'symbol' ? id.toString() : String(id);
 	},
 };
 

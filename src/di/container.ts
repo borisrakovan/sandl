@@ -1,11 +1,17 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import {
+	CircularDependencyError,
 	DependencyContainerError,
 	DependencyContainerFinalizationError,
 	DependencyCreationError,
 	UnknownDependencyError,
 } from './errors.js';
 import { AnyTag, ServiceOf, Tag } from './tag.js';
+
 import { Factory, Finalizer } from './types.js';
+
+// AsyncLocalStorage to track dependency resolution chain
+const resolutionChain = new AsyncLocalStorage<AnyTag[]>();
 
 export class DependencyContainer<TReg extends AnyTag = never> {
 	private readonly cache = new Map<AnyTag, Promise<unknown>>();
@@ -54,6 +60,12 @@ export class DependencyContainer<TReg extends AnyTag = never> {
 			return cached;
 		}
 
+		// Check for circular dependency using AsyncLocalStorage
+		const currentChain = resolutionChain.getStore() ?? [];
+		if (currentChain.includes(tag)) {
+			throw new CircularDependencyError(tag, currentChain);
+		}
+
 		// Get factory
 		const factory = this.factories.get(tag) as
 			| Factory<ServiceOf<T>, TReg>
@@ -63,34 +75,24 @@ export class DependencyContainer<TReg extends AnyTag = never> {
 			throw new UnknownDependencyError(tag);
 		}
 
-		// Create new instance and cache the promise
-		const instancePromise: Promise<ServiceOf<T>> = Promise.resolve()
-			.then(() => {
+		// Create and cache the promise
+		const instancePromise: Promise<ServiceOf<T>> = resolutionChain
+			.run([...currentChain, tag], async () => {
 				try {
-					return factory(this);
+					const instance = await factory(this);
+					return instance;
 				} catch (error) {
+					// Don't wrap CircularDependencyError, rethrow as-is
+					if (error instanceof CircularDependencyError) {
+						throw error;
+					}
 					throw new DependencyCreationError(tag, error);
 				}
 			})
-			.then((instance) => {
-				// On successful creation, ensure the promise is still in cache
-				if (this.cache.get(tag) === instancePromise) {
-					return instance;
-				}
-				// If the promise is no longer in cache, create a new one
-				return this.get(tag);
-			})
 			.catch((error: unknown) => {
-				// On failure, remove the failed promise from cache
-				if (this.cache.get(tag) === instancePromise) {
-					this.cache.delete(tag);
-				}
-				// If it's already a DependencyCreationError, rethrow it
-				if (error instanceof DependencyCreationError) {
-					throw error;
-				}
-				// Otherwise wrap it
-				throw new DependencyCreationError(tag, error);
+				// Remove failed promise from cache on any error
+				this.cache.delete(tag);
+				throw error;
 			});
 
 		this.cache.set(tag, instancePromise);
