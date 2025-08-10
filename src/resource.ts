@@ -11,7 +11,15 @@ export type ResourceScope = 'runtime' | 'request';
 export type ResourceSpec<T, TEvent, TState extends State> = {
 	scope: ResourceScope;
 	init: (request: LambdaRequest<TEvent, TState>) => PromiseOrValue<T>;
-	cleanup?: (val: T) => PromiseOrValue<void>;
+	// TODO: document that cleanup gets a request with certain expected state
+	// but it might have happened that some of the middlewares applied later in
+	// the chain have changed the state. Modifying the existing state passed by
+	// some other middleware is therefore discouraged because it might lead to
+	// unexpected behavior and runtime errors.
+	cleanup?: (
+		val: T,
+		request: LambdaRequest<TEvent, TState>
+	) => PromiseOrValue<void>;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -51,13 +59,13 @@ function runtimeResource<
 ): ResourceMiddleware<TName, TEvent, TState, TRes, TVal> {
 	let cached: TVal | null = null;
 
-	const registerCleanup = (val: TVal) => {
+	const registerCleanup = (val: TVal, req: LambdaRequest<TEvent, TState>) => {
 		if (!spec.cleanup) return;
 
 		process.once('SIGTERM', () => {
 			void (async () => {
 				try {
-					await spec.cleanup!(val);
+					await spec.cleanup!(val, req);
 				} finally {
 					cached = null;
 				}
@@ -71,7 +79,7 @@ function runtimeResource<
 		// Otherwise we would need to cache the promise instead of the value to prevent race conditions.
 		if (cached === null) {
 			cached = await spec.init(req);
-			registerCleanup(cached);
+			registerCleanup(cached, req);
 		}
 
 		return next({
@@ -101,7 +109,7 @@ function requestResource<
 				state: { ...req.state, [name]: resource },
 			});
 		} finally {
-			await spec.cleanup?.(resource);
+			await spec.cleanup?.(resource, req);
 		}
 
 		return result;

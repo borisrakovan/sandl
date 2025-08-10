@@ -2,10 +2,17 @@
 export { LambdaBuilder, lambda } from './builder.js';
 export type { LambdaHandler } from './handler.js';
 
-// Dependency container and layer exports
-export { DependencyContainer } from './di/container.js';
+// Core types
+export type {
+	AwsContext,
+	LambdaRequest,
+	PromiseOrValue,
+	State,
+} from './types.js';
 
-export { layer } from './di/layer.js';
+// Dependency container and layer exports
+export { DependencyContainer, container } from './di/container.js';
+export { Layer, layer } from './di/layer.js';
 export type { DependencyLayer } from './di/layer.js';
 
 // Middleware exports
@@ -26,6 +33,3 @@ export type {
 
 // Test utilities
 export type { LambdaTestBuilder } from './test-builder.js';
-
-// Core types
-export type { AwsContext, LambdaRequest } from './types.js';

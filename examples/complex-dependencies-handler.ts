@@ -10,7 +10,7 @@ import { apiRequestValidator } from 'examples/middlewares/api-request-validator.
 import { apiResponseSerializer } from 'examples/middlewares/api-response-serializer.js';
 import { dependencyContainer } from 'examples/middlewares/dependency-container.js';
 import { envVariableLoader } from 'examples/middlewares/env-variable-loader.js';
-import { logger } from 'examples/middlewares/logger.js';
+import { requestLogger } from 'examples/middlewares/request-logger.js';
 import {
 	secret,
 	secretsFetcher,
@@ -51,7 +51,7 @@ export const handler = lambda<
 			}),
 		})
 	)
-	.use(logger())
+	.use(requestLogger())
 	.use(apiErrorMapper())
 	.use(
 		dependencyContainer((_env, secrets) =>

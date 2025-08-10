@@ -6,9 +6,9 @@ import { ApiError } from '../internal/errors.js';
 import log from '../internal/logger.js';
 
 // Flag to track cold start invocations
-let coldStartInvocation = true;
+let coldStartRequest = true;
 
-export const logger = <TEvent, TState extends State, TRes>(): Middleware<
+export const requestLogger = <TEvent, TState extends State, TRes>(): Middleware<
 	'logger',
 	TEvent,
 	TState,
@@ -20,11 +20,11 @@ export const logger = <TEvent, TState extends State, TRes>(): Middleware<
 		// Log the start of processing
 		log.info(
 			{
-				coldStart: coldStartInvocation,
+				coldStart: coldStartRequest,
 			},
 			'Starting lambda execution'
 		);
-		coldStartInvocation = false;
+		coldStartRequest = false;
 		const startTime = Date.now();
 
 		let response;

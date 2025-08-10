@@ -2,6 +2,10 @@ import { LambdaRequest, Prettify, PromiseOrValue, State } from './types.js';
 
 export type MiddlewareName = string;
 
+export type MiddlewareOptions<TState extends State, TOpts> =
+	| ((state: TState) => TOpts)
+	| TOpts;
+
 export interface Middleware<
 	TName extends MiddlewareName,
 	TEvent,
