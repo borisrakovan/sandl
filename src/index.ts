@@ -10,11 +10,6 @@ export type {
 	State,
 } from './types.js';
 
-// Dependency container and layer exports
-export { DependencyContainer, container } from './di/container.js';
-export { Layer, layer } from './di/layer.js';
-export type { DependencyLayer } from './di/layer.js';
-
 // Middleware exports
 export { middleware } from './middleware.js';
 export type {
@@ -31,5 +26,18 @@ export type {
 	ResourceSpec,
 } from './resource.js';
 
-// Test utilities
+// Middleware test utilities
 export type { LambdaTestBuilder } from './test-builder.js';
+
+// Dependency container and layer exports
+export { DependencyContainer, container } from './di/container.js';
+export { Layer, layer } from './di/layer.js';
+export type { DependencyLayer } from './di/layer.js';
+export { service } from './di/service.js';
+export type { Service } from './di/service.js';
+export {
+	Tag,
+	type ServiceOf,
+	type TaggedClass,
+	type ValueTag,
+} from './di/tag.js';
