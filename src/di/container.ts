@@ -15,10 +15,7 @@ const resolutionChain = new AsyncLocalStorage<AnyTag[]>();
 
 export class DependencyContainer<TReg extends AnyTag = never> {
 	private readonly cache = new Map<AnyTag, Promise<unknown>>();
-	private readonly factories = new Map<
-		AnyTag,
-		Factory<ServiceOf<AnyTag>, TReg>
-	>();
+	private readonly factories = new Map<AnyTag, Factory<unknown, TReg>>();
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	private readonly finalizers = new Map<AnyTag, Finalizer<any>>();
 
@@ -80,7 +77,8 @@ export class DependencyContainer<TReg extends AnyTag = never> {
 			.run([...currentChain, tag], async () => {
 				try {
 					const instance = await factory(this);
-					return instance;
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+					return instance as ServiceOf<T>;
 				} catch (error) {
 					// Don't wrap CircularDependencyError, rethrow as-is
 					if (error instanceof CircularDependencyError) {
