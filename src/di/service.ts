@@ -1,6 +1,8 @@
+import { PromiseOrValue } from '@/types.js';
 import { DependencyContainer } from './container.js';
 import { DependencyLayer, layer } from './layer.js';
-import { ClassTag, ServiceOf, TaggedClass } from './tag.js';
+import { AnyTag, ClassTag, ServiceOf, TaggedClass, TagId } from './tag.js';
+import { ExtractInjectTag } from './types.js';
 
 /**
  * Extracts constructor parameter types from a TaggedClass.
@@ -14,9 +16,11 @@ export type ConstructorParams<T extends ClassTag<unknown>> = T extends new (
 
 /**
  * Helper to convert a tagged instance type back to its constructor type.
- * This uses the fact that tagged classes have a specific structure with __tag_id__.
+ * This uses the fact that tagged classes have a specific structure with TagId property.
  */
-type InstanceToConstructorType<T> = T extends { readonly __tag_id__: infer Id }
+export type InstanceToConstructorType<T> = T extends {
+	readonly [TagId]: infer Id;
+}
 	? Id extends string | symbol
 		? TaggedClass<T, Id>
 		: never
@@ -25,15 +29,18 @@ type InstanceToConstructorType<T> = T extends { readonly __tag_id__: infer Id }
 /**
  * Extracts constructor-typed dependencies from constructor parameters.
  * Converts instance types to their corresponding constructor types.
+ * Handles both ClassTag dependencies (automatic) and ValueTag dependencies (via Inject helper).
  */
 export type FilterTags<T extends readonly unknown[]> = T extends readonly []
 	? never
 	: {
 			[K in keyof T]: T[K] extends {
-				readonly __tag_id__: string | symbol;
+				readonly [TagId]: string | symbol;
 			}
 				? InstanceToConstructorType<T[K]>
-				: never;
+				: ExtractInjectTag<T[K]> extends never
+					? never
+					: ExtractInjectTag<T[K]>;
 		}[number];
 
 /**
@@ -46,22 +53,26 @@ export type ConstructorResult<T extends ClassTag<unknown>> = T extends new (
 	: never;
 
 /**
- * Extracts only the dependency tags from a constructor's parameters.
+ * Extracts only the dependency tags from a constructor's parameters for ClassTag services,
+ * or returns never for ValueTag services (which have no constructor dependencies).
  * This is used to determine what dependencies a service requires.
  */
-export type ServiceDependencies<T extends ClassTag<unknown>> = FilterTags<
-	ConstructorParams<T>
->;
+export type ServiceDependencies<T extends AnyTag> =
+	T extends ClassTag<unknown>
+		? FilterTags<ConstructorParams<T>> extends AnyTag
+			? FilterTags<ConstructorParams<T>>
+			: never
+		: never;
 
 /**
- * Represents a service layer that derives its dependencies from a TaggedClass constructor.
- * This allows creating a layer from a single service class where dependencies are
- * automatically inferred from the constructor parameters.
+ * Represents a service layer that can be created from any tag type.
+ * For ClassTag services, dependencies are automatically inferred from constructor parameters.
+ * For ValueTag services, there are no dependencies since they don't have constructors.
  */
-export interface Service<T extends ClassTag<unknown>>
+export interface Service<T extends AnyTag>
 	extends DependencyLayer<ServiceDependencies<T>, T> {
 	/**
-	 * The TaggedClass that this service represents
+	 * The tag that this service represents (ClassTag or ValueTag)
 	 */
 	readonly serviceClass: T;
 }
@@ -106,23 +117,51 @@ export interface Service<T extends ClassTag<unknown>>
  * );
  * ```
  */
-export function service<T extends ClassTag<unknown>>(
+/**
+ * Creates a service layer from any tag type with optional parameters.
+ *
+ * This function follows the same pattern as layer() - always returning a factory function
+ * for API consistency, supporting both automatic dependency inference and optional parameters.
+ *
+ * For ClassTag services, dependencies are automatically inferred from constructor parameters.
+ * For ValueTag services, there are no dependencies since they don't have constructors.
+ *
+ * @template T - The tag representing the service (ClassTag or ValueTag)
+ * @template TParams - Optional parameters for service configuration
+ * @param serviceClass - The tag (ClassTag or ValueTag)
+ * @param factory - Factory function for service instantiation
+ * @returns Service factory function
+ */
+export function service<T extends AnyTag, TParams = undefined>(
 	serviceClass: T,
 	factory: (
-		container: DependencyContainer<ServiceDependencies<T>>
-	) => Promise<ServiceOf<T>> | ServiceOf<T>
-): Service<T> {
-	const serviceLayer = layer<ServiceDependencies<T>, T>((container) => {
-		return container.register(serviceClass, factory);
-	})();
+		container: DependencyContainer<ServiceDependencies<T>>,
+		params: TParams
+	) => PromiseOrValue<ServiceOf<T>>
+): TParams extends undefined
+	? () => Service<T>
+	: (params: TParams) => Service<T> {
+	const serviceFactory = (params?: TParams) => {
+		const serviceLayer = layer<ServiceDependencies<T>, T>((container) => {
+			return container.register(serviceClass, (c) =>
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+				factory(c, params as TParams)
+			);
+		})();
 
-	// Create the service object that implements the Service interface
-	const serviceImpl: Service<T> = {
-		serviceClass,
-		register: serviceLayer.register,
-		to: serviceLayer.to,
-		and: serviceLayer.and,
+		// Create the service object that implements the Service interface
+		const serviceImpl: Service<T> = {
+			serviceClass,
+			register: serviceLayer.register,
+			to: serviceLayer.to,
+			and: serviceLayer.and,
+		};
+
+		return serviceImpl;
 	};
 
-	return serviceImpl;
+	return serviceFactory as TParams extends undefined
+		? () => Service<T>
+		: (params: TParams) => Service<T>;
 }
+/*  */
