@@ -94,7 +94,7 @@ describe('Service', () => {
 				ConfigService,
 				() => new ConfigService()
 			)();
-			const dbService = service<typeof DatabaseService>(
+			const dbService = service(
 				DatabaseService,
 				async (container) => {
 					return new DatabaseService(

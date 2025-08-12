@@ -3,7 +3,7 @@ import { layer, Layer } from '@/di/layer.js';
 import { Tag } from '@/di/tag.js';
 import { describe, expect, it, vi } from 'vitest';
 
-describe('DependencyLayer', () => {
+describe('Layer', () => {
 	describe('layer factory', () => {
 		it('should create a simple layer without parameters', () => {
 			class TestService extends Tag.Class('TestService') {

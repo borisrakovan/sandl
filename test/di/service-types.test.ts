@@ -1,5 +1,5 @@
 import { container, DependencyContainer } from '@/di/container.js';
-import { DependencyLayer } from '@/di/layer.js';
+import { Layer } from '@/di/layer.js';
 import { service, Service } from '@/di/service.js';
 import { Tag } from '@/di/tag.js';
 import { Inject } from '@/di/types.js';
@@ -23,9 +23,9 @@ describe('Service Type Safety', () => {
 				Service<typeof LoggerService>
 			>();
 
-			// Service should extend DependencyLayer with correct types
+			// Service should extend Layer with correct types
 			expectTypeOf(loggerService).toExtend<
-				DependencyLayer<never, typeof LoggerService>
+				Layer<never, typeof LoggerService>
 			>();
 
 			// Service should have serviceClass property
@@ -64,7 +64,7 @@ describe('Service Type Safety', () => {
 				Service<typeof UserService>
 			>();
 			expectTypeOf(userService).toExtend<
-				DependencyLayer<typeof DatabaseService, typeof UserService>
+				Layer<typeof DatabaseService, typeof UserService>
 			>();
 		});
 
@@ -107,7 +107,7 @@ describe('Service Type Safety', () => {
 			})();
 
 			expectTypeOf(userService).toExtend<
-				DependencyLayer<
+				Layer<
 					| typeof DatabaseService
 					| typeof CacheService
 					| typeof LoggerService,
@@ -140,10 +140,7 @@ describe('Service Type Safety', () => {
 
 			// DatabaseService requirement should be satisfied by dbService
 			expectTypeOf(composedService).toEqualTypeOf<
-				DependencyLayer<
-					never,
-					typeof DatabaseService | typeof UserService
-				>
+				Layer<never, typeof DatabaseService | typeof UserService>
 			>();
 		});
 
@@ -163,10 +160,7 @@ describe('Service Type Safety', () => {
 			const mergedService = loggerService.and(cacheService);
 
 			expectTypeOf(mergedService).toEqualTypeOf<
-				DependencyLayer<
-					never,
-					typeof LoggerService | typeof CacheService
-				>
+				Layer<never, typeof LoggerService | typeof CacheService>
 			>();
 		});
 
@@ -204,7 +198,7 @@ describe('Service Type Safety', () => {
 			// ExternalService is still required (needed by both services)
 			// DatabaseService requirement is satisfied by dbService
 			expectTypeOf(composedService).toEqualTypeOf<
-				DependencyLayer<
+				Layer<
 					typeof ExternalService,
 					typeof DatabaseService | typeof UserService
 				>
@@ -261,7 +255,7 @@ describe('Service Type Safety', () => {
 
 			// All dependencies should be satisfied, all services provided
 			expectTypeOf(fullService).toEqualTypeOf<
-				DependencyLayer<
+				Layer<
 					never,
 					| typeof ConfigService
 					| typeof DatabaseService
@@ -323,7 +317,7 @@ describe('Service Type Safety', () => {
 			const appLayer = infraLayer.to(userService);
 
 			expectTypeOf(appLayer).toEqualTypeOf<
-				DependencyLayer<
+				Layer<
 					never,
 					| typeof ConfigService
 					| typeof DatabaseService
@@ -362,22 +356,22 @@ describe('Service Type Safety', () => {
 	});
 
 	describe('service interface completeness', () => {
-		it('should maintain all DependencyLayer methods', () => {
+		it('should maintain all Layer methods', () => {
 			class TestService extends Tag.Class('TestService') {}
 
 			const testService = service(TestService, () => new TestService())();
 
-			// Should have all DependencyLayer methods
+			// Should have all Layer methods
 			expectTypeOf(testService.register).toEqualTypeOf<
-				DependencyLayer<never, typeof TestService>['register']
+				Layer<never, typeof TestService>['register']
 			>();
 
 			expectTypeOf(testService.to).toEqualTypeOf<
-				DependencyLayer<never, typeof TestService>['to']
+				Layer<never, typeof TestService>['to']
 			>();
 
 			expectTypeOf(testService.and).toEqualTypeOf<
-				DependencyLayer<never, typeof TestService>['and']
+				Layer<never, typeof TestService>['and']
 			>();
 
 			// Plus the additional serviceClass property
@@ -447,10 +441,7 @@ describe('Service Type Safety', () => {
 
 			// ServiceB should still be required
 			expectTypeOf(composed).toEqualTypeOf<
-				DependencyLayer<
-					typeof ServiceB,
-					typeof ServiceA | typeof ServiceC
-				>
+				Layer<typeof ServiceB, typeof ServiceA | typeof ServiceC>
 			>();
 		});
 	});
@@ -465,9 +456,9 @@ describe('Service Type Safety', () => {
 				Service<typeof ApiKeyTag>
 			>();
 
-			// ValueTag service should extend DependencyLayer with no requirements (never)
+			// ValueTag service should extend Layer with no requirements (never)
 			expectTypeOf(apiKeyService).toExtend<
-				DependencyLayer<never, typeof ApiKeyTag>
+				Layer<never, typeof ApiKeyTag>
 			>();
 
 			// Service should have serviceClass property
@@ -533,10 +524,7 @@ describe('Service Type Safety', () => {
 
 			// No external dependencies required since dbUrlService provides what dbService needs
 			expectTypeOf(composedService).toEqualTypeOf<
-				DependencyLayer<
-					never,
-					typeof DatabaseUrlTag | typeof DatabaseService
-				>
+				Layer<never, typeof DatabaseUrlTag | typeof DatabaseService>
 			>();
 		});
 
@@ -579,7 +567,7 @@ describe('Service Type Safety', () => {
 			const appLayer = configService.and(loggerService).to(dbService);
 
 			expectTypeOf(appLayer).toEqualTypeOf<
-				DependencyLayer<
+				Layer<
 					never,
 					typeof ConfigTag | typeof LoggerTag | typeof DatabaseService
 				>

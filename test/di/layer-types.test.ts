@@ -1,9 +1,9 @@
 import { container } from '@/di/container.js';
-import { DependencyLayer, layer, Layer } from '@/di/layer.js';
+import { Layer, layer } from '@/di/layer.js';
 import { Tag } from '@/di/tag.js';
 import { describe, expectTypeOf, it } from 'vitest';
 
-describe('DependencyLayer Type Safety', () => {
+describe('Layer Type Safety', () => {
 	describe('basic layer types', () => {
 		it('should create layer with correct requirement and provision types', () => {
 			class ServiceA extends Tag.Class('ServiceA') {}
@@ -20,7 +20,7 @@ describe('DependencyLayer Type Safety', () => {
 			const layerInstance = testLayer();
 
 			expectTypeOf(layerInstance).toEqualTypeOf<
-				DependencyLayer<typeof ServiceA, typeof ServiceB>
+				Layer<typeof ServiceA, typeof ServiceB>
 			>();
 		});
 
@@ -34,7 +34,7 @@ describe('DependencyLayer Type Safety', () => {
 			const layerInstance = testLayer();
 
 			expectTypeOf(layerInstance).toEqualTypeOf<
-				DependencyLayer<never, typeof ServiceA>
+				Layer<never, typeof ServiceA>
 			>();
 		});
 
@@ -52,7 +52,7 @@ describe('DependencyLayer Type Safety', () => {
 			const layerInstance = testLayer();
 
 			expectTypeOf(layerInstance).toEqualTypeOf<
-				DependencyLayer<never, typeof ServiceA | typeof ServiceB>
+				Layer<never, typeof ServiceA | typeof ServiceB>
 			>();
 		});
 
@@ -80,7 +80,7 @@ describe('DependencyLayer Type Safety', () => {
 			const layerInstance = testLayer();
 
 			expectTypeOf(layerInstance).toEqualTypeOf<
-				DependencyLayer<
+				Layer<
 					typeof ServiceA | typeof ServiceB,
 					typeof ServiceC | typeof ServiceD
 				>
@@ -110,7 +110,7 @@ describe('DependencyLayer Type Safety', () => {
 			// ServiceA requirement is satisfied by layerA's provision
 			// Result should require nothing and provide both ServiceA and ServiceB
 			expectTypeOf(composedLayer).toEqualTypeOf<
-				DependencyLayer<never, typeof ServiceA | typeof ServiceB>
+				Layer<never, typeof ServiceA | typeof ServiceB>
 			>();
 		});
 
@@ -140,10 +140,7 @@ describe('DependencyLayer Type Safety', () => {
 			// ExternalService is still required (not satisfied by layerA)
 			// Both ServiceA and ServiceB are provided
 			expectTypeOf(composedLayer).toEqualTypeOf<
-				DependencyLayer<
-					typeof ExternalService,
-					typeof ServiceA | typeof ServiceB
-				>
+				Layer<typeof ExternalService, typeof ServiceA | typeof ServiceB>
 			>();
 		});
 
@@ -183,7 +180,7 @@ describe('DependencyLayer Type Safety', () => {
 
 			// ServiceA and ServiceB satisfied, ServiceC still required
 			expectTypeOf(composedLayer).toEqualTypeOf<
-				DependencyLayer<
+				Layer<
 					typeof ServiceC,
 					typeof ServiceA | typeof ServiceB | typeof ServiceD
 				>
@@ -207,7 +204,7 @@ describe('DependencyLayer Type Safety', () => {
 			const mergedLayer = layerA().and(layerB());
 
 			expectTypeOf(mergedLayer).toEqualTypeOf<
-				DependencyLayer<never, typeof ServiceA | typeof ServiceB>
+				Layer<never, typeof ServiceA | typeof ServiceB>
 			>();
 		});
 
@@ -236,7 +233,7 @@ describe('DependencyLayer Type Safety', () => {
 			const mergedLayer = layerA().and(layerB());
 
 			expectTypeOf(mergedLayer).toEqualTypeOf<
-				DependencyLayer<
+				Layer<
 					typeof ExternalA | typeof ExternalB,
 					typeof ServiceA | typeof ServiceB
 				>
@@ -268,10 +265,7 @@ describe('DependencyLayer Type Safety', () => {
 
 			// SharedExternal appears in both requirements, but union should deduplicate
 			expectTypeOf(mergedLayer).toEqualTypeOf<
-				DependencyLayer<
-					typeof SharedExternal,
-					typeof ServiceA | typeof ServiceB
-				>
+				Layer<typeof SharedExternal, typeof ServiceA | typeof ServiceB>
 			>();
 		});
 	});
@@ -298,9 +292,7 @@ describe('DependencyLayer Type Safety', () => {
 
 			// Before calling with params, should be a function that takes DatabaseConfig
 			expectTypeOf(databaseLayer).toEqualTypeOf<
-				(
-					params: DatabaseConfig
-				) => DependencyLayer<never, typeof DatabaseService>
+				(params: DatabaseConfig) => Layer<never, typeof DatabaseService>
 			>();
 
 			// After calling with params, should return the layer
@@ -309,7 +301,7 @@ describe('DependencyLayer Type Safety', () => {
 				port: 5432,
 			});
 			expectTypeOf(configuredLayer).toEqualTypeOf<
-				DependencyLayer<never, typeof DatabaseService>
+				Layer<never, typeof DatabaseService>
 			>();
 		});
 
@@ -322,12 +314,12 @@ describe('DependencyLayer Type Safety', () => {
 
 			// Should be a parameterless function
 			expectTypeOf(simpleLayer).toEqualTypeOf<
-				() => DependencyLayer<never, typeof ServiceA>
+				() => Layer<never, typeof ServiceA>
 			>();
 
 			const layerInstance = simpleLayer();
 			expectTypeOf(layerInstance).toEqualTypeOf<
-				DependencyLayer<never, typeof ServiceA>
+				Layer<never, typeof ServiceA>
 			>();
 		});
 	});
@@ -349,7 +341,7 @@ describe('DependencyLayer Type Safety', () => {
 			const layerInstance = configLayer();
 
 			expectTypeOf(layerInstance).toEqualTypeOf<
-				DependencyLayer<never, typeof StringTag | typeof NumberTag>
+				Layer<never, typeof StringTag | typeof NumberTag>
 			>();
 		});
 
@@ -372,7 +364,7 @@ describe('DependencyLayer Type Safety', () => {
 			const appLayer = configLayer().to(serviceLayer());
 
 			expectTypeOf(appLayer).toEqualTypeOf<
-				DependencyLayer<never, typeof ConfigTag | typeof ApiService>
+				Layer<never, typeof ConfigTag | typeof ApiService>
 			>();
 		});
 	});
@@ -381,7 +373,7 @@ describe('DependencyLayer Type Safety', () => {
 		it('should type Layer.empty() correctly', () => {
 			const emptyLayer = Layer.empty();
 
-			expectTypeOf(emptyLayer).toEqualTypeOf<DependencyLayer>();
+			expectTypeOf(emptyLayer).toEqualTypeOf<Layer>();
 		});
 
 		it('should type Layer.merge() correctly', () => {
@@ -414,7 +406,7 @@ describe('DependencyLayer Type Safety', () => {
 			const mergedLayer = Layer.merge(layerA(), layerB(), layerC());
 
 			expectTypeOf(mergedLayer).toEqualTypeOf<
-				DependencyLayer<
+				Layer<
 					typeof ExternalA | typeof ExternalB,
 					typeof ServiceA | typeof ServiceB | typeof ServiceC
 				>
@@ -494,7 +486,7 @@ describe('DependencyLayer Type Safety', () => {
 			const finalLayer = layerA().to(layerB()).to(layerC()).to(layerD());
 
 			expectTypeOf(finalLayer).toEqualTypeOf<
-				DependencyLayer<
+				Layer<
 					never,
 					| typeof ServiceA
 					| typeof ServiceB
@@ -557,7 +549,7 @@ describe('DependencyLayer Type Safety', () => {
 				.to(compositeLayer());
 
 			expectTypeOf(finalLayer).toEqualTypeOf<
-				DependencyLayer<
+				Layer<
 					never,
 					| typeof BaseService
 					| typeof ServiceA
@@ -592,7 +584,7 @@ describe('DependencyLayer Type Safety', () => {
 
 			// The result should still require ServiceB since providerLayer doesn't provide it
 			expectTypeOf(composed).toEqualTypeOf<
-				DependencyLayer<
+				Layer<
 					typeof ServiceB,
 					typeof ServiceA | typeof UnrelatedService
 				>

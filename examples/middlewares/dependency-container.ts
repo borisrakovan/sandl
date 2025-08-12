@@ -1,6 +1,6 @@
 import { DependencyContainer } from '@/di/container.js';
 import { AnyTag } from '@/di/tag.js';
-import { DependencyLayer } from '@/di/layer.js';
+import { Layer } from '@/di/layer.js';
 import { resource, ResourceMiddleware } from '@/resource.js';
 import { State } from '@/types.js';
 
@@ -18,7 +18,7 @@ export const dependencyContainer = <
 	layerFactory: (
 		env: EnvFromState<TState>,
 		secrets: SecretsFromState<TState>
-	) => DependencyLayer<never, TReg>
+	) => Layer<never, TReg>
 ): ResourceMiddleware<
 	'container',
 	TEvent,

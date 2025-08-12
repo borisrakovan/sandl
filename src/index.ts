@@ -32,7 +32,6 @@ export type { LambdaTestBuilder } from './test-builder.js';
 // Dependency container and layer exports
 export { DependencyContainer, container } from './di/container.js';
 export { Layer, layer } from './di/layer.js';
-export type { DependencyLayer } from './di/layer.js';
 export { service } from './di/service.js';
 export type { Service } from './di/service.js';
 export {

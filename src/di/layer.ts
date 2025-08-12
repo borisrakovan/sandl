@@ -43,7 +43,7 @@ import { AnyTag } from './tag.js';
  * const appLayer = databaseLayer().to(userLayer());
  * ```
  */
-export interface DependencyLayer<
+export interface Layer<
 	TRequires extends AnyTag = never,
 	TProvides extends AnyTag = never,
 > {
@@ -94,8 +94,8 @@ export interface DependencyLayer<
 	 * ```
 	 */
 	to: <TTargetRequires extends AnyTag, TTargetProvides extends AnyTag>(
-		target: DependencyLayer<TTargetRequires, TTargetProvides>
-	) => DependencyLayer<
+		target: Layer<TTargetRequires, TTargetProvides>
+	) => Layer<
 		TRequires | Exclude<TTargetRequires, TProvides>,
 		TProvides | TTargetProvides
 	>;
@@ -127,11 +127,8 @@ export interface DependencyLayer<
 	 * ```
 	 */
 	and: <TOtherRequires extends AnyTag, TOtherProvides extends AnyTag>(
-		other: DependencyLayer<TOtherRequires, TOtherProvides>
-	) => DependencyLayer<
-		TRequires | TOtherRequires,
-		TProvides | TOtherProvides
-	>;
+		other: Layer<TOtherRequires, TOtherProvides>
+	) => Layer<TRequires | TOtherRequires, TProvides | TOtherProvides>;
 }
 
 /**
@@ -230,10 +227,10 @@ export function layer<
 		params: TParams
 	) => DependencyContainer<TRequires | TProvides>
 ): TParams extends undefined
-	? () => DependencyLayer<TRequires, TProvides>
-	: (params: TParams) => DependencyLayer<TRequires, TProvides> {
+	? () => Layer<TRequires, TProvides>
+	: (params: TParams) => Layer<TRequires, TProvides> {
 	const factory = (params?: TParams) => {
-		const layerImpl: DependencyLayer<TRequires, TProvides> = {
+		const layerImpl: Layer<TRequires, TProvides> = {
 			register: (container) => register(container, params as TParams),
 			to(target) {
 				return createComposedLayer(layerImpl, target);
@@ -245,8 +242,8 @@ export function layer<
 		return layerImpl;
 	};
 	return factory as TParams extends undefined
-		? () => DependencyLayer<TRequires, TProvides>
-		: (params: TParams) => DependencyLayer<TRequires, TProvides>;
+		? () => Layer<TRequires, TProvides>
+		: (params: TParams) => Layer<TRequires, TProvides>;
 }
 
 /**
@@ -261,18 +258,19 @@ function createComposedLayer<
 	TRequires2 extends AnyTag,
 	TProvides2 extends AnyTag,
 >(
-	source: DependencyLayer<TRequires1, TProvides1>,
-	target: DependencyLayer<TRequires2, TProvides2>
-): DependencyLayer<
+	source: Layer<TRequires1, TProvides1>,
+	target: Layer<TRequires2, TProvides2>
+): Layer<
 	TRequires1 | Exclude<TRequires2, TProvides1>,
 	TProvides1 | TProvides2
 > {
 	return layer((container) => {
 		const containerWithSource = source.register(container);
 		return target.register(
-			containerWithSource as DependencyContainer<TRequires2>
+			// Type assertion needed due to contravariance - composition is safe
+			containerWithSource as unknown as DependencyContainer<TRequires2>
 		);
-	})() as DependencyLayer<
+	})() as unknown as Layer<
 		TRequires1 | Exclude<TRequires2, TProvides1>,
 		TProvides1 | TProvides2
 	>;
@@ -290,13 +288,16 @@ function createMergedLayer<
 	TRequires2 extends AnyTag,
 	TProvides2 extends AnyTag,
 >(
-	layer1: DependencyLayer<TRequires1, TProvides1>,
-	layer2: DependencyLayer<TRequires2, TProvides2>
-): DependencyLayer<TRequires1 | TRequires2, TProvides1 | TProvides2> {
+	layer1: Layer<TRequires1, TProvides1>,
+	layer2: Layer<TRequires2, TProvides2>
+): Layer<TRequires1 | TRequires2, TProvides1 | TProvides2> {
 	return layer((container) => {
 		const container1 = layer1.register(container);
-		return layer2.register(container1 as DependencyContainer<TRequires2>);
-	})() as DependencyLayer<TRequires1 | TRequires2, TProvides1 | TProvides2>;
+		return layer2.register(
+			// Type assertion needed due to contravariance - composition is safe
+			container1 as unknown as DependencyContainer<TRequires2>
+		);
+	})() as unknown as Layer<TRequires1 | TRequires2, TProvides1 | TProvides2>;
 }
 
 /**
@@ -305,8 +306,8 @@ function createMergedLayer<
  *
  * @internal
  */
-type UnionOfRequires<T extends readonly DependencyLayer<AnyTag, AnyTag>[]> = {
-	[K in keyof T]: T[K] extends DependencyLayer<infer R, AnyTag> ? R : never;
+type UnionOfRequires<T extends readonly Layer<AnyTag, AnyTag>[]> = {
+	[K in keyof T]: T[K] extends Layer<infer R, AnyTag> ? R : never;
 }[number];
 
 /**
@@ -315,8 +316,8 @@ type UnionOfRequires<T extends readonly DependencyLayer<AnyTag, AnyTag>[]> = {
  *
  * @internal
  */
-type UnionOfProvides<T extends readonly DependencyLayer<AnyTag, AnyTag>[]> = {
-	[K in keyof T]: T[K] extends DependencyLayer<AnyTag, infer P> ? P : never;
+type UnionOfProvides<T extends readonly Layer<AnyTag, AnyTag>[]> = {
+	[K in keyof T]: T[K] extends Layer<AnyTag, infer P> ? P : never;
 }[number];
 
 /**
@@ -339,7 +340,7 @@ export const Layer = {
 	 *   .and(serviceLayer());
 	 * ```
 	 */
-	empty(): DependencyLayer {
+	empty(): Layer {
 		return layer((container) => container)();
 	},
 
@@ -391,12 +392,12 @@ export const Layer = {
 	 */
 	merge<
 		T extends readonly [
-			DependencyLayer<AnyTag, AnyTag>,
-			DependencyLayer<AnyTag, AnyTag>,
-			...DependencyLayer<AnyTag, AnyTag>[],
+			Layer<AnyTag, AnyTag>,
+			Layer<AnyTag, AnyTag>,
+			...Layer<AnyTag, AnyTag>[],
 		],
-	>(...layers: T): DependencyLayer<UnionOfRequires<T>, UnionOfProvides<T>> {
-		return layers.reduce((acc, layer) => acc.and(layer)) as DependencyLayer<
+	>(...layers: T): Layer<UnionOfRequires<T>, UnionOfProvides<T>> {
+		return layers.reduce((acc, layer) => acc.and(layer)) as Layer<
 			UnionOfRequires<T>,
 			UnionOfProvides<T>
 		>;

@@ -1,6 +1,6 @@
 import { PromiseOrValue } from '@/types.js';
 import { DependencyContainer } from './container.js';
-import { DependencyLayer, layer } from './layer.js';
+import { Layer, layer } from './layer.js';
 import { AnyTag, ClassTag, ServiceOf, TaggedClass, TagId } from './tag.js';
 import { ExtractInjectTag } from './types.js';
 
@@ -70,7 +70,7 @@ export type ServiceDependencies<T extends AnyTag> =
  * For ValueTag services, there are no dependencies since they don't have constructors.
  */
 export interface Service<T extends AnyTag>
-	extends DependencyLayer<ServiceDependencies<T>, T> {
+	extends Layer<ServiceDependencies<T>, T> {
 	/**
 	 * The tag that this service represents (ClassTag or ValueTag)
 	 */
