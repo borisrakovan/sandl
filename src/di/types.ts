@@ -62,16 +62,16 @@ export type Factory<T, TReg extends AnyTag> = (
  * Helper type for injecting ValueTag dependencies in constructor parameters.
  * This allows clean specification of ValueTag dependencies while preserving
  * the original tag information for dependency inference.
- * 
+ *
  * The phantom property is optional to allow normal runtime values to be assignable.
- * 
+ *
  * @template T - A ValueTag type
  * @returns The value type with optional phantom tag metadata for dependency inference
- * 
+ *
  * @example
  * ```typescript
  * const ApiKeyTag = Tag.of('apiKey')<string>();
- * 
+ *
  * class UserService extends Tag.Class('UserService') {
  *   constructor(
  *     private db: DatabaseService,        // ClassTag - works automatically
@@ -82,16 +82,21 @@ export type Factory<T, TReg extends AnyTag> = (
  * }
  * ```
  */
-export type Inject<T extends ValueTag<unknown, string | symbol>> = T extends ValueTag<infer V, string | symbol> 
-  ? V & { readonly [InjectSource]?: T }
-  : never;
+export type Inject<T extends ValueTag<unknown, string | symbol>> =
+	T extends ValueTag<infer V, string | symbol>
+		? V & { readonly [InjectSource]?: T }
+		: never;
 
 /**
  * Helper type to extract the original ValueTag from an Inject<T> type.
  * Since InjectSource is optional, we need to check for both presence and absence.
  * @internal
  */
-export type ExtractInjectTag<T> = T extends { readonly [InjectSource]?: infer U } ? U : never;
+export type ExtractInjectTag<T> = T extends {
+	readonly [InjectSource]?: infer U;
+}
+	? U
+	: never;
 
 /**
  * Type representing a finalizer function used to clean up dependency instances.
