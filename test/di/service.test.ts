@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { container } from '../../src/di/container.js';
 import { service } from '../../src/di/service.js';
-import { Inject } from '../../src/di/types.js';
 import { Tag } from '../../src/di/tag.js';
+import { Inject } from '../../src/di/types.js';
 
 describe('Service', () => {
 	describe('Basic service creation', () => {
@@ -180,14 +180,20 @@ describe('Service', () => {
 		});
 
 		it('should create a parameterized ValueTag service', async () => {
-			const ConfigTag = Tag.of('config')<{ host: string; port: number }>();
+			const ConfigTag = Tag.of('config')<{
+				host: string;
+				port: number;
+			}>();
 
 			const configService = service(
 				ConfigTag,
 				(_container, params: { host: string; port: number }) => params
 			);
 
-			const configInstance = configService({ host: 'localhost', port: 3000 });
+			const configInstance = configService({
+				host: 'localhost',
+				port: 3000,
+			});
 
 			// Apply the service to a container
 			const c = container();
@@ -228,7 +234,9 @@ describe('Service', () => {
 			const finalContainer = appLayer.register(c);
 
 			const db = await finalContainer.get(DatabaseService);
-			expect(db.connect()).toBe('Connected to postgresql://localhost:5432');
+			expect(db.connect()).toBe(
+				'Connected to postgresql://localhost:5432'
+			);
 		});
 	});
 });

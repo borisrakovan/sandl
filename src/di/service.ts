@@ -78,16 +78,20 @@ export interface Service<T extends AnyTag>
 }
 
 /**
- * Creates a service layer from a ClassTag constructor.
+ * Creates a service layer from any tag type (ClassTag or ValueTag) with optional parameters.
  *
- * This function automatically derives the dependency requirements from the constructor
- * parameters and creates a layer that provides the service. The factory function must
- * handle dependency injection manually by resolving dependencies from the container.
+ * For ClassTag services:
+ * - Dependencies are automatically inferred from constructor parameters
+ * - The factory function must handle dependency injection by resolving dependencies from the container
  *
- * @template T - The ClassTag representing the service
- * @param serviceClass - The ClassTag constructor
- * @param factory - Factory function for custom instantiation logic with manual dependency injection
- * @returns A service layer that provides the given service class
+ * For ValueTag services:
+ * - No constructor dependencies are needed since they don't have constructors
+ *
+ * @template T - The tag representing the service (ClassTag or ValueTag)
+ * @template TParams - Optional parameters for service configuration
+ * @param serviceClass - The tag (ClassTag or ValueTag)
+ * @param factory - Factory function for service instantiation with container and optional params
+ * @returns A factory function that creates a service layer
  *
  * @example Simple service without dependencies
  * ```typescript
@@ -116,21 +120,20 @@ export interface Service<T extends AnyTag>
  *   new UserService(await container.get(DatabaseService))
  * );
  * ```
- */
-/**
- * Creates a service layer from any tag type with optional parameters.
  *
- * This function follows the same pattern as layer() - always returning a factory function
- * for API consistency, supporting both automatic dependency inference and optional parameters.
+ * @example Service with configuration parameters
+ * ```typescript
+ * class DatabaseService extends Tag.Class('DatabaseService') {
+ *   constructor(private config: { dbUrl: string }) {
+ *     super();
+ *   }
+ * }
  *
- * For ClassTag services, dependencies are automatically inferred from constructor parameters.
- * For ValueTag services, there are no dependencies since they don't have constructors.
- *
- * @template T - The tag representing the service (ClassTag or ValueTag)
- * @template TParams - Optional parameters for service configuration
- * @param serviceClass - The tag (ClassTag or ValueTag)
- * @param factory - Factory function for service instantiation
- * @returns Service factory function
+ * const dbService = service(
+ *   DatabaseService,
+ *   (container, params: { dbUrl: string }) => new DatabaseService(params)
+ * );
+ * ```
  */
 export function service<T extends AnyTag, TParams = undefined>(
 	serviceClass: T,
@@ -164,4 +167,3 @@ export function service<T extends AnyTag, TParams = undefined>(
 		? () => Service<T>
 		: (params: TParams) => Service<T>;
 }
-/*  */
