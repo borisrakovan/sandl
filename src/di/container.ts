@@ -21,7 +21,11 @@ const resolutionChain = new AsyncLocalStorage<AnyTag[]>();
  * and error handling. Used by both BasicDependencyContainer and ScopedDependencyContainer.
  * @internal
  */
-async function resolveDependency<T extends AnyTag, TReg extends AnyTag, TScope extends Scope>(
+async function resolveDependency<
+	T extends AnyTag,
+	TReg extends AnyTag,
+	TScope extends Scope,
+>(
 	tag: T,
 	cache: Map<AnyTag, Promise<unknown>>,
 	factories: Map<AnyTag, Factory<unknown, TReg, TScope>>,
@@ -92,9 +96,7 @@ async function runFinalizers(
 
 	const results = await Promise.allSettled(promises);
 
-	const failures = results.filter(
-		(result) => result.status === 'rejected'
-	);
+	const failures = results.filter((result) => result.status === 'rejected');
 	if (failures.length > 0) {
 		throw new DependencyContainerFinalizationError(
 			failures.map((result) => result.reason as unknown)
@@ -102,14 +104,34 @@ async function runFinalizers(
 	}
 }
 
+export type DependencyLifecycle<
+	T extends AnyTag,
+	TReg extends AnyTag,
+	TScope extends Scope,
+> = {
+	factory: Factory<ServiceOf<T>, TReg, TScope>;
+	finalizer: Finalizer<ServiceOf<T>>;
+};
+
 export interface DependencyContainer<
 	TReg extends AnyTag,
 	TScope extends Scope = DefaultScope,
 > {
+	// register<T extends AnyTag>(
+	// 	tag: T,
+	// 	lifecycle: DependencyLifecycle<T, TReg, TScope>,
+	// 	scope?: TScope
+	// ): DependencyContainer<TReg | T, TScope>;
+	// register<T extends AnyTag>(
+	// 	tag: T,
+	// 	factory: Factory<ServiceOf<T>, TReg, TScope>,
+	// 	scope?: TScope
+	// ): DependencyContainer<TReg | T, TScope>;
 	register<T extends AnyTag>(
 		tag: T,
-		factory: Factory<ServiceOf<T>, TReg, TScope>,
-		finalizer?: Finalizer<ServiceOf<T>>,
+		factoryOrLifecycle:
+			| Factory<ServiceOf<T>, TReg, TScope>
+			| DependencyLifecycle<T, TReg, TScope>,
 		scope?: TScope
 	): DependencyContainer<TReg | T, TScope>;
 
@@ -286,18 +308,23 @@ export class BasicDependencyContainer<TReg extends AnyTag>
 	 */
 	register<T extends AnyTag>(
 		tag: T,
-		factory: Factory<ServiceOf<T>, TReg, DefaultScope>,
-		finalizer?: Finalizer<ServiceOf<T>>
+		factoryOrLifecycle:
+			| Factory<ServiceOf<T>, TReg, DefaultScope>
+			| DependencyLifecycle<T, TReg, DefaultScope>
 	): DependencyContainer<TReg | T> {
 		if (this.factories.has(tag)) {
 			throw new DependencyContainerError(
 				`Dependency ${Tag.id(tag)} already registered`
 			);
 		}
-		this.factories.set(tag, factory);
-		if (finalizer !== undefined) {
-			this.finalizers.set(tag, finalizer);
+
+		if (typeof factoryOrLifecycle === 'function') {
+			this.factories.set(tag, factoryOrLifecycle);
+		} else {
+			this.factories.set(tag, factoryOrLifecycle.factory);
+			this.finalizers.set(tag, factoryOrLifecycle.finalizer);
 		}
+
 		return this as DependencyContainer<TReg | T>;
 	}
 
@@ -390,7 +417,7 @@ export class BasicDependencyContainer<TReg extends AnyTag>
 	 * If any finalizers fail, all errors are collected and a DependencyContainerFinalizationError
 	 * is thrown containing details of all failures.
 	 *
-	 * **Finalizer Concurrency:** Finalizers run concurrently, so there are no ordering guarantees. 
+	 * **Finalizer Concurrency:** Finalizers run concurrently, so there are no ordering guarantees.
 	 * Services should be designed to handle cleanup gracefully regardless of the order in which their
 	 * dependencies are cleaned up.
 	 *
@@ -481,7 +508,10 @@ export class ScopedDependencyContainer<
 	 * Factory functions for creating dependency instances in this scope.
 	 * @internal
 	 */
-	private readonly factories = new Map<AnyTag, Factory<unknown, TReg, TScope>>();
+	private readonly factories = new Map<
+		AnyTag,
+		Factory<unknown, TReg, TScope>
+	>();
 
 	/**
 	 * Finalizer functions for cleaning up dependencies when this scope is destroyed.
@@ -498,35 +528,36 @@ export class ScopedDependencyContainer<
 
 	/**
 	 * Registers a dependency in the specified scope within this container's scope chain.
-	 * 
+	 *
 	 * If no scope is specified, registers in the current (leaf) scope. If a scope is specified,
 	 * delegates to the parent container if the target scope doesn't match the current scope.
-	 * 
+	 *
 	 * This allows registering dependencies at different scope levels from any container
 	 * in the scope chain, providing flexibility for dependency organization.
-	 * 
+	 *
 	 * @param tag - The dependency tag to register
 	 * @param factory - Factory function to create the dependency
 	 * @param finalizer - Optional cleanup function
 	 * @param scope - Target scope for registration (defaults to current scope)
 	 * @returns This container with updated type information
-	 * 
+	 *
 	 * @example Registering in different scopes
 	 * ```typescript
 	 * const runtime = scopedContainer('runtime');
 	 * const request = runtime.child('request');
-	 * 
+	 *
 	 * // Register in current (request) scope
 	 * request.register(RequestService, () => new RequestService());
-	 * 
+	 *
 	 * // Register in runtime scope from request container - delegates to parent
 	 * request.register(DatabaseService, () => new DatabaseService(), undefined, 'runtime');
 	 * ```
 	 */
 	register<T extends AnyTag>(
 		tag: T,
-		factory: Factory<ServiceOf<T>, TReg, TScope>,
-		finalizer?: Finalizer<ServiceOf<T>>,
+		factoryOrLifecycle:
+			| Factory<ServiceOf<T>, TReg, TScope>
+			| DependencyLifecycle<T, TReg, TScope>,
 		scope?: TScope
 	): ScopedDependencyContainer<TReg | T, TScope> {
 		// If no target scope specified, or target scope matches current scope, register here
@@ -536,9 +567,11 @@ export class ScopedDependencyContainer<
 					`Dependency ${Tag.id(tag)} already registered in scope ${String(this.scope)}`
 				);
 			}
-			this.factories.set(tag, factory);
-			if (finalizer !== undefined) {
-				this.finalizers.set(tag, finalizer);
+			if (typeof factoryOrLifecycle === 'function') {
+				this.factories.set(tag, factoryOrLifecycle);
+			} else {
+				this.factories.set(tag, factoryOrLifecycle.factory);
+				this.finalizers.set(tag, factoryOrLifecycle.finalizer);
 			}
 			return this as ScopedDependencyContainer<TReg | T, TScope>;
 		}
@@ -552,8 +585,8 @@ export class ScopedDependencyContainer<
 
 		// Delegate registration to parent container
 		// The parent's register method will handle the registration
-		this.parent.register(tag, factory, finalizer, scope);
-		
+		this.parent.register(tag, factoryOrLifecycle, scope);
+
 		// Even though we delegated, update our type to include the new dependency
 		// This ensures type safety - the child container "knows" about dependencies
 		// registered in parent scopes through it
@@ -562,7 +595,7 @@ export class ScopedDependencyContainer<
 
 	/**
 	 * Checks if a dependency has been instantiated in this scope or any parent scope.
-	 * 
+	 *
 	 * This method checks the current scope first, then walks up the parent chain.
 	 * Returns true only if the dependency has been created and cached somewhere in the scope hierarchy.
 	 */
@@ -571,14 +604,14 @@ export class ScopedDependencyContainer<
 		if (this.cache.has(tag)) {
 			return true;
 		}
-		
+
 		// Check parent scopes
 		return this.parent?.has(tag) ?? false;
 	}
 
 	/**
 	 * Retrieves a dependency instance, resolving from the current scope or parent scopes.
-	 * 
+	 *
 	 * Resolution strategy:
 	 * 1. Check cache in current scope
 	 * 2. Check if factory exists in current scope - if so, create instance here
@@ -602,12 +635,12 @@ export class ScopedDependencyContainer<
 
 	/**
 	 * Destroys this scoped container and its children, preserving the container structure for reuse.
-	 * 
+	 *
 	 * This method ensures proper cleanup order while maintaining reusability:
 	 * 1. Destroys all child scopes first (they may depend on parent scope dependencies)
 	 * 2. Then calls finalizers for dependencies created in this scope
 	 * 3. Clears only instance caches - preserves factories, finalizers, and child structure
-	 * 
+	 *
 	 * Child destruction happens first to ensure dependencies don't get cleaned up
 	 * before their dependents.
 	 */
@@ -616,18 +649,19 @@ export class ScopedDependencyContainer<
 
 		try {
 			// Destroy all child scopes FIRST (they may depend on our dependencies)
-			const childDestroyPromises = this.children.map(child => child.destroy());
+			const childDestroyPromises = this.children.map((child) =>
+				child.destroy()
+			);
 			const childResults = await Promise.allSettled(childDestroyPromises);
-			
+
 			const childFailures = childResults
 				.filter((result) => result.status === 'rejected')
 				.map((result) => result.reason as unknown);
-			
+
 			allFailures.push(...childFailures);
 
 			// Then run our own finalizers
 			await runFinalizers(this.finalizers, this.cache);
-
 		} catch (error) {
 			// Catch our own finalizer failures
 			allFailures.push(error);
@@ -645,7 +679,7 @@ export class ScopedDependencyContainer<
 
 	/**
 	 * Creates a child scoped container.
-	 * 
+	 *
 	 * Child containers inherit access to parent dependencies but maintain
 	 * their own scope for new registrations and instance caching.
 	 */

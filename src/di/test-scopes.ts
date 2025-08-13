@@ -39,17 +39,16 @@ async function main() {
 	// Create containers and register services - register in proper order to maintain types
 	const runtimeContainer = scopedContainer('runtime')
 		// Register ServiceA in runtime scope
-		.register(
-			ServiceA,
-			() => {
+		.register(ServiceA, {
+			factory: () => {
 				console.log('Creating ServiceA in runtime scope');
 				return new ServiceA();
 			},
-			(_serviceA) => {
+			finalizer: (_serviceA) => {
 				console.log('Finalizing ServiceA in runtime scope');
 				return Promise.resolve();
-			}
-		);
+			},
+		});
 
 	// Create a request-scoped child container and register ServiceB
 	const requestContainer = runtimeContainer
@@ -57,16 +56,26 @@ async function main() {
 		// Register ServiceB in request scope (per-request instance)
 		.register(
 			ServiceB,
-			async (c) => {
-				console.log('Creating ServiceB in request scope');
-				const serviceA = await c.get(ServiceA); // This will come from runtime scope
-				return new ServiceB(serviceA);
-			},
-			(_serviceB) => {
-				console.log('Finalizing ServiceB in request scope');
-				return Promise.resolve();
+			{
+				factory: async (c) => {
+					console.log('Creating ServiceB in request scope');
+					const serviceA = await c.get(ServiceA); // This will come from runtime scope
+					return new ServiceB(serviceA);
+				},
+				finalizer: (_serviceB) => {
+					console.log('Finalizing ServiceB in request scope');
+					return Promise.resolve();
+				},
 			}
 			// No scope parameter = current scope (request)
+		)
+		.register(
+			ServiceA,
+			() => {
+				console.log('Creating ServiceA in request scope');
+				return new ServiceA();
+			},
+			'request'
 		);
 
 	console.log('--- Getting ServiceA from request container ---');
