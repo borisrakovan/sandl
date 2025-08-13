@@ -1,7 +1,7 @@
+import { BaseError } from '@/errors.js';
 import { resource, ResourceMiddleware } from '@/resource.js';
 import { State } from '@/types.js';
 import { z } from 'zod/v4';
-import { BaseError } from '@/errors.js';
 
 export class EnvVariableLoaderError extends BaseError {}
 

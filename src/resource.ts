@@ -1,8 +1,8 @@
 import {
 	AnyMiddleware,
-	middleware,
 	Middleware,
 	MiddlewareName,
+	NextFunction,
 } from './middleware.js';
 import { LambdaRequest, PromiseOrValue, State } from './types.js';
 
@@ -47,6 +47,93 @@ export type ResourceSpecOf<T extends AnyMiddleware> =
 		? ResourceSpec<TStateOut[TName], TEvent, TState>
 		: never;
 
+// Base abstract resource using template method pattern
+export abstract class AbstractResource<
+	TName extends MiddlewareName,
+	TEvent,
+	TState extends State,
+	TRes,
+	TVal,
+> extends Middleware<
+	TName,
+	TEvent,
+	TState,
+	TState & Record<TName, TVal>,
+	TRes,
+	TRes
+> {
+	protected abstract init(
+		req: LambdaRequest<TEvent, TState>
+	): PromiseOrValue<TVal>;
+
+	// Optional cleanup; default no-op
+	protected cleanup?(
+		val: TVal,
+		req: LambdaRequest<TEvent, TState>
+	): PromiseOrValue<void>;
+}
+
+export abstract class RuntimeResource<
+	TName extends MiddlewareName,
+	TEvent,
+	TState extends State,
+	TRes,
+	TVal,
+> extends AbstractResource<TName, TEvent, TState, TRes, TVal> {
+	private cached: TVal | null = null;
+
+	protected registerCleanup(val: TVal, req: LambdaRequest<TEvent, TState>) {
+		if (!this.cleanup) return;
+		process.once('SIGTERM', () => {
+			void (async () => {
+				try {
+					await this.cleanup!(val, req);
+				} finally {
+					this.cached = null;
+				}
+			})();
+		});
+	}
+
+	async apply(
+		req: LambdaRequest<TEvent, TState>,
+		next: NextFunction<TEvent, TState & Record<TName, TVal>, TRes>
+	): Promise<TRes> {
+		if (this.cached === null) {
+			this.cached = await this.init(req);
+			this.registerCleanup(this.cached, req);
+		}
+
+		return next({
+			...req,
+			state: { ...req.state, [this.name]: this.cached },
+		});
+	}
+}
+
+export abstract class RequestResource<
+	TName extends MiddlewareName,
+	TEvent,
+	TState extends State,
+	TRes,
+	TVal,
+> extends AbstractResource<TName, TEvent, TState, TRes, TVal> {
+	async apply(
+		req: LambdaRequest<TEvent, TState>,
+		next: NextFunction<TEvent, TState & Record<TName, TVal>, TRes>
+	): Promise<TRes> {
+		const resource = await this.init(req);
+		try {
+			return await next({
+				...req,
+				state: { ...req.state, [this.name]: resource },
+			});
+		} finally {
+			await this.cleanup?.(resource, req);
+		}
+	}
+}
+
 function runtimeResource<
 	TEvent,
 	TRes,
@@ -57,36 +144,30 @@ function runtimeResource<
 	name: TName,
 	spec: ResourceSpec<TVal, TEvent, TState>
 ): ResourceMiddleware<TName, TEvent, TState, TRes, TVal> {
-	let cached: TVal | null = null;
-
-	const registerCleanup = (val: TVal, req: LambdaRequest<TEvent, TState>) => {
-		if (!spec.cleanup) return;
-
-		process.once('SIGTERM', () => {
-			void (async () => {
-				try {
-					await spec.cleanup!(val, req);
-				} finally {
-					cached = null;
-				}
-			})();
-		});
-	};
-
-	return middleware(name, async (req, next) => {
-		// This is safe from concurrent access because only one invocation of lambda function is running at a time,
-		// and the middleware is always called only once per lambda request.
-		// Otherwise we would need to cache the promise instead of the value to prevent race conditions.
-		if (cached === null) {
-			cached = await spec.init(req);
-			registerCleanup(cached, req);
+	class RuntimeResourceFromSpec extends RuntimeResource<
+		TName,
+		TEvent,
+		TState,
+		TRes,
+		TVal
+	> {
+		constructor() {
+			super(name);
 		}
 
-		return next({
-			...req,
-			state: { ...req.state, [name]: cached },
-		});
-	});
+		protected init(req: LambdaRequest<TEvent, TState>) {
+			return spec.init(req);
+		}
+
+		protected override cleanup(
+			val: TVal,
+			req: LambdaRequest<TEvent, TState>
+		) {
+			return spec.cleanup?.(val, req);
+		}
+	}
+
+	return new RuntimeResourceFromSpec();
 }
 
 function requestResource<
@@ -99,21 +180,30 @@ function requestResource<
 	name: TName,
 	spec: ResourceSpec<TVal, TEvent, TState>
 ): ResourceMiddleware<TName, TEvent, TState, TRes, TVal> {
-	return middleware(name, async (req, next) => {
-		const resource = await spec.init(req);
-
-		let result;
-		try {
-			result = await next({
-				...req,
-				state: { ...req.state, [name]: resource },
-			});
-		} finally {
-			await spec.cleanup?.(resource, req);
+	class RequestResourceFromSpec extends RequestResource<
+		TName,
+		TEvent,
+		TState,
+		TRes,
+		TVal
+	> {
+		constructor() {
+			super(name);
 		}
 
-		return result;
-	});
+		protected init(req: LambdaRequest<TEvent, TState>) {
+			return spec.init(req);
+		}
+
+		protected override cleanup(
+			val: TVal,
+			req: LambdaRequest<TEvent, TState>
+		) {
+			return spec.cleanup?.(val, req);
+		}
+	}
+
+	return new RequestResourceFromSpec();
 }
 
 export function resource<

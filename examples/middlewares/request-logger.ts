@@ -1,5 +1,6 @@
 import { BaseError } from '@/errors.js';
-import { middleware, Middleware } from '@/middleware.js';
+import { Middleware, NextFunction } from '@/middleware.js';
+import { LambdaRequest } from '@/types.js';
 import { getKey } from '@/utils/object.js';
 import { Logger } from 'examples/internal/logger.js';
 import { ApiError } from '../internal/errors.js';
@@ -7,24 +8,28 @@ import { ApiError } from '../internal/errors.js';
 // Flag to track cold start invocations
 let coldStartInvocation = true;
 
-export const requestLogger = <
+class RequestLogger<
 	TEvent,
 	TState extends { logger: Logger },
 	TRes,
->(): Middleware<'requestLogger', TEvent, TState, TState, TRes, TRes> => {
-	return middleware('requestLogger', async (request, next) => {
+> extends Middleware<'requestLogger', TEvent, TState, TState, TRes, TRes> {
+	constructor() {
+		super('requestLogger');
+	}
+
+    async apply(
+        request: LambdaRequest<TEvent, TState>,
+        next: NextFunction<TEvent, TState, TRes>
+    ): Promise<TRes> {
 		const logger = request.state.logger;
-		// Log the start of processing
 		logger.info(
-			{
-				coldStart: coldStartInvocation,
-			},
+			{ coldStart: coldStartInvocation },
 			'Starting lambda execution'
 		);
 		coldStartInvocation = false;
 		const startTime = Date.now();
 
-		let response;
+		let response: TRes | undefined;
 		try {
 			response = await next(request);
 		} catch (err) {
@@ -32,18 +37,13 @@ export const requestLogger = <
 			const statusCode = getKey(response, 'statusCode');
 
 			let logFn = logger.error.bind(logger);
-
-			// Log warnings for client errors
 			if (err instanceof ApiError && err.statusCode < 500) {
+				// Log client errors as warnings
 				logFn = logger.warn.bind(logger);
 			}
 
 			logFn(
-				{
-					duration,
-					error: BaseError.ensure(err).dump(),
-					statusCode,
-				},
+				{ duration, error: BaseError.ensure(err).dump(), statusCode },
 				`Lambda execution failed in ${duration / 1000}s`
 			);
 			throw err;
@@ -57,5 +57,12 @@ export const requestLogger = <
 		);
 
 		return response;
-	});
-};
+	}
+}
+
+export const requestLogger = <
+	TEvent,
+	TState extends { logger: Logger },
+	TRes,
+>(): Middleware<'requestLogger', TEvent, TState, TState, TRes, TRes> =>
+	new RequestLogger<TEvent, TState, TRes>();

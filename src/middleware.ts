@@ -6,7 +6,11 @@ export type MiddlewareOptions<TState extends State, TOpts> =
 	| ((state: TState) => TOpts)
 	| TOpts;
 
-export interface Middleware<
+export type NextFunction<TEvent, TStateOut extends State, TResIn> = (
+	request: LambdaRequest<TEvent, TStateOut>
+) => PromiseOrValue<TResIn>;
+
+export abstract class Middleware<
 	TName extends MiddlewareName,
 	TEvent,
 	TStateIn extends State,
@@ -14,13 +18,16 @@ export interface Middleware<
 	TResIn,
 	TResOut,
 > {
-	name: TName;
-	apply: (
+	readonly name: TName;
+
+	constructor(name: TName) {
+		this.name = name;
+	}
+
+	abstract apply(
 		request: LambdaRequest<TEvent, TStateIn>,
-		next: (
-			request: LambdaRequest<TEvent, TStateOut>
-		) => PromiseOrValue<TResIn>
-	) => PromiseOrValue<TResOut>;
+		next: NextFunction<TEvent, TStateOut, TResIn>
+	): PromiseOrValue<TResOut>;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -30,6 +37,7 @@ export type NameOf<T extends AnyMiddleware> =
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	T extends Middleware<infer TName, any, any, any, any, any> ? TName : never;
 
+// Functional factory kept for convenience
 export function middleware<
 	TName extends MiddlewareName,
 	TEvent,
@@ -39,7 +47,7 @@ export function middleware<
 	TResOut,
 >(
 	name: TName,
-	apply: Middleware<
+	applyFn: Middleware<
 		TName,
 		TEvent,
 		TStateIn,
@@ -48,10 +56,27 @@ export function middleware<
 		TResOut
 	>['apply']
 ): Middleware<TName, TEvent, TStateIn, TStateOut, TResIn, TResOut> {
-	return {
-		name,
-		apply,
-	};
+	class InlineMiddleware extends Middleware<
+		TName,
+		TEvent,
+		TStateIn,
+		TStateOut,
+		TResIn,
+		TResOut
+	> {
+		constructor() {
+			super(name);
+		}
+
+		apply(
+			request: LambdaRequest<TEvent, TStateIn>,
+			next: NextFunction<TEvent, TStateOut, TResIn>
+		): PromiseOrValue<TResOut> {
+			return applyFn(request, next);
+		}
+	}
+
+	return new InlineMiddleware();
 }
 
 export function createHandlerMiddlewareChain<

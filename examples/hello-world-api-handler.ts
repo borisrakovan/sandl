@@ -7,6 +7,7 @@ import { apiErrorMapper } from 'examples/middlewares/api-error-mapper.js';
 import { apiRequestValidator } from 'examples/middlewares/api-request-validator.js';
 import { apiResponseSerializer } from 'examples/middlewares/api-response-serializer.js';
 import { requestLogger } from 'examples/middlewares/request-logger.js';
+import { logger } from 'examples/middlewares/logger.js';
 import z from 'zod/v4';
 
 const RequestSchema = z.object({
@@ -21,6 +22,7 @@ export const handler = lambda<
 	APIGatewayProxyEventV2,
 	APIGatewayProxyStructuredResultV2
 >()
+	.use(logger())
 	.use(requestLogger())
 	.use(apiErrorMapper())
 	.use(apiResponseSerializer({ schema: ResponseSchema }))

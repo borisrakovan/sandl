@@ -11,12 +11,8 @@ export type {
 } from './types.js';
 
 // Middleware exports
-export { middleware } from './middleware.js';
-export type {
-	AnyMiddleware,
-	Middleware,
-	MiddlewareName,
-} from './middleware.js';
+export { Middleware, middleware } from './middleware.js';
+export type { AnyMiddleware, MiddlewareName } from './middleware.js';
 
 // Resource management exports
 export { resource } from './resource.js';

@@ -1,23 +1,33 @@
 import { BaseError } from '@/errors.js';
-import { middleware, Middleware } from '@/middleware.js';
-import { State } from '@/types.js';
+import { Middleware, NextFunction } from '@/middleware.js';
+import { LambdaRequest, State } from '@/types.js';
 import { Logger } from 'examples/internal/logger.js';
 
 export type OptionsFromState<TState extends State, TOpts> =
 	| ((state: TState) => TOpts)
 	| TOpts;
 
-export const heartbeat = <TEvent, TState extends { logger: Logger }, TRes>(
-	options: OptionsFromState<
-		TState,
-		{ heartbeatId: string; heartbeatUrl: string }
-	>
-): Middleware<'heartbeat', TEvent, TState, TState, TRes, TRes> =>
-	middleware('heartbeat', async (request, next) => {
-		const logger = request.state.logger;
+class HeartbeatMiddleware<
+	TEvent,
+	TState extends { logger: Logger },
+	TRes,
+> extends Middleware<'heartbeat', TEvent, TState, TState, TRes, TRes> {
+	constructor(
+		private readonly options: OptionsFromState<
+			TState,
+			{ heartbeatId: string; heartbeatUrl: string }
+		>
+	) {
+		super('heartbeat');
+	}
 
+    async apply(
+        request: LambdaRequest<TEvent, TState>,
+        next: NextFunction<TEvent, TState, TRes>
+    ): Promise<TRes> {
+		const logger = request.state.logger;
 		const resolvedOptions =
-			typeof options === 'function' ? options(request.state) : options;
+			typeof this.options === 'function' ? this.options(request.state) : this.options;
 
 		await sendHeartbeat(
 			() =>
@@ -39,10 +49,18 @@ export const heartbeat = <TEvent, TState extends { logger: Logger }, TRes>(
 					),
 				logger
 			);
-			// Re-throw the error to trigger the error handler
 			throw err;
 		}
-	});
+	}
+}
+
+export const heartbeat = <TEvent, TState extends { logger: Logger }, TRes>(
+	options: OptionsFromState<
+		TState,
+		{ heartbeatId: string; heartbeatUrl: string }
+	>
+): Middleware<'heartbeat', TEvent, TState, TState, TRes, TRes> =>
+	new HeartbeatMiddleware<TEvent, TState, TRes>(options);
 
 async function sendHeartbeat(send: () => Promise<unknown>, logger: Logger) {
 	try {

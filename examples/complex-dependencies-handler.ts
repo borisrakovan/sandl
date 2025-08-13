@@ -17,6 +17,7 @@ import {
 } from 'examples/middlewares/secrets-fetcher.js';
 import z from 'zod/v4';
 import { AuthService } from './internal/auth.service.js';
+import { logger } from './middlewares/logger.js';
 
 const EnvSchema = z.object({
 	ENCRYPTION_KEY_SECRET_ID: z.string(),
@@ -39,6 +40,7 @@ export const handler = lambda<
 	APIGatewayProxyEventV2,
 	APIGatewayProxyStructuredResultV2
 >()
+	.use(logger())
 	.use(
 		envVariableLoader({
 			schema: EnvSchema,
