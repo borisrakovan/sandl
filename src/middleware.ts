@@ -89,16 +89,8 @@ export function createHandlerMiddlewareChain<
 	// Start with the handler as the innermost function
 	let chain = handler;
 
-	const finalMiddlewares = [...middlewares];
-	for (const [name, override] of overrides ?? []) {
-		const index = finalMiddlewares.findIndex((m) => m.name === name);
-		if (index !== -1) {
-			finalMiddlewares[index] = override;
-		}
-	}
-
 	// Process middlewares in reverse order to build the chain from inside out
-	for (const middleware of [...finalMiddlewares].reverse()) {
+	for (const middleware of [...middlewares].reverse()) {
 		const nextChain = chain;
 		chain = (req: LambdaRequest<TEvent, State>) => {
 			let mw =
