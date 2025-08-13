@@ -1,30 +1,27 @@
 import { BaseError } from '@/errors.js';
 import { middleware, Middleware } from '@/middleware.js';
-import { State } from '@/types.js';
 import { getKey } from '@/utils/object.js';
+import { Logger } from 'examples/internal/logger.js';
 import { ApiError } from '../internal/errors.js';
-import log from '../internal/logger.js';
 
 // Flag to track cold start invocations
-let coldStartRequest = true;
+let coldStartInvocation = true;
 
-export const requestLogger = <TEvent, TState extends State, TRes>(): Middleware<
-	'logger',
+export const requestLogger = <
 	TEvent,
-	TState,
-	TState,
+	TState extends { logger: Logger },
 	TRes,
-	TRes
-> => {
-	return middleware('logger', async (request, next) => {
+>(): Middleware<'requestLogger', TEvent, TState, TState, TRes, TRes> => {
+	return middleware('requestLogger', async (request, next) => {
+		const logger = request.state.logger;
 		// Log the start of processing
-		log.info(
+		logger.info(
 			{
-				coldStart: coldStartRequest,
+				coldStart: coldStartInvocation,
 			},
 			'Starting lambda execution'
 		);
-		coldStartRequest = false;
+		coldStartInvocation = false;
 		const startTime = Date.now();
 
 		let response;
@@ -34,11 +31,11 @@ export const requestLogger = <TEvent, TState extends State, TRes>(): Middleware<
 			const duration = Date.now() - startTime;
 			const statusCode = getKey(response, 'statusCode');
 
-			let logFn = log.error.bind(log);
+			let logFn = logger.error.bind(logger);
 
 			// Log warnings for client errors
 			if (err instanceof ApiError && err.statusCode < 500) {
-				logFn = log.warn.bind(log);
+				logFn = logger.warn.bind(logger);
 			}
 
 			logFn(
@@ -54,7 +51,7 @@ export const requestLogger = <TEvent, TState extends State, TRes>(): Middleware<
 
 		const duration = Date.now() - startTime;
 		const statusCode = getKey(response, 'statusCode');
-		log.info(
+		logger.info(
 			{ duration, statusCode },
 			`Lambda execution completed in ${duration / 1000}s`
 		);

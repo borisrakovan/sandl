@@ -94,14 +94,9 @@ describe('Service', () => {
 				ConfigService,
 				() => new ConfigService()
 			)();
-			const dbService = service(
-				DatabaseService,
-				async (container) => {
-					return new DatabaseService(
-						await container.get(ConfigService)
-					);
-				}
-			)();
+			const dbService = service(DatabaseService, async (container) => {
+				return new DatabaseService(await container.get(ConfigService));
+			})();
 
 			// Compose services
 			const infraLayer = configService.to(dbService);
