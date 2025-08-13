@@ -7,7 +7,7 @@ import {
 import { ApiError, InternalServerError } from '../internal/errors.js';
 import { errorResponse } from '../internal/responses.js';
 
-class ApiErrorMapper<
+export class ApiErrorMapper<
 	TEvent extends APIGatewayProxyEventV2,
 	TState extends State,
 > extends Middleware<
@@ -22,7 +22,7 @@ class ApiErrorMapper<
 		super('apiErrorMapper');
 	}
 
-	async apply(
+	async execute(
 		request: LambdaRequest<TEvent, TState>,
 		next: NextFunction<TEvent, TState, APIGatewayProxyStructuredResultV2>
 	): Promise<APIGatewayProxyStructuredResultV2> {

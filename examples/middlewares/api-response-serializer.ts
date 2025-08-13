@@ -34,7 +34,7 @@ class ApiResponseSerializer<
 		super('apiResponseSerializer');
 	}
 
-	async apply(
+	async execute(
 		request: LambdaRequest<TEvent, TState>,
 		next: NextFunction<TEvent, TState, TRes>
 	): Promise<APIGatewayProxyStructuredResultV2> {

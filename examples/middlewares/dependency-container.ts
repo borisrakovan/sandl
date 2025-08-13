@@ -1,14 +1,9 @@
 import { DependencyContainer } from '@/di/container.js';
-import { AnyTag } from '@/di/tag.js';
 import { Layer } from '@/di/layer.js';
+import { AnyTag } from '@/di/tag.js';
+import { Middleware, NextFunction } from '@/middleware.js';
 import { ResourceMiddleware } from '@/resource.js';
 import { LambdaRequest, PromiseOrValue, State } from '@/types.js';
-import { Middleware } from '@/middleware.js';
-
-type EnvFromState<TState> = TState extends { env: infer TEnv } ? TEnv : unknown;
-type SecretsFromState<TState> = TState extends { secrets: infer TSecrets }
-	? TSecrets
-	: unknown;
 
 class DependencyContainerMiddleware<
 	TEvent,
@@ -23,26 +18,19 @@ class DependencyContainerMiddleware<
 	TRes,
 	TRes
 > {
-	constructor(
-		private readonly layerFactory: (
-			env: EnvFromState<TState>,
-			secrets: SecretsFromState<TState>
-		) => Layer<never, TReg>
-	) {
+	constructor(private readonly layer: Layer<never, TReg>) {
 		super('container');
 	}
 
-	apply(
+	execute(
 		request: LambdaRequest<TEvent, TState>,
-		next: (
-			request: LambdaRequest<TEvent, TState & { container: DependencyContainer<TReg> }>
-		) => PromiseOrValue<TRes>
+		next: NextFunction<
+			TEvent,
+			TState & { container: DependencyContainer<TReg> },
+			TRes
+		>
 	): PromiseOrValue<TRes> {
-		const layer = this.layerFactory(
-			request.state.env as EnvFromState<TState>,
-			request.state.secrets as SecretsFromState<TState>
-		);
-		const container = layer.register(new DependencyContainer<TReg>());
+		const container = this.layer.register(new DependencyContainer<TReg>());
 		try {
 			return next({ ...request, state: { ...request.state, container } });
 		} finally {
@@ -57,14 +45,11 @@ export const dependencyContainer = <
 	TState extends State,
 	TReg extends AnyTag,
 >(
-	layerFactory: (
-		env: EnvFromState<TState>,
-		secrets: SecretsFromState<TState>
-	) => Layer<never, TReg>
+	layer: Layer<never, TReg>
 ): ResourceMiddleware<
 	'container',
 	TEvent,
 	TState,
 	TRes,
 	DependencyContainer<TReg>
-> => new DependencyContainerMiddleware<TEvent, TRes, TState, TReg>(layerFactory);
+> => new DependencyContainerMiddleware<TEvent, TRes, TState, TReg>(layer);

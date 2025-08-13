@@ -39,7 +39,7 @@ class SqsRecordBodyParser<
 		super('parsedRecords');
 	}
 
-	apply(
+	execute(
 		request: LambdaRequest<TEvent, TState>,
 		next: NextFunction<
 			TEvent,

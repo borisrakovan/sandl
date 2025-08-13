@@ -95,7 +95,7 @@ export abstract class RuntimeResource<
 		});
 	}
 
-	async apply(
+	async execute(
 		req: LambdaRequest<TEvent, TState>,
 		next: NextFunction<TEvent, TState & Record<TName, TVal>, TRes>
 	): Promise<TRes> {
@@ -118,7 +118,7 @@ export abstract class RequestResource<
 	TRes,
 	TVal,
 > extends AbstractResource<TName, TEvent, TState, TRes, TVal> {
-	async apply(
+	async execute(
 		req: LambdaRequest<TEvent, TState>,
 		next: NextFunction<TEvent, TState & Record<TName, TVal>, TRes>
 	): Promise<TRes> {

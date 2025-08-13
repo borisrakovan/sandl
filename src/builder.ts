@@ -4,7 +4,6 @@ import {
 	createHandlerMiddlewareChain,
 	Middleware,
 	MiddlewareName,
-	NameOf,
 } from './middleware.js';
 import { LambdaTestBuilder } from './test-builder.js';
 import {
@@ -22,7 +21,9 @@ export class LambdaBuilder<
 	CurRes = TRes,
 	CurMiddlewares extends AnyMiddleware = never,
 > {
-	private middlewares: AnyMiddleware[] = [];
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	private middlewares: (AnyMiddleware | ((state: any) => AnyMiddleware))[] =
+		[];
 
 	constructor() {
 		this.middlewares = [];
@@ -34,7 +35,7 @@ export class LambdaBuilder<
 		NewState extends State = CurState,
 	>(
 		middleware: Middleware<
-			NewName extends NameOf<CurMiddlewares> ? never : NewName, // This makes the type never if name is already used
+			NewName,
 			TEvent,
 			CurState,
 			NewState,
@@ -55,6 +56,44 @@ export class LambdaBuilder<
 			NewState,
 			NewRes,
 			CurMiddlewares | typeof middleware
+		>;
+	}
+
+	useFactory<
+		NewRes,
+		NewName extends MiddlewareName,
+		NewState extends State = CurState,
+	>(
+		// name: NewName,
+		factory: (
+			state: CurState
+		) => Middleware<NewName, TEvent, CurState, NewState, NewRes, CurRes>
+	): LambdaBuilder<
+		TEvent,
+		TRes,
+		NewState,
+		NewRes,
+		| CurMiddlewares
+		| Middleware<NewName, TEvent, CurState, NewState, NewRes, CurRes>
+	> {
+		// const mw = createMiddleware<
+		// 	NewName,
+		// 	TEvent,
+		// 	CurState,
+		// 	NewState,
+		// 	NewRes,
+		// 	CurRes
+		// >(name, (req, next) => {
+		// 	const mw = factory(req.state as CurState);
+		// 	return mw.execute(req, next);
+		// });
+		this.middlewares.push(factory);
+		return this as unknown as LambdaBuilder<
+			TEvent,
+			TRes,
+			NewState,
+			NewRes,
+			CurMiddlewares | ReturnType<typeof factory>
 		>;
 	}
 

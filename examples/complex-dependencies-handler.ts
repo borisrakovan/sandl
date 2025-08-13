@@ -4,7 +4,7 @@ import {
 	APIGatewayProxyEventV2,
 	APIGatewayProxyStructuredResultV2,
 } from 'aws-lambda';
-import { apiErrorMapper } from 'examples/middlewares/api-error-mapper.js';
+import { ApiErrorMapper } from 'examples/middlewares/api-error-mapper.js';
 import { apiKeyAuth } from 'examples/middlewares/api-key-auth.js';
 import { apiRequestValidator } from 'examples/middlewares/api-request-validator.js';
 import { apiResponseSerializer } from 'examples/middlewares/api-response-serializer.js';
@@ -41,26 +41,28 @@ export const handler = lambda<
 	APIGatewayProxyStructuredResultV2
 >()
 	.use(logger())
+	.useFactory((state) => requestLogger({ logger: state.logger }))
 	.use(
 		envVariableLoader({
 			schema: EnvSchema,
 		})
 	)
-	.use(
+	.useFactory((state) =>
 		secretsFetcher({
-			secrets: (env) => ({
-				encryptionKey: secret<string>(env.ENCRYPTION_KEY_SECRET_ID),
-			}),
+			secrets: {
+				encryptionKey: secret<string>(
+					state.env.ENCRYPTION_KEY_SECRET_ID
+				),
+			},
 		})
 	)
-	.use(requestLogger())
-	.use(apiErrorMapper())
-	.use(
-		dependencyContainer((_env, secrets) =>
-			authLayer({ encryptionKey: secrets.encryptionKey.value() })
+	.use(new ApiErrorMapper())
+	.useFactory((state) =>
+		dependencyContainer(
+			authLayer({ encryptionKey: state.secrets.encryptionKey.value() })
 		)
 	)
-	.use(apiKeyAuth())
+	.useFactory((state) => apiKeyAuth({ container: state.container }))
 	.use(apiResponseSerializer({ schema: ResponseSchema }))
 	.use(apiRequestValidator({ bodySchema: RequestSchema }))
 	.handle((request) => {

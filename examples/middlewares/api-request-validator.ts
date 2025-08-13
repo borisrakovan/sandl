@@ -54,7 +54,7 @@ class ApiRequestValidator<
 		super('request');
 	}
 
-    apply(
+    execute(
         request: LambdaRequest<TEvent, TState>,
         next: NextFunction<
             TEvent,

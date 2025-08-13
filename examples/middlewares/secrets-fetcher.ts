@@ -1,5 +1,5 @@
 import { RuntimeResource, type ResourceMiddleware } from '@/resource.js';
-import { LambdaRequest, State } from '@/types.js';
+import { State } from '@/types.js';
 import { SecretValue } from 'examples/internal/secret-value.js';
 import { z } from 'zod/v4';
 import * as secretsManager from '../internal/secrets-manager.js';
@@ -13,9 +13,9 @@ export type SecretSpec<TSchema extends z.ZodType> = {
 
 export type SecretsSpec = Record<string, SecretSpec<z.ZodType>>;
 
-export type SecretsFetcherOptions<TSpec extends SecretsSpec, TEnv> = {
+export type SecretsFetcherOptions<TSpec extends SecretsSpec> = {
 	// Mapping of internal key name to AWS SM request parameter SecretId (can be secret name or secret ARN)
-	secrets: TSpec | ((env: TEnv) => TSpec);
+	secrets: TSpec;
 	getSecretValue?: typeof secretsManager.getSecretValue;
 };
 
@@ -24,8 +24,6 @@ export type SecretsFetcherState<TSpec extends SecretsSpec> = {
 		? SecretValue<z.infer<T>>
 		: never;
 };
-
-type EnvFromState<TState> = TState extends { env: infer TEnv } ? TEnv : unknown;
 
 export const secret = <
 	TSecret,
@@ -37,29 +35,28 @@ export const secret = <
 	return { id, schema } as SecretSpec<TSchema>;
 };
 
-class SecretsFetcher<
+export class SecretsFetcher<
 	TEvent,
 	TRes,
 	TState extends State,
 	TSpec extends SecretsSpec,
-> extends RuntimeResource<'secrets', TEvent, TState, TRes, SecretsFetcherState<TSpec>> {
-	constructor(
-		private readonly options: SecretsFetcherOptions<TSpec, EnvFromState<TState>>
-	) {
+> extends RuntimeResource<
+	'secrets',
+	TEvent,
+	TState,
+	TRes,
+	SecretsFetcherState<TSpec>
+> {
+	constructor(private readonly options: SecretsFetcherOptions<TSpec>) {
 		super('secrets');
 	}
 
-	protected async init(request: LambdaRequest<TEvent, TState>) {
-		const secrets =
-			typeof this.options.secrets === 'function'
-				? this.options.secrets(request.state.env as EnvFromState<TState>)
-				: this.options.secrets;
-
+	protected async init() {
 		const getSecretValueFn =
 			this.options.getSecretValue ?? secretsManager.getSecretValue;
 
 		const secretValues = await Promise.all(
-			Object.values(secrets).map((secret) =>
+			Object.values(this.options.secrets).map((secret) =>
 				getSecretValueFn(secret.id, secret.schema).then(
 					(value) => new SecretValue(value)
 				)
@@ -67,7 +64,10 @@ class SecretsFetcher<
 		);
 
 		return Object.fromEntries(
-			Object.keys(secrets).map((key, idx) => [key, secretValues[idx]])
+			Object.keys(this.options.secrets).map((key, idx) => [
+				key,
+				secretValues[idx],
+			])
 		) as SecretsFetcherState<TSpec>;
 	}
 }
@@ -78,7 +78,13 @@ export function secretsFetcher<
 	TState extends State,
 	TSpec extends SecretsSpec,
 >(
-	options: SecretsFetcherOptions<TSpec, EnvFromState<TState>>
-): ResourceMiddleware<'secrets', TEvent, TState, TRes, SecretsFetcherState<TSpec>> {
+	options: SecretsFetcherOptions<TSpec>
+): ResourceMiddleware<
+	'secrets',
+	TEvent,
+	TState,
+	TRes,
+	SecretsFetcherState<TSpec>
+> {
 	return new SecretsFetcher<TEvent, TRes, TState, TSpec>(options);
 }

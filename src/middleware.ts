@@ -2,10 +2,6 @@ import { LambdaRequest, Prettify, PromiseOrValue, State } from './types.js';
 
 export type MiddlewareName = string;
 
-export type MiddlewareOptions<TState extends State, TOpts> =
-	| ((state: TState) => TOpts)
-	| TOpts;
-
 export type NextFunction<TEvent, TStateOut extends State, TResIn> = (
 	request: LambdaRequest<TEvent, TStateOut>
 ) => PromiseOrValue<TResIn>;
@@ -24,18 +20,20 @@ export abstract class Middleware<
 		this.name = name;
 	}
 
-	abstract apply(
+	abstract execute(
 		request: LambdaRequest<TEvent, TStateIn>,
 		next: NextFunction<TEvent, TStateOut, TResIn>
 	): PromiseOrValue<TResOut>;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type AnyMiddleware = Middleware<any, any, any, any, any, any>;
+export type AnyMiddleware = Middleware<MiddlewareName, any, any, any, any, any>;
 
 export type NameOf<T extends AnyMiddleware> =
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	T extends Middleware<infer TName, any, any, any, any, any> ? TName : never;
+
+// (helper types for builder live in builder.ts)
 
 // Functional factory kept for convenience
 export function middleware<
@@ -47,14 +45,14 @@ export function middleware<
 	TResOut,
 >(
 	name: TName,
-	applyFn: Middleware<
+	executeFn: Middleware<
 		TName,
 		TEvent,
 		TStateIn,
 		TStateOut,
 		TResIn,
 		TResOut
-	>['apply']
+	>['execute']
 ): Middleware<TName, TEvent, TStateIn, TStateOut, TResIn, TResOut> {
 	class InlineMiddleware extends Middleware<
 		TName,
@@ -68,11 +66,11 @@ export function middleware<
 			super(name);
 		}
 
-		apply(
+		execute(
 			request: LambdaRequest<TEvent, TStateIn>,
 			next: NextFunction<TEvent, TStateOut, TResIn>
 		): PromiseOrValue<TResOut> {
-			return applyFn(request, next);
+			return executeFn(request, next);
 		}
 	}
 
@@ -85,16 +83,29 @@ export function createHandlerMiddlewareChain<
 	TState extends State,
 >(
 	handler: (request: LambdaRequest<TEvent, Prettify<TState>>) => unknown,
-	middlewares: AnyMiddleware[]
+	middlewares: (AnyMiddleware | ((state: State) => AnyMiddleware))[],
+	overrides?: Map<NameOf<AnyMiddleware>, AnyMiddleware>
 ) {
 	// Start with the handler as the innermost function
 	let chain = handler;
 
+	const finalMiddlewares = [...middlewares];
+	for (const [name, override] of overrides ?? []) {
+		const index = finalMiddlewares.findIndex((m) => m.name === name);
+		if (index !== -1) {
+			finalMiddlewares[index] = override;
+		}
+	}
+
 	// Process middlewares in reverse order to build the chain from inside out
-	for (const middleware of [...middlewares].reverse()) {
+	for (const middleware of [...finalMiddlewares].reverse()) {
 		const nextChain = chain;
-		chain = (req: LambdaRequest<TEvent, State>) =>
-			middleware.apply(req, nextChain);
+		chain = (req: LambdaRequest<TEvent, State>) => {
+			if (typeof middleware === 'function') {
+				return middleware(req.state).execute(req, nextChain);
+			}
+			return middleware.execute(req, nextChain);
+		};
 	}
 
 	return chain as (

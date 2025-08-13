@@ -1,6 +1,6 @@
 import { BaseError } from '@/errors.js';
 import { Middleware, NextFunction } from '@/middleware.js';
-import { LambdaRequest } from '@/types.js';
+import { LambdaRequest, State } from '@/types.js';
 import { getKey } from '@/utils/object.js';
 import { Logger } from 'examples/internal/logger.js';
 import { ApiError } from '../internal/errors.js';
@@ -8,20 +8,23 @@ import { ApiError } from '../internal/errors.js';
 // Flag to track cold start invocations
 let coldStartInvocation = true;
 
-class RequestLogger<
+class RequestLogger<TEvent, TState extends State, TRes> extends Middleware<
+	'requestLogger',
 	TEvent,
-	TState extends { logger: Logger },
+	TState,
+	TState,
 	TRes,
-> extends Middleware<'requestLogger', TEvent, TState, TState, TRes, TRes> {
-	constructor() {
+	TRes
+> {
+	constructor(private readonly options: { logger: Logger }) {
 		super('requestLogger');
 	}
 
-    async apply(
-        request: LambdaRequest<TEvent, TState>,
-        next: NextFunction<TEvent, TState, TRes>
-    ): Promise<TRes> {
-		const logger = request.state.logger;
+	async execute(
+		request: LambdaRequest<TEvent, TState>,
+		next: NextFunction<TEvent, TState, TRes>
+	): Promise<TRes> {
+		const logger = this.options.logger;
 		logger.info(
 			{ coldStart: coldStartInvocation },
 			'Starting lambda execution'
@@ -60,9 +63,7 @@ class RequestLogger<
 	}
 }
 
-export const requestLogger = <
-	TEvent,
-	TState extends { logger: Logger },
-	TRes,
->(): Middleware<'requestLogger', TEvent, TState, TState, TRes, TRes> =>
-	new RequestLogger<TEvent, TState, TRes>();
+export const requestLogger = <TEvent, TState extends State, TRes>(options: {
+	logger: Logger;
+}): Middleware<'requestLogger', TEvent, TState, TState, TRes, TRes> =>
+	new RequestLogger<TEvent, TState, TRes>(options);

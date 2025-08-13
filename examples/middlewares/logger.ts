@@ -1,5 +1,6 @@
+import { resource, ResourceMiddleware } from '@/resource.js';
+import { State } from '@/types.js';
 import loggerImpl, { Logger } from 'examples/internal/logger.js';
-import { resource, ResourceMiddleware, State } from 'lambdaverse';
 
 export const logger = <
 	TEvent,
