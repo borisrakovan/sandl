@@ -1,5 +1,6 @@
 import { DependencyContainer } from './container.js';
 import { AnyTag } from './tag.js';
+import { Scope } from './types.js';
 
 /**
  * A dependency layer represents a reusable, composable unit of dependency registrations.
@@ -59,9 +60,9 @@ export interface Layer<
 	 * const updatedContainer = myLayer.register(container);
 	 * ```
 	 */
-	register: (
-		container: DependencyContainer<TRequires>
-	) => DependencyContainer<TRequires | TProvides>;
+	register: <TScope extends Scope>(
+		container: DependencyContainer<TRequires, TScope>
+	) => DependencyContainer<TRequires | TProvides, TScope>;
 
 	/**
 	 * Composes this layer with a target layer, creating a pipeline where this layer's
@@ -237,10 +238,10 @@ export function layer<
 	TProvides extends AnyTag = never,
 	TParams = undefined,
 >(
-	register: (
-		container: DependencyContainer<TRequires>,
+	register: <TScope extends Scope>(
+		container: DependencyContainer<TRequires, TScope>,
 		params: TParams
-	) => DependencyContainer<TRequires | TProvides>
+	) => DependencyContainer<TRequires | TProvides, TScope>
 ): LayerFactory<TRequires, TProvides, TParams> {
 	const factory = (params?: TParams) => {
 		const layerImpl: Layer<TRequires, TProvides> = {

@@ -56,14 +56,14 @@ export const handler = lambda<
 			},
 		})
 	)
-	.use(new ApiErrorMapper())
+	.use(apiResponseSerializer({ schema: ResponseSchema }))
+	// .use(new ApiErrorMapper())
 	.useFactory((state) =>
 		dependencyContainer(
 			authLayer({ encryptionKey: state.secrets.encryptionKey.value() })
 		)
 	)
 	.useFactory((state) => apiKeyAuth({ container: state.container }))
-	.use(apiResponseSerializer({ schema: ResponseSchema }))
 	.use(apiRequestValidator({ bodySchema: RequestSchema }))
 	.handle((request) => {
 		const _event = request.event;
@@ -73,6 +73,6 @@ export const handler = lambda<
 		const _c = request.state.env;
 
 		return {
-			message: `Hello, ${request.state.request.body.name}!`,
+			smessage: `Hello, ${request.state.request.body.name}!`,
 		};
 	});

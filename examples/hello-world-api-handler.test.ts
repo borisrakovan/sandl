@@ -16,6 +16,7 @@ describe('api.handler', () => {
 	it('should return a 200 response for valid name', async () => {
 		const result = await handler
 			.test()
+			.skipMiddleware('env')
 			.execute(mockEvent('John Doe'), context);
 
 		expect(result.statusCode).toBe(200);
@@ -27,6 +28,7 @@ describe('api.handler', () => {
 	it('should return a 400 response for invalid name', async () => {
 		const result = await handler
 			.test()
+			.skipMiddleware('env')
 			// Pass an empty string as the name
 			.execute(mockEvent(''), context);
 

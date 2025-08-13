@@ -7,8 +7,7 @@ import {
 	UnknownDependencyError,
 } from './errors.js';
 import { AnyTag, ServiceOf, Tag } from './tag.js';
-
-import { Factory, Finalizer } from './types.js';
+import { DefaultScope, Factory, Finalizer, Scope } from './types.js';
 
 /**
  * AsyncLocalStorage instance used to track the dependency resolution chain.
@@ -16,6 +15,24 @@ import { Factory, Finalizer } from './types.js';
  * @internal
  */
 const resolutionChain = new AsyncLocalStorage<AnyTag[]>();
+
+export interface DependencyContainer<
+	TReg extends AnyTag,
+	TScope extends Scope = DefaultScope,
+> {
+	register<T extends AnyTag>(
+		tag: T,
+		factory: Factory<ServiceOf<T>, TReg, TScope>,
+		finalizer?: Finalizer<ServiceOf<T>>,
+		scope?: TScope
+	): DependencyContainer<TReg | T, TScope>;
+
+	has(tag: AnyTag): boolean;
+
+	get<T extends TReg>(tag: T): Promise<ServiceOf<T>>;
+
+	destroy(): Promise<void>;
+}
 
 /**
  * A type-safe dependency injection container that manages service instantiation,
@@ -84,7 +101,9 @@ const resolutionChain = new AsyncLocalStorage<AnyTag[]>();
  * await c.destroy(); // Calls all finalizers
  * ```
  */
-export class DependencyContainer<TReg extends AnyTag> {
+export class BasicDependencyContainer<TReg extends AnyTag>
+	implements DependencyContainer<TReg>
+{
 	/**
 	 * Cache of instantiated dependencies as promises.
 	 * Ensures singleton behavior and supports concurrent access.
@@ -96,7 +115,10 @@ export class DependencyContainer<TReg extends AnyTag> {
 	 * Factory functions for creating dependency instances.
 	 * @internal
 	 */
-	private readonly factories = new Map<AnyTag, Factory<unknown, TReg>>();
+	private readonly factories = new Map<
+		AnyTag,
+		Factory<unknown, TReg, DefaultScope>
+	>();
 
 	/**
 	 * Finalizer functions for cleaning up dependencies when the container is destroyed.
@@ -178,7 +200,7 @@ export class DependencyContainer<TReg extends AnyTag> {
 	 */
 	register<T extends AnyTag>(
 		tag: T,
-		factory: Factory<ServiceOf<T>, TReg>,
+		factory: Factory<ServiceOf<T>, TReg, DefaultScope>,
 		finalizer?: Finalizer<ServiceOf<T>>
 	): DependencyContainer<TReg | T> {
 		if (this.factories.has(tag)) {
@@ -282,7 +304,7 @@ export class DependencyContainer<TReg extends AnyTag> {
 
 		// Get factory
 		const factory = this.factories.get(tag) as
-			| Factory<ServiceOf<T>, TReg>
+			| Factory<ServiceOf<T>, TReg, DefaultScope>
 			| undefined;
 
 		if (factory === undefined) {
@@ -412,6 +434,53 @@ export class DependencyContainer<TReg extends AnyTag> {
 	}
 }
 
+export class ScopedDependencyContainer<
+	TReg extends AnyTag,
+	TScope extends Scope,
+> implements DependencyContainer<TReg, TScope>
+{
+	private readonly scope: TScope;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	private readonly parent: DependencyContainer<any, any> | null;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	private readonly children: ScopedDependencyContainer<any, any>[] = [];
+
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	constructor(parent: DependencyContainer<any, any> | null, scope: TScope) {
+		this.parent = parent;
+		this.scope = scope;
+	}
+
+	register<T extends AnyTag>(
+		_tag: T,
+		_factory: Factory<ServiceOf<T>, TReg, TScope>,
+		_finalizer?: Finalizer<ServiceOf<T>>,
+		_scope?: TScope
+	): ScopedDependencyContainer<TReg | T, TScope> {
+		throw new Error('Method not implemented.');
+	}
+
+	has(_tag: AnyTag): boolean {
+		throw new Error('Method not implemented.');
+	}
+
+	get<T extends TReg>(_tag: T): Promise<ServiceOf<T>> {
+		throw new Error('Method not implemented.');
+	}
+
+	destroy(): Promise<void> {
+		throw new Error('Method not implemented.');
+	}
+
+	child<TChildScope extends Scope>(
+		scope: TChildScope
+	): ScopedDependencyContainer<TReg, TScope | TChildScope> {
+		const child = new ScopedDependencyContainer(this, scope);
+		this.children.push(child);
+		return child;
+	}
+}
+
 /**
  * Creates a new empty dependency injection container.
  *
@@ -437,6 +506,12 @@ export class DependencyContainer<TReg extends AnyTag> {
  * const userService = await c.get(UserService);
  * ```
  */
-export function container(): DependencyContainer<never> {
-	return new DependencyContainer();
+export function container(): BasicDependencyContainer<never> {
+	return new BasicDependencyContainer();
+}
+
+export function scopedContainer<TScope extends Scope>(
+	scope: TScope
+): ScopedDependencyContainer<never, TScope> {
+	return new ScopedDependencyContainer(null, scope);
 }

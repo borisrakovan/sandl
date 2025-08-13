@@ -1,4 +1,7 @@
-import { DependencyContainer } from '@/di/container.js';
+import {
+	BasicDependencyContainer,
+	DependencyContainer,
+} from '@/di/container.js';
 import { Layer } from '@/di/layer.js';
 import { AnyTag } from '@/di/tag.js';
 import { Middleware, NextFunction } from '@/middleware.js';
@@ -30,7 +33,9 @@ class DependencyContainerMiddleware<
 			TRes
 		>
 	): PromiseOrValue<TRes> {
-		const container = this.layer.register(new DependencyContainer<TReg>());
+		const container = this.layer.register(
+			new BasicDependencyContainer<TReg>()
+		);
 		try {
 			return next({ ...request, state: { ...request.state, container } });
 		} finally {

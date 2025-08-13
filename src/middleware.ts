@@ -101,10 +101,16 @@ export function createHandlerMiddlewareChain<
 	for (const middleware of [...finalMiddlewares].reverse()) {
 		const nextChain = chain;
 		chain = (req: LambdaRequest<TEvent, State>) => {
-			if (typeof middleware === 'function') {
-				return middleware(req.state).execute(req, nextChain);
+			let mw =
+				typeof middleware === 'function'
+					? middleware(req.state)
+					: middleware;
+
+			if (overrides?.has(mw.name) ?? false) {
+				mw = overrides!.get(mw.name)!;
 			}
-			return middleware.execute(req, nextChain);
+
+			return mw.execute(req, nextChain);
 		};
 	}
 

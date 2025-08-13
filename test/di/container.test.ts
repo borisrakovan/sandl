@@ -1,4 +1,8 @@
-import { DependencyContainer, container } from '@/di/container.js';
+import {
+	BasicDependencyContainer,
+	DependencyContainer,
+	container,
+} from '@/di/container.js';
 import {
 	CircularDependencyError,
 	DependencyContainerError,
@@ -13,7 +17,7 @@ describe('DependencyContainer', () => {
 	describe('constructor and factory', () => {
 		it('should create an empty container', () => {
 			const c = container();
-			expect(c).toBeInstanceOf(DependencyContainer);
+			expect(c).toBeInstanceOf(BasicDependencyContainer);
 		});
 
 		it('should create a container with proper typing', () => {
@@ -34,7 +38,7 @@ describe('DependencyContainer', () => {
 			const c = container();
 			const registered = c.register(TestService, () => new TestService());
 
-			expect(registered).toBeInstanceOf(DependencyContainer);
+			expect(registered).toBeInstanceOf(BasicDependencyContainer);
 			// Should return the same container instance with updated type
 			expect(registered).toBe(c);
 		});

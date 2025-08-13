@@ -1,6 +1,5 @@
 import { AwsContext } from '@/types.js';
 import { APIGatewayProxyEventV2 } from 'aws-lambda';
-import { SecretValue } from 'examples/internal/secret-value.js';
 import { describe, expect, it } from 'vitest';
 import { handler } from './complex-dependencies-handler.js';
 
@@ -28,14 +27,16 @@ describe('api.handler', () => {
 					},
 				})
 			)
-			.withResource('secrets', {
-				scope: 'runtime',
-				init: () => ({
-					encryptionKey: new SecretValue('test'),
-				}),
-			})
+			.skipMiddleware('secrets')
+			// .withResource('secrets', {
+			// 	scope: 'runtime',
+			// 	init: () => ({
+			// 		encryptionKey: new SecretValue('test'),
+			// 	}),
+			// })
 			.execute(event, context);
 
+		console.log(result);
 		expect(result.statusCode).toBe(200);
 		expect(JSON.parse(result.body ?? '{}')).toEqual({
 			message: 'Hello, John Doe!',

@@ -26,7 +26,11 @@ export type {
 export type { LambdaTestBuilder } from './test-builder.js';
 
 // Dependency container and layer exports
-export { DependencyContainer, container } from './di/container.js';
+export {
+	container,
+	scopedContainer,
+	type DependencyContainer,
+} from './di/container.js';
 export { Layer, layer, type LayerFactory } from './di/layer.js';
 export { service } from './di/service.js';
 export type { Service } from './di/service.js';
@@ -36,4 +40,4 @@ export {
 	type TaggedClass,
 	type ValueTag,
 } from './di/tag.js';
-export type { Inject } from './di/types.js';
+export type { Inject, Scope } from './di/types.js';
