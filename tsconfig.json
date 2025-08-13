@@ -36,7 +36,8 @@
 		"test/**/*",
 		"examples/**/*",
 		"vitest.config.ts",
-		"playground/**/*"
+		"playground/**/*",
+		"tsdown.config.ts"
 	],
 	"exclude": [
 		"**/*.local.*"
