@@ -132,6 +132,21 @@ export interface Layer<
 }
 
 /**
+ * A factory function for creating layers.
+ *
+ * @template TRequires - The union of tags this layer requires
+ * @template TProvides - The union of tags this layer provides
+ * @template TParams - Optional parameters that can be passed to configure the layer
+ */
+export type LayerFactory<
+	TRequires extends AnyTag,
+	TProvides extends AnyTag,
+	TParams = undefined,
+> = TParams extends undefined
+	? () => Layer<TRequires, TProvides>
+	: (params: TParams) => Layer<TRequires, TProvides>;
+
+/**
  * Creates a new dependency layer that encapsulates a set of dependency registrations.
  * Layers are the primary building blocks for organizing and composing dependency injection setups.
  *
@@ -226,9 +241,7 @@ export function layer<
 		container: DependencyContainer<TRequires>,
 		params: TParams
 	) => DependencyContainer<TRequires | TProvides>
-): TParams extends undefined
-	? () => Layer<TRequires, TProvides>
-	: (params: TParams) => Layer<TRequires, TProvides> {
+): LayerFactory<TRequires, TProvides, TParams> {
 	const factory = (params?: TParams) => {
 		const layerImpl: Layer<TRequires, TProvides> = {
 			register: (container) => register(container, params as TParams),
@@ -241,9 +254,7 @@ export function layer<
 		};
 		return layerImpl;
 	};
-	return factory as TParams extends undefined
-		? () => Layer<TRequires, TProvides>
-		: (params: TParams) => Layer<TRequires, TProvides>;
+	return factory as LayerFactory<TRequires, TProvides, TParams>;
 }
 
 /**
