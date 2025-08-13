@@ -540,7 +540,7 @@ describe('DependencyContainer', () => {
 			);
 		});
 
-		it('should clear container state even if finalization fails', async () => {
+		it('should clear instance cache even if finalization fails', async () => {
 			class TestService extends Tag.Class('TestService') {}
 
 			const c = container().register(
@@ -556,11 +556,11 @@ describe('DependencyContainer', () => {
 			// Should throw due to finalizer error
 			await expect(c.destroy()).rejects.toThrow();
 
-			// But container should still be cleared
+			// But instance cache should still be cleared (not has() because that only checks cache)
 			expect(c.has(TestService)).toBe(false);
 		});
 
-		it('should clear all container state', async () => {
+		it('should clear instance cache but preserve structure for reuse', async () => {
 			class ServiceA extends Tag.Class('ServiceA') {}
 			class ServiceB extends Tag.Class('ServiceB') {}
 
@@ -576,8 +576,78 @@ describe('DependencyContainer', () => {
 
 			await c.destroy();
 
+			// Instance cache should be cleared
 			expect(c.has(ServiceA)).toBe(false);
 			expect(c.has(ServiceB)).toBe(false);
+
+			// But container should be reusable - can create new instances
+			const newServiceA = await c.get(ServiceA);
+			const newServiceB = await c.get(ServiceB);
+
+			expect(newServiceA).toBeInstanceOf(ServiceA);
+			expect(newServiceB).toBeInstanceOf(ServiceB);
+
+			// And they should be cached again
+			expect(c.has(ServiceA)).toBe(true);
+			expect(c.has(ServiceB)).toBe(true);
+		});
+
+		it('should support multiple destroy/reuse cycles', async () => {
+			class TestService extends Tag.Class('TestService') {
+				constructor(public id: number) {
+					super();
+				}
+			}
+
+			let instanceCount = 0;
+			const c = container().register(TestService, () => {
+				return new TestService(++instanceCount);
+			});
+
+			// First cycle
+			const instance1 = await c.get(TestService);
+			expect(instance1.id).toBe(1);
+			await c.destroy();
+
+			// Second cycle
+			const instance2 = await c.get(TestService);
+			expect(instance2.id).toBe(2);
+			expect(instance2).not.toBe(instance1); // Different instances
+			await c.destroy();
+
+			// Third cycle
+			const instance3 = await c.get(TestService);
+			expect(instance3.id).toBe(3);
+			expect(instance3).not.toBe(instance1);
+			expect(instance3).not.toBe(instance2);
+		});
+
+		it('should preserve finalizers across destroy/reuse cycles', async () => {
+			class TestService extends Tag.Class('TestService') {
+				cleanup = vi.fn();
+			}
+
+			const finalizer = vi.fn((instance: TestService) => {
+				instance.cleanup();
+			});
+
+			const c = container().register(
+				TestService,
+				() => new TestService(),
+				finalizer
+			);
+
+			// First cycle
+			const instance1 = await c.get(TestService);
+			await c.destroy();
+			expect(finalizer).toHaveBeenCalledTimes(1);
+			expect(instance1.cleanup).toHaveBeenCalledTimes(1);
+
+			// Second cycle - finalizer should still work
+			const instance2 = await c.get(TestService);
+			await c.destroy();
+			expect(finalizer).toHaveBeenCalledTimes(2);
+			expect(instance2.cleanup).toHaveBeenCalledTimes(1);
 		});
 	});
 

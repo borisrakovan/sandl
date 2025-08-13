@@ -16,6 +16,92 @@ import { DefaultScope, Factory, Finalizer, Scope } from './types.js';
  */
 const resolutionChain = new AsyncLocalStorage<AnyTag[]>();
 
+/**
+ * Shared logic for dependency resolution that handles caching, circular dependency detection,
+ * and error handling. Used by both BasicDependencyContainer and ScopedDependencyContainer.
+ * @internal
+ */
+async function resolveDependency<T extends AnyTag, TReg extends AnyTag, TScope extends Scope>(
+	tag: T,
+	cache: Map<AnyTag, Promise<unknown>>,
+	factories: Map<AnyTag, Factory<unknown, TReg, TScope>>,
+	container: DependencyContainer<TReg, TScope>
+): Promise<ServiceOf<T>> {
+	// Check cache first
+	const cached = cache.get(tag) as Promise<ServiceOf<T>> | undefined;
+	if (cached !== undefined) {
+		return cached;
+	}
+
+	// Check for circular dependency using AsyncLocalStorage
+	const currentChain = resolutionChain.getStore() ?? [];
+	if (currentChain.includes(tag)) {
+		throw new CircularDependencyError(tag, currentChain);
+	}
+
+	// Get factory
+	const factory = factories.get(tag) as
+		| Factory<ServiceOf<T>, TReg, TScope>
+		| undefined;
+
+	if (factory === undefined) {
+		return Promise.reject(new UnknownDependencyError(tag));
+	}
+
+	// Create and cache the promise
+	const instancePromise: Promise<ServiceOf<T>> = resolutionChain
+		.run([...currentChain, tag], async () => {
+			try {
+				const instance = await factory(container);
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+				return instance as ServiceOf<T>;
+			} catch (error) {
+				// Don't wrap CircularDependencyError, rethrow as-is
+				if (error instanceof CircularDependencyError) {
+					throw error;
+				}
+				throw new DependencyCreationError(tag, error);
+			}
+		})
+		.catch((error: unknown) => {
+			// Remove failed promise from cache on any error
+			cache.delete(tag);
+			throw error;
+		});
+
+	cache.set(tag, instancePromise);
+	return instancePromise;
+}
+
+/**
+ * Shared logic for running finalizers and handling cleanup errors.
+ * @internal
+ */
+async function runFinalizers(
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	finalizers: Map<AnyTag, Finalizer<any>>,
+	cache: Map<AnyTag, Promise<unknown>>
+): Promise<void> {
+	const promises = Array.from(finalizers.entries())
+		// Only finalize dependencies that were actually created
+		.filter(([tag]) => cache.has(tag))
+		.map(async ([tag, finalizer]) => {
+			const dep = await cache.get(tag);
+			return finalizer(dep);
+		});
+
+	const results = await Promise.allSettled(promises);
+
+	const failures = results.filter(
+		(result) => result.status === 'rejected'
+	);
+	if (failures.length > 0) {
+		throw new DependencyContainerFinalizationError(
+			failures.map((result) => result.reason as unknown)
+		);
+	}
+}
+
 export interface DependencyContainer<
 	TReg extends AnyTag,
 	TScope extends Scope = DefaultScope,
@@ -289,71 +375,29 @@ export class BasicDependencyContainer<TReg extends AnyTag>
 	 * ```
 	 */
 	async get<T extends TReg>(tag: T): Promise<ServiceOf<T>> {
-		// Check cache first
-		const cached = this.cache.get(tag) as Promise<ServiceOf<T>> | undefined;
-
-		if (cached !== undefined) {
-			return cached;
-		}
-
-		// Check for circular dependency using AsyncLocalStorage
-		const currentChain = resolutionChain.getStore() ?? [];
-		if (currentChain.includes(tag)) {
-			throw new CircularDependencyError(tag, currentChain);
-		}
-
-		// Get factory
-		const factory = this.factories.get(tag) as
-			| Factory<ServiceOf<T>, TReg, DefaultScope>
-			| undefined;
-
-		if (factory === undefined) {
-			throw new UnknownDependencyError(tag);
-		}
-
-		// Create and cache the promise
-		const instancePromise: Promise<ServiceOf<T>> = resolutionChain
-			.run([...currentChain, tag], async () => {
-				try {
-					const instance = await factory(this);
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-return
-					return instance as ServiceOf<T>;
-				} catch (error) {
-					// Don't wrap CircularDependencyError, rethrow as-is
-					if (error instanceof CircularDependencyError) {
-						throw error;
-					}
-					throw new DependencyCreationError(tag, error);
-				}
-			})
-			.catch((error: unknown) => {
-				// Remove failed promise from cache on any error
-				this.cache.delete(tag);
-				throw error;
-			});
-
-		this.cache.set(tag, instancePromise);
-		return instancePromise;
+		return resolveDependency(tag, this.cache, this.factories, this);
 	}
 
 	/**
-	 * Destroys the container by calling all finalizers concurrently and clearing internal state.
+	 * Destroys all instantiated dependencies by calling their finalizers, then clears the instance cache.
+	 *
+	 * **Important: This method preserves the container structure (factories and finalizers) for reuse.**
+	 * The container can be used again after destruction to create fresh instances following the same
+	 * dependency patterns.
 	 *
 	 * All finalizers for instantiated dependencies are called concurrently using Promise.allSettled()
-	 * for maximum cleanup performance. The container state is always cleaned up even if some
-	 * finalizers fail.
-	 *
+	 * for maximum cleanup performance.
 	 * If any finalizers fail, all errors are collected and a DependencyContainerFinalizationError
 	 * is thrown containing details of all failures.
 	 *
-	 * **Important:** Finalizers run concurrently, so there are no ordering guarantees. Services
-	 * should be designed to handle cleanup gracefully regardless of the order in which their
+	 * **Finalizer Concurrency:** Finalizers run concurrently, so there are no ordering guarantees. 
+	 * Services should be designed to handle cleanup gracefully regardless of the order in which their
 	 * dependencies are cleaned up.
 	 *
 	 * @returns Promise that resolves when all cleanup is complete
 	 * @throws {DependencyContainerFinalizationError} If any finalizers fail during cleanup
 	 *
-	 * @example Basic cleanup
+	 * @example Basic cleanup and reuse
 	 * ```typescript
 	 * const c = container()
 	 *   .register(DatabaseConnection,
@@ -365,11 +409,24 @@ export class BasicDependencyContainer<TReg extends AnyTag>
 	 *     (conn) => conn.disconnect() // Finalizer
 	 *   );
 	 *
-	 * // Use the container...
-	 * const db = await c.get(DatabaseConnection);
+	 * // First use cycle
+	 * const db1 = await c.get(DatabaseConnection);
+	 * await c.destroy(); // Calls conn.disconnect(), clears cache
 	 *
-	 * // Clean up (calls conn.disconnect() concurrently with other finalizers)
-	 * await c.destroy();
+	 * // Container can be reused - creates fresh instances
+	 * const db2 = await c.get(DatabaseConnection); // New connection
+	 * expect(db2).not.toBe(db1); // Different instances
+	 * ```
+	 *
+	 * @example Multiple destroy/reuse cycles
+	 * ```typescript
+	 * const c = container().register(UserService, () => new UserService());
+	 *
+	 * for (let i = 0; i < 5; i++) {
+	 *   const user = await c.get(UserService);
+	 *   // ... use service ...
+	 *   await c.destroy(); // Clean up, ready for next cycle
+	 * }
 	 * ```
 	 *
 	 * @example Handling cleanup errors
@@ -381,19 +438,7 @@ export class BasicDependencyContainer<TReg extends AnyTag>
 	 *     console.error('Some dependencies failed to clean up:', error.detail.errors);
 	 *   }
 	 * }
-	 * ```
-	 *
-	 * @example Designing resilient finalizers
-	 * ```typescript
-	 * // Good: Handles case where dependencies might already be cleaned up
-	 * const dbFinalizer = (connection) => {
-	 *   try {
-	 *     return connection.close();
-	 *   } catch (error) {
-	 *     if (error.message.includes('already closed')) return;
-	 *     throw error;
-	 *   }
-	 * };
+	 * // Container is still reusable even after finalizer errors
 	 * ```
 	 */
 	async destroy(): Promise<void> {
@@ -406,30 +451,11 @@ export class BasicDependencyContainer<TReg extends AnyTag>
 			// 3. Support cleanup phases/groups
 			// For now, concurrent cleanup forces better service design and faster shutdown.
 
-			// Run all finalizers concurrently for maximum performance
-			const promises = Array.from(this.finalizers.entries())
-				// Only finalize dependencies that were actually created
-				.filter(([tag]) => this.has(tag))
-				.map(async ([tag, finalizer]) => {
-					const dep = await this.cache.get(tag);
-					return finalizer(dep);
-				});
-
-			const results = await Promise.allSettled(promises);
-
-			const failures = results.filter(
-				(result) => result.status === 'rejected'
-			);
-			if (failures.length > 0) {
-				throw new DependencyContainerFinalizationError(
-					failures.map((result) => result.reason as unknown)
-				);
-			}
+			await runFinalizers(this.finalizers, this.cache);
 		} finally {
-			// Always clean up the container, even if finalization fails
-			this.finalizers.clear();
+			// Clear only the instance cache - preserve factories and finalizers for reuse
+			// This allows the container to be used again with the same dependency structure
 			this.cache.clear();
-			this.factories.clear();
 		}
 	}
 }
@@ -445,33 +471,145 @@ export class ScopedDependencyContainer<
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	private readonly children: ScopedDependencyContainer<any, any>[] = [];
 
+	/**
+	 * Cache of instantiated dependencies as promises for this scope.
+	 * @internal
+	 */
+	private readonly cache = new Map<AnyTag, Promise<unknown>>();
+
+	/**
+	 * Factory functions for creating dependency instances in this scope.
+	 * @internal
+	 */
+	private readonly factories = new Map<AnyTag, Factory<unknown, TReg, TScope>>();
+
+	/**
+	 * Finalizer functions for cleaning up dependencies when this scope is destroyed.
+	 * @internal
+	 */
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	private readonly finalizers = new Map<AnyTag, Finalizer<any>>();
+
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	constructor(parent: DependencyContainer<any, any> | null, scope: TScope) {
 		this.parent = parent;
 		this.scope = scope;
 	}
 
+	/**
+	 * Registers a dependency in this scoped container.
+	 * 
+	 * Dependencies registered in a scoped container are isolated to that scope.
+	 * When resolving dependencies, the container will first look in the current scope,
+	 * then walk up the parent chain if the dependency is not found locally.
+	 */
 	register<T extends AnyTag>(
-		_tag: T,
-		_factory: Factory<ServiceOf<T>, TReg, TScope>,
-		_finalizer?: Finalizer<ServiceOf<T>>,
+		tag: T,
+		factory: Factory<ServiceOf<T>, TReg, TScope>,
+		finalizer?: Finalizer<ServiceOf<T>>,
 		_scope?: TScope
 	): ScopedDependencyContainer<TReg | T, TScope> {
-		throw new Error('Method not implemented.');
+		if (this.factories.has(tag)) {
+			throw new DependencyContainerError(
+				`Dependency ${Tag.id(tag)} already registered in scope ${String(this.scope)}`
+			);
+		}
+		this.factories.set(tag, factory);
+		if (finalizer !== undefined) {
+			this.finalizers.set(tag, finalizer);
+		}
+		return this as ScopedDependencyContainer<TReg | T, TScope>;
 	}
 
-	has(_tag: AnyTag): boolean {
-		throw new Error('Method not implemented.');
+	/**
+	 * Checks if a dependency has been instantiated in this scope or any parent scope.
+	 * 
+	 * This method checks the current scope first, then walks up the parent chain.
+	 * Returns true only if the dependency has been created and cached somewhere in the scope hierarchy.
+	 */
+	has(tag: AnyTag): boolean {
+		// Check current scope first
+		if (this.cache.has(tag)) {
+			return true;
+		}
+		
+		// Check parent scopes
+		return this.parent?.has(tag) ?? false;
 	}
 
-	get<T extends TReg>(_tag: T): Promise<ServiceOf<T>> {
-		throw new Error('Method not implemented.');
+	/**
+	 * Retrieves a dependency instance, resolving from the current scope or parent scopes.
+	 * 
+	 * Resolution strategy:
+	 * 1. Check cache in current scope
+	 * 2. Check if factory exists in current scope - if so, create instance here
+	 * 3. Otherwise, delegate to parent scope
+	 * 4. If no parent or parent doesn't have it, throw UnknownDependencyError
+	 */
+	async get<T extends TReg>(tag: T): Promise<ServiceOf<T>> {
+		// First try to resolve in current scope
+		if (this.factories.has(tag)) {
+			return resolveDependency(tag, this.cache, this.factories, this);
+		}
+
+		// Delegate to parent if we don't have the factory
+		if (this.parent !== null) {
+			return this.parent.get(tag);
+		}
+
+		// No factory found in a root scope
+		throw new UnknownDependencyError(tag);
 	}
 
-	destroy(): Promise<void> {
-		throw new Error('Method not implemented.');
+	/**
+	 * Destroys this scoped container and its children, preserving the container structure for reuse.
+	 * 
+	 * This method ensures proper cleanup order while maintaining reusability:
+	 * 1. Destroys all child scopes first (they may depend on parent scope dependencies)
+	 * 2. Then calls finalizers for dependencies created in this scope
+	 * 3. Clears only instance caches - preserves factories, finalizers, and child structure
+	 * 
+	 * Child destruction happens first to ensure dependencies don't get cleaned up
+	 * before their dependents.
+	 */
+	async destroy(): Promise<void> {
+		const allFailures: unknown[] = [];
+
+		try {
+			// Destroy all child scopes FIRST (they may depend on our dependencies)
+			const childDestroyPromises = this.children.map(child => child.destroy());
+			const childResults = await Promise.allSettled(childDestroyPromises);
+			
+			const childFailures = childResults
+				.filter((result) => result.status === 'rejected')
+				.map((result) => result.reason as unknown);
+			
+			allFailures.push(...childFailures);
+
+			// Then run our own finalizers
+			await runFinalizers(this.finalizers, this.cache);
+
+		} catch (error) {
+			// Catch our own finalizer failures
+			allFailures.push(error);
+		} finally {
+			// Clear only the instance cache
+			// Keep factories, finalizers, and children for reactivation
+			this.cache.clear();
+		}
+
+		// Throw collected errors after cleanup is complete
+		if (allFailures.length > 0) {
+			throw new DependencyContainerFinalizationError(allFailures);
+		}
 	}
 
+	/**
+	 * Creates a child scoped container.
+	 * 
+	 * Child containers inherit access to parent dependencies but maintain
+	 * their own scope for new registrations and instance caching.
+	 */
 	child<TChildScope extends Scope>(
 		scope: TChildScope
 	): ScopedDependencyContainer<TReg, TScope | TChildScope> {
