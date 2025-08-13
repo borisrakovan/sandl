@@ -497,27 +497,66 @@ export class ScopedDependencyContainer<
 	}
 
 	/**
-	 * Registers a dependency in this scoped container.
+	 * Registers a dependency in the specified scope within this container's scope chain.
 	 * 
-	 * Dependencies registered in a scoped container are isolated to that scope.
-	 * When resolving dependencies, the container will first look in the current scope,
-	 * then walk up the parent chain if the dependency is not found locally.
+	 * If no scope is specified, registers in the current (leaf) scope. If a scope is specified,
+	 * delegates to the parent container if the target scope doesn't match the current scope.
+	 * 
+	 * This allows registering dependencies at different scope levels from any container
+	 * in the scope chain, providing flexibility for dependency organization.
+	 * 
+	 * @param tag - The dependency tag to register
+	 * @param factory - Factory function to create the dependency
+	 * @param finalizer - Optional cleanup function
+	 * @param scope - Target scope for registration (defaults to current scope)
+	 * @returns This container with updated type information
+	 * 
+	 * @example Registering in different scopes
+	 * ```typescript
+	 * const runtime = scopedContainer('runtime');
+	 * const request = runtime.child('request');
+	 * 
+	 * // Register in current (request) scope
+	 * request.register(RequestService, () => new RequestService());
+	 * 
+	 * // Register in runtime scope from request container - delegates to parent
+	 * request.register(DatabaseService, () => new DatabaseService(), undefined, 'runtime');
+	 * ```
 	 */
 	register<T extends AnyTag>(
 		tag: T,
 		factory: Factory<ServiceOf<T>, TReg, TScope>,
 		finalizer?: Finalizer<ServiceOf<T>>,
-		_scope?: TScope
+		scope?: TScope
 	): ScopedDependencyContainer<TReg | T, TScope> {
-		if (this.factories.has(tag)) {
+		// If no target scope specified, or target scope matches current scope, register here
+		if (scope === undefined || scope === this.scope) {
+			if (this.factories.has(tag)) {
+				throw new DependencyContainerError(
+					`Dependency ${Tag.id(tag)} already registered in scope ${String(this.scope)}`
+				);
+			}
+			this.factories.set(tag, factory);
+			if (finalizer !== undefined) {
+				this.finalizers.set(tag, finalizer);
+			}
+			return this as ScopedDependencyContainer<TReg | T, TScope>;
+		}
+
+		// Target scope doesn't match current scope - delegate to parent
+		if (this.parent === null) {
 			throw new DependencyContainerError(
-				`Dependency ${Tag.id(tag)} already registered in scope ${String(this.scope)}`
+				`Scope ${String(scope)} not found in container chain`
 			);
 		}
-		this.factories.set(tag, factory);
-		if (finalizer !== undefined) {
-			this.finalizers.set(tag, finalizer);
-		}
+
+		// Delegate registration to parent container
+		// The parent's register method will handle the registration
+		this.parent.register(tag, factory, finalizer, scope);
+		
+		// Even though we delegated, update our type to include the new dependency
+		// This ensures type safety - the child container "knows" about dependencies
+		// registered in parent scopes through it
 		return this as ScopedDependencyContainer<TReg | T, TScope>;
 	}
 
