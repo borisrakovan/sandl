@@ -12,6 +12,7 @@
 		"declaration": true,
 		"outDir": "./dist",
 		"sourceMap": true,
+		"rootDir": ".",
 		/* Strictness */
 		"strict": true,
 		"noUncheckedIndexedAccess": true,
