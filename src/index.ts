@@ -29,7 +29,7 @@ export type { LambdaTestBuilder } from './test-builder.js';
 export {
 	container,
 	scopedContainer,
-	type DependencyContainer,
+	type IContainer as DependencyContainer,
 } from './di/container.js';
 export { Layer, layer, type LayerFactory } from './di/layer.js';
 export { service } from './di/service.js';

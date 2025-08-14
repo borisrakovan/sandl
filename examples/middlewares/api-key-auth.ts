@@ -1,4 +1,4 @@
-import { DependencyContainer } from '@/di/container.js';
+import { IContainer } from '@/di/container.js';
 import { Middleware, NextFunction } from '@/middleware.js';
 import { ResourceMiddleware } from '@/resource.js';
 import { State } from '@/types.js';
@@ -26,7 +26,7 @@ class ApiKeyAuth<
 > {
 	constructor(
 		private readonly options: {
-			container: DependencyContainer<typeof AuthService>;
+			container: IContainer<typeof AuthService>;
 		}
 	) {
 		super('auth');
@@ -69,6 +69,6 @@ export const apiKeyAuth = <
 	TState extends State,
 	TRes,
 >(options: {
-	container: DependencyContainer<typeof AuthService>;
+	container: IContainer<typeof AuthService>;
 }): ResourceMiddleware<'auth', TEvent, TState, TRes, AuthContext> =>
 	new ApiKeyAuth<TEvent, TState, TRes>(options);

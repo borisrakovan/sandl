@@ -29,7 +29,7 @@ async function resolveDependency<
 	tag: T,
 	cache: Map<AnyTag, Promise<unknown>>,
 	factories: Map<AnyTag, Factory<unknown, TReg, TScope>>,
-	container: DependencyContainer<TReg, TScope>
+	container: IContainer<TReg, TScope>
 ): Promise<ServiceOf<T>> {
 	// Check cache first
 	const cached = cache.get(tag) as Promise<ServiceOf<T>> | undefined;
@@ -113,27 +113,17 @@ export type DependencyLifecycle<
 	finalizer: Finalizer<ServiceOf<T>>;
 };
 
-export interface DependencyContainer<
+export interface IContainer<
 	TReg extends AnyTag,
 	TScope extends Scope = DefaultScope,
 > {
-	// register<T extends AnyTag>(
-	// 	tag: T,
-	// 	lifecycle: DependencyLifecycle<T, TReg, TScope>,
-	// 	scope?: TScope
-	// ): DependencyContainer<TReg | T, TScope>;
-	// register<T extends AnyTag>(
-	// 	tag: T,
-	// 	factory: Factory<ServiceOf<T>, TReg, TScope>,
-	// 	scope?: TScope
-	// ): DependencyContainer<TReg | T, TScope>;
 	register<T extends AnyTag>(
 		tag: T,
 		factoryOrLifecycle:
 			| Factory<ServiceOf<T>, TReg, TScope>
 			| DependencyLifecycle<T, TReg, TScope>,
 		scope?: TScope
-	): DependencyContainer<TReg | T, TScope>;
+	): IContainer<TReg | T, TScope>;
 
 	has(tag: AnyTag): boolean;
 
@@ -209,9 +199,7 @@ export interface DependencyContainer<
  * await c.destroy(); // Calls all finalizers
  * ```
  */
-export class BasicDependencyContainer<TReg extends AnyTag>
-	implements DependencyContainer<TReg>
-{
+export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	/**
 	 * Cache of instantiated dependencies as promises.
 	 * Ensures singleton behavior and supports concurrent access.
@@ -311,7 +299,7 @@ export class BasicDependencyContainer<TReg extends AnyTag>
 		factoryOrLifecycle:
 			| Factory<ServiceOf<T>, TReg, DefaultScope>
 			| DependencyLifecycle<T, TReg, DefaultScope>
-	): DependencyContainer<TReg | T> {
+	): IContainer<TReg | T> {
 		if (this.factories.has(tag)) {
 			throw new DependencyContainerError(
 				`Dependency ${Tag.id(tag)} already registered`
@@ -325,7 +313,7 @@ export class BasicDependencyContainer<TReg extends AnyTag>
 			this.finalizers.set(tag, factoryOrLifecycle.finalizer);
 		}
 
-		return this as DependencyContainer<TReg | T>;
+		return this as IContainer<TReg | T>;
 	}
 
 	/**
@@ -487,16 +475,14 @@ export class BasicDependencyContainer<TReg extends AnyTag>
 	}
 }
 
-export class ScopedDependencyContainer<
-	TReg extends AnyTag,
-	TScope extends Scope,
-> implements DependencyContainer<TReg, TScope>
+export class ScopedContainer<TReg extends AnyTag, TScope extends Scope>
+	implements IContainer<TReg, TScope>
 {
 	private readonly scope: TScope;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	private readonly parent: DependencyContainer<any, any> | null;
+	private readonly parent: IContainer<any, any> | null;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	private readonly children: ScopedDependencyContainer<any, any>[] = [];
+	private readonly children: ScopedContainer<any, any>[] = [];
 
 	/**
 	 * Cache of instantiated dependencies as promises for this scope.
@@ -521,7 +507,7 @@ export class ScopedDependencyContainer<
 	private readonly finalizers = new Map<AnyTag, Finalizer<any>>();
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	constructor(parent: DependencyContainer<any, any> | null, scope: TScope) {
+	constructor(parent: IContainer<any, any> | null, scope: TScope) {
 		this.parent = parent;
 		this.scope = scope;
 	}
@@ -559,7 +545,7 @@ export class ScopedDependencyContainer<
 			| Factory<ServiceOf<T>, TReg, TScope>
 			| DependencyLifecycle<T, TReg, TScope>,
 		scope?: TScope
-	): ScopedDependencyContainer<TReg | T, TScope> {
+	): ScopedContainer<TReg | T, TScope> {
 		// If no target scope specified, or target scope matches current scope, register here
 		if (scope === undefined || scope === this.scope) {
 			if (this.factories.has(tag)) {
@@ -573,7 +559,7 @@ export class ScopedDependencyContainer<
 				this.factories.set(tag, factoryOrLifecycle.factory);
 				this.finalizers.set(tag, factoryOrLifecycle.finalizer);
 			}
-			return this as ScopedDependencyContainer<TReg | T, TScope>;
+			return this as ScopedContainer<TReg | T, TScope>;
 		}
 
 		// Target scope doesn't match current scope - delegate to parent
@@ -590,7 +576,7 @@ export class ScopedDependencyContainer<
 		// Even though we delegated, update our type to include the new dependency
 		// This ensures type safety - the child container "knows" about dependencies
 		// registered in parent scopes through it
-		return this as ScopedDependencyContainer<TReg | T, TScope>;
+		return this as ScopedContainer<TReg | T, TScope>;
 	}
 
 	/**
@@ -685,8 +671,8 @@ export class ScopedDependencyContainer<
 	 */
 	child<TChildScope extends Scope>(
 		scope: TChildScope
-	): ScopedDependencyContainer<TReg, TScope | TChildScope> {
-		const child = new ScopedDependencyContainer(this, scope);
+	): ScopedContainer<TReg, TScope | TChildScope> {
+		const child = new ScopedContainer(this, scope);
 		this.children.push(child);
 		return child;
 	}
@@ -717,12 +703,12 @@ export class ScopedDependencyContainer<
  * const userService = await c.get(UserService);
  * ```
  */
-export function container(): BasicDependencyContainer<never> {
-	return new BasicDependencyContainer();
+export function container(): Container<never> {
+	return new Container();
 }
 
 export function scopedContainer<TScope extends Scope>(
 	scope: TScope
-): ScopedDependencyContainer<never, TScope> {
-	return new ScopedDependencyContainer(null, scope);
+): ScopedContainer<never, TScope> {
+	return new ScopedContainer(null, scope);
 }

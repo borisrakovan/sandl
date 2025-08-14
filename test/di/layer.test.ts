@@ -416,13 +416,12 @@ describe('Layer', () => {
 
 			const layerWithFinalizer = layer<never, typeof ServiceWithCleanup>(
 				(container) =>
-					container.register(
-						ServiceWithCleanup,
-						() => new ServiceWithCleanup(),
-						(instance) => {
+					container.register(ServiceWithCleanup, {
+						factory: () => new ServiceWithCleanup(),
+						finalizer: (instance) => {
 							instance.cleanup();
-						}
-					)
+						},
+					})
 			);
 
 			const c = container();
@@ -446,23 +445,21 @@ describe('Layer', () => {
 			}
 
 			const layerA = layer<never, typeof ServiceA>((container) =>
-				container.register(
-					ServiceA,
-					() => new ServiceA(),
-					(instance) => {
+				container.register(ServiceA, {
+					factory: () => new ServiceA(),
+					finalizer: (instance) => {
 						instance.cleanup();
-					}
-				)
+					},
+				})
 			);
 
 			const layerB = layer<never, typeof ServiceB>((container) =>
-				container.register(
-					ServiceB,
-					() => new ServiceB(),
-					(instance) => {
+				container.register(ServiceB, {
+					factory: () => new ServiceB(),
+					finalizer: (instance) => {
 						instance.cleanup();
-					}
-				)
+					},
+				})
 			);
 
 			const composedLayer = layerA().to(layerB());

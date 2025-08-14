@@ -1,4 +1,4 @@
-import { DependencyContainer } from './container.js';
+import { IContainer } from './container.js';
 import { AnyTag } from './tag.js';
 import { Scope } from './types.js';
 
@@ -61,8 +61,8 @@ export interface Layer<
 	 * ```
 	 */
 	register: <TScope extends Scope>(
-		container: DependencyContainer<TRequires, TScope>
-	) => DependencyContainer<TRequires | TProvides, TScope>;
+		container: IContainer<TRequires, TScope>
+	) => IContainer<TRequires | TProvides, TScope>;
 
 	/**
 	 * Composes this layer with a target layer, creating a pipeline where this layer's
@@ -239,9 +239,9 @@ export function layer<
 	TParams = undefined,
 >(
 	register: <TScope extends Scope>(
-		container: DependencyContainer<TRequires, TScope>,
+		container: IContainer<TRequires, TScope>,
 		params: TParams
-	) => DependencyContainer<TRequires | TProvides, TScope>
+	) => IContainer<TRequires | TProvides, TScope>
 ): LayerFactory<TRequires, TProvides, TParams> {
 	const factory = (params?: TParams) => {
 		const layerImpl: Layer<TRequires, TProvides> = {
@@ -280,7 +280,7 @@ function createComposedLayer<
 		const containerWithSource = source.register(container);
 		return target.register(
 			// Type assertion needed due to contravariance - composition is safe
-			containerWithSource as unknown as DependencyContainer<TRequires2>
+			containerWithSource as unknown as IContainer<TRequires2>
 		);
 	})() as unknown as Layer<
 		TRequires1 | Exclude<TRequires2, TProvides1>,
@@ -307,7 +307,7 @@ function createMergedLayer<
 		const container1 = layer1.register(container);
 		return layer2.register(
 			// Type assertion needed due to contravariance - composition is safe
-			container1 as unknown as DependencyContainer<TRequires2>
+			container1 as unknown as IContainer<TRequires2>
 		);
 	})() as unknown as Layer<TRequires1 | TRequires2, TProvides1 | TProvides2>;
 }

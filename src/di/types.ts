@@ -1,5 +1,5 @@
 import { PromiseOrValue } from '@/types.js';
-import { DependencyContainer } from './container.js';
+import { IContainer } from './container.js';
 import { AnyTag, ValueTag } from './tag.js';
 
 /**
@@ -55,7 +55,7 @@ export interface ClassConstructor<T = unknown> {
  * ```
  */
 export type Factory<T, TReg extends AnyTag, TScope extends Scope> = (
-	container: DependencyContainer<TReg, TScope>
+	container: IContainer<TReg, TScope>
 ) => PromiseOrValue<T>;
 
 /**

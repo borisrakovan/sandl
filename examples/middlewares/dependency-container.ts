@@ -1,6 +1,6 @@
 import {
-	BasicDependencyContainer,
-	DependencyContainer,
+	Container,
+	IContainer,
 } from '@/di/container.js';
 import { Layer } from '@/di/layer.js';
 import { AnyTag } from '@/di/tag.js';
@@ -17,7 +17,7 @@ class DependencyContainerMiddleware<
 	'container',
 	TEvent,
 	TState,
-	TState & { container: DependencyContainer<TReg> },
+	TState & { container: IContainer<TReg> },
 	TRes,
 	TRes
 > {
@@ -29,12 +29,12 @@ class DependencyContainerMiddleware<
 		request: LambdaRequest<TEvent, TState>,
 		next: NextFunction<
 			TEvent,
-			TState & { container: DependencyContainer<TReg> },
+			TState & { container: IContainer<TReg> },
 			TRes
 		>
 	): PromiseOrValue<TRes> {
 		const container = this.layer.register(
-			new BasicDependencyContainer<TReg>()
+			new Container<TReg>()
 		);
 		try {
 			return next({ ...request, state: { ...request.state, container } });
@@ -56,5 +56,5 @@ export const dependencyContainer = <
 	TEvent,
 	TState,
 	TRes,
-	DependencyContainer<TReg>
+	IContainer<TReg>
 > => new DependencyContainerMiddleware<TEvent, TRes, TState, TReg>(layer);

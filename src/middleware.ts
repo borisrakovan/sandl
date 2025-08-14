@@ -33,8 +33,6 @@ export type NameOf<T extends AnyMiddleware> =
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	T extends Middleware<infer TName, any, any, any, any, any> ? TName : never;
 
-// (helper types for builder live in builder.ts)
-
 // Functional factory kept for convenience
 export function middleware<
 	TName extends MiddlewareName,

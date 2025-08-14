@@ -1,4 +1,4 @@
-import { DependencyContainer, container } from '@/di/container.js';
+import { Container, IContainer, container } from '@/di/container.js';
 import { Tag } from '@/di/tag.js';
 import { describe, expectTypeOf, it } from 'vitest';
 
@@ -7,7 +7,7 @@ describe('DependencyContainer Type Safety', () => {
 		it('should start with never type for empty container', () => {
 			const c = container();
 
-			expectTypeOf(c).toEqualTypeOf<DependencyContainer<never>>();
+			expectTypeOf(c).toEqualTypeOf<Container<never>>();
 		});
 
 		it('should add tag to union type when registering', () => {
@@ -15,9 +15,7 @@ describe('DependencyContainer Type Safety', () => {
 
 			const c = container().register(ServiceA, () => new ServiceA());
 
-			expectTypeOf(c).toEqualTypeOf<
-				DependencyContainer<typeof ServiceA>
-			>();
+			expectTypeOf(c).toEqualTypeOf<IContainer<typeof ServiceA>>();
 		});
 
 		it('should combine multiple tags in union type', () => {
@@ -29,7 +27,7 @@ describe('DependencyContainer Type Safety', () => {
 				.register(ServiceB, () => new ServiceB());
 
 			expectTypeOf(c).toEqualTypeOf<
-				DependencyContainer<typeof ServiceA | typeof ServiceB>
+				IContainer<typeof ServiceA | typeof ServiceB>
 			>();
 		});
 	});
@@ -74,7 +72,7 @@ describe('DependencyContainer Type Safety', () => {
 				.register(UserService, async (container) => {
 					// Factory should receive correctly typed container
 					expectTypeOf(container).toEqualTypeOf<
-						DependencyContainer<typeof DatabaseService>
+						IContainer<typeof DatabaseService>
 					>();
 
 					// Should be able to get DatabaseService
@@ -90,7 +88,7 @@ describe('DependencyContainer Type Safety', () => {
 				});
 
 			expectTypeOf(c).toEqualTypeOf<
-				DependencyContainer<typeof DatabaseService | typeof UserService>
+				IContainer<typeof DatabaseService | typeof UserService>
 			>();
 		});
 
@@ -100,9 +98,7 @@ describe('DependencyContainer Type Safety', () => {
 
 			// Should accept correct return type
 			const c1 = container().register(ServiceA, () => new ServiceA());
-			expectTypeOf(c1).toEqualTypeOf<
-				DependencyContainer<typeof ServiceA>
-			>();
+			expectTypeOf(c1).toEqualTypeOf<IContainer<typeof ServiceA>>();
 
 			// Should reject incorrect return type
 			container().register(
@@ -192,7 +188,7 @@ describe('DependencyContainer Type Safety', () => {
 				});
 
 			expectTypeOf(c).toEqualTypeOf<
-				DependencyContainer<typeof ApiKeyTag | typeof UserService>
+				IContainer<typeof ApiKeyTag | typeof UserService>
 			>();
 			expectTypeOf(c.get(UserService)).toEqualTypeOf<
 				Promise<UserService>
@@ -260,27 +256,25 @@ describe('DependencyContainer Type Safety', () => {
 			}
 
 			// Should accept correct finalizer type
-			const c1 = container().register(
-				ServiceWithCleanup,
-				() => new ServiceWithCleanup(),
-				(instance) => {
+			const c1 = container().register(ServiceWithCleanup, {
+				factory: () => new ServiceWithCleanup(),
+				finalizer: (instance) => {
 					expectTypeOf(instance).toEqualTypeOf<ServiceWithCleanup>();
 					instance.cleanup();
-				}
-			);
+				},
+			});
 			expectTypeOf(c1).toEqualTypeOf<
-				DependencyContainer<typeof ServiceWithCleanup>
+				IContainer<typeof ServiceWithCleanup>
 			>();
 
 			// Should reject incorrect finalizer type
-			container().register(
-				ServiceWithCleanup,
-				() => new ServiceWithCleanup(),
-				// @ts-expect-error - wrong parameter type
-				(instance: string) => {
+			container().register(ServiceWithCleanup, {
+				factory: () => new ServiceWithCleanup(),
+				// @ts-expect-error - Should reject incorrect finalizer type
+				finalizer: (instance: string) => {
 					return instance.length;
-				}
-			);
+				},
+			});
 		});
 
 		it('should support async finalizers', () => {
@@ -292,19 +286,18 @@ describe('DependencyContainer Type Safety', () => {
 				}
 			}
 
-			const c = container().register(
-				ServiceWithAsyncCleanup,
-				() => new ServiceWithAsyncCleanup(),
-				async (instance) => {
+			const c = container().register(ServiceWithAsyncCleanup, {
+				factory: () => new ServiceWithAsyncCleanup(),
+				finalizer: async (instance) => {
 					expectTypeOf(
 						instance
 					).toEqualTypeOf<ServiceWithAsyncCleanup>();
 					await instance.cleanup();
-				}
-			);
+				},
+			});
 
 			expectTypeOf(c).toEqualTypeOf<
-				DependencyContainer<typeof ServiceWithAsyncCleanup>
+				IContainer<typeof ServiceWithAsyncCleanup>
 			>();
 		});
 	});
@@ -322,7 +315,7 @@ describe('DependencyContainer Type Safety', () => {
 
 			// Even if ServiceA factory throws, the container type should still include it
 			expectTypeOf(c).toEqualTypeOf<
-				DependencyContainer<typeof ServiceA | typeof ServiceB>
+				IContainer<typeof ServiceA | typeof ServiceB>
 			>();
 
 			// And get should still return the correct Promise type (even though it will reject)
@@ -377,7 +370,7 @@ describe('DependencyContainer Type Safety', () => {
 				});
 
 			expectTypeOf(c).toEqualTypeOf<
-				DependencyContainer<
+				IContainer<
 					| typeof ConfigService
 					| typeof DatabaseService
 					| typeof UserRepository

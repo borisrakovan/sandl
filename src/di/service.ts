@@ -1,5 +1,5 @@
 import { PromiseOrValue } from '@/types.js';
-import { DependencyContainer } from './container.js';
+import { IContainer } from './container.js';
 import { Layer, layer } from './layer.js';
 import { AnyTag, ClassTag, ServiceOf, TaggedClass, TagId } from './tag.js';
 import { ExtractInjectTag } from './types.js';
@@ -138,7 +138,7 @@ export interface Service<T extends AnyTag>
 export function service<T extends AnyTag, TParams = undefined>(
 	serviceClass: T,
 	factory: (
-		container: DependencyContainer<ServiceDependencies<T>>,
+		container: IContainer<ServiceDependencies<T>>,
 		params: TParams
 	) => PromiseOrValue<ServiceOf<T>>
 ): TParams extends undefined
@@ -147,7 +147,7 @@ export function service<T extends AnyTag, TParams = undefined>(
 	const serviceFactory = (params?: TParams) => {
 		const serviceLayer = layer<ServiceDependencies<T>, T>((container) => {
 			return container.register(serviceClass, (c) =>
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+				 
 				factory(c, params as TParams)
 			);
 		})();

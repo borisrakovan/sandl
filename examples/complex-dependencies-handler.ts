@@ -4,7 +4,6 @@ import {
 	APIGatewayProxyEventV2,
 	APIGatewayProxyStructuredResultV2,
 } from 'aws-lambda';
-import { ApiErrorMapper } from 'examples/middlewares/api-error-mapper.js';
 import { apiKeyAuth } from 'examples/middlewares/api-key-auth.js';
 import { apiRequestValidator } from 'examples/middlewares/api-request-validator.js';
 import { apiResponseSerializer } from 'examples/middlewares/api-response-serializer.js';

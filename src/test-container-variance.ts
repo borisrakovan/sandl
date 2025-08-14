@@ -1,10 +1,10 @@
-import { DependencyContainer } from './di/container.js';
+import { IContainer } from './di/container.js';
 import { container, Tag } from './index.js';
 
 class StatusService extends Tag.Class('StatusService') {}
 
 // This should produce a type error but might not due to variance issues
-const test: DependencyContainer<typeof StatusService> = container();
+const test: IContainer<typeof StatusService> = container();
 
 // Let's test what happens when we try to use it
 async function testUsage() {

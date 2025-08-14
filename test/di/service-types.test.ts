@@ -1,4 +1,4 @@
-import { container, DependencyContainer } from '@/di/container.js';
+import { container, IContainer } from '@/di/container.js';
 import { Layer } from '@/di/layer.js';
 import { service, Service } from '@/di/service.js';
 import { Tag } from '@/di/tag.js';
@@ -50,7 +50,7 @@ describe('Service Type Safety', () => {
 			const userService = service(UserService, async (container) => {
 				// Container should have DatabaseService available
 				expectTypeOf(container).toEqualTypeOf<
-					DependencyContainer<typeof DatabaseService>
+					IContainer<typeof DatabaseService>
 				>();
 
 				const db = await container.get(DatabaseService);
@@ -86,7 +86,7 @@ describe('Service Type Safety', () => {
 			const userService = service(UserService, async (container) => {
 				// Container should have all required dependencies available
 				expectTypeOf(container).toEqualTypeOf<
-					DependencyContainer<
+					IContainer<
 						| typeof DatabaseService
 						| typeof CacheService
 						| typeof LoggerService
@@ -407,7 +407,7 @@ describe('Service Type Safety', () => {
 			const finalContainer = appService.register(c);
 
 			expectTypeOf(finalContainer).toEqualTypeOf<
-				DependencyContainer<typeof DatabaseService | typeof UserService>
+				IContainer<typeof DatabaseService | typeof UserService>
 			>();
 
 			// Should be able to resolve services from the container
@@ -511,7 +511,7 @@ describe('Service Type Safety', () => {
 			const dbService = service(DatabaseService, async (container) => {
 				// Container should have DatabaseUrlTag available
 				expectTypeOf(container).toEqualTypeOf<
-					DependencyContainer<typeof DatabaseUrlTag>
+					IContainer<typeof DatabaseUrlTag>
 				>();
 
 				const url = await container.get(DatabaseUrlTag);
@@ -555,7 +555,7 @@ describe('Service Type Safety', () => {
 			const dbService = service(DatabaseService, async (container) => {
 				// Container should require both ValueTags for manual injection
 				expectTypeOf(container).toEqualTypeOf<
-					DependencyContainer<typeof ConfigTag | typeof LoggerTag>
+					IContainer<typeof ConfigTag | typeof LoggerTag>
 				>();
 
 				const config = await container.get(ConfigTag);

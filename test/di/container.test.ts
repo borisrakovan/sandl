@@ -1,8 +1,4 @@
-import {
-	BasicDependencyContainer,
-	DependencyContainer,
-	container,
-} from '@/di/container.js';
+import { Container, IContainer, container } from '@/di/container.js';
 import {
 	CircularDependencyError,
 	DependencyContainerError,
@@ -17,7 +13,7 @@ describe('DependencyContainer', () => {
 	describe('constructor and factory', () => {
 		it('should create an empty container', () => {
 			const c = container();
-			expect(c).toBeInstanceOf(BasicDependencyContainer);
+			expect(c).toBeInstanceOf(Container);
 		});
 
 		it('should create a container with proper typing', () => {
@@ -38,7 +34,7 @@ describe('DependencyContainer', () => {
 			const c = container();
 			const registered = c.register(TestService, () => new TestService());
 
-			expect(registered).toBeInstanceOf(BasicDependencyContainer);
+			expect(registered).toBeInstanceOf(Container);
 			// Should return the same container instance with updated type
 			expect(registered).toBe(c);
 		});
@@ -78,13 +74,12 @@ describe('DependencyContainer', () => {
 				cleanup = vi.fn() as () => void;
 			}
 
-			const c = container().register(
-				TestService,
-				() => new TestService(),
-				(instance) => {
+			const c = container().register(TestService, {
+				factory: () => new TestService(),
+				finalizer: (instance) => {
 					instance.cleanup();
-				}
-			);
+				},
+			});
 
 			expect(c).toBeDefined();
 		});
@@ -204,7 +199,7 @@ describe('DependencyContainer', () => {
 			const c = container();
 
 			await expect(
-				(c as DependencyContainer<typeof TestService>).get(TestService)
+				(c as IContainer<typeof TestService>).get(TestService)
 			).rejects.toThrow(UnknownDependencyError);
 		});
 
@@ -377,7 +372,7 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			const c = container() as DependencyContainer<
+			const c = container() as IContainer<
 				typeof ServiceA | typeof ServiceB
 			>;
 			c.register(
@@ -409,11 +404,10 @@ describe('DependencyContainer', () => {
 				instance.cleanup();
 			});
 
-			const c = container().register(
-				TestService,
-				() => new TestService(),
-				finalizer
-			);
+			const c = container().register(TestService, {
+				factory: () => new TestService(),
+				finalizer,
+			});
 
 			// Instantiate the service
 			const instance = await c.get(TestService);
@@ -429,11 +423,10 @@ describe('DependencyContainer', () => {
 
 			const finalizer = vi.fn();
 
-			const c = container().register(
-				TestService,
-				() => new TestService(),
-				finalizer
-			);
+			const c = container().register(TestService, {
+				factory: () => new TestService(),
+				finalizer,
+			});
 
 			// Do not instantiate the service
 			await c.destroy();
@@ -449,27 +442,24 @@ describe('DependencyContainer', () => {
 			const finalizationOrder: string[] = [];
 
 			const c = container()
-				.register(
-					ServiceA,
-					() => new ServiceA(),
-					() => {
+				.register(ServiceA, {
+					factory: () => new ServiceA(),
+					finalizer: () => {
 						finalizationOrder.push('A');
-					}
-				)
-				.register(
-					ServiceB,
-					() => new ServiceB(),
-					() => {
+					},
+				})
+				.register(ServiceB, {
+					factory: () => new ServiceB(),
+					finalizer: () => {
 						finalizationOrder.push('B');
-					}
-				)
-				.register(
-					ServiceC,
-					() => new ServiceC(),
-					() => {
+					},
+				})
+				.register(ServiceC, {
+					factory: () => new ServiceC(),
+					finalizer: () => {
 						finalizationOrder.push('C');
-					}
-				);
+					},
+				});
 
 			// Instantiate all services
 			await c.get(ServiceA);
@@ -498,11 +488,10 @@ describe('DependencyContainer', () => {
 					return instance.asyncCleanup();
 				});
 
-			const c = container().register(
-				TestService,
-				() => new TestService(),
-				finalizer
-			);
+			const c = container().register(TestService, {
+				factory: () => new TestService(),
+				finalizer,
+			});
 
 			const instance = await c.get(TestService);
 
@@ -516,20 +505,18 @@ describe('DependencyContainer', () => {
 			class ServiceB extends Tag.Class('ServiceB') {}
 
 			const c = container()
-				.register(
-					ServiceA,
-					() => new ServiceA(),
-					() => {
+				.register(ServiceA, {
+					factory: () => new ServiceA(),
+					finalizer: () => {
 						throw new Error('Finalizer A error');
-					}
-				)
-				.register(
-					ServiceB,
-					() => new ServiceB(),
-					() => {
+					},
+				})
+				.register(ServiceB, {
+					factory: () => new ServiceB(),
+					finalizer: () => {
 						throw new Error('Finalizer B error');
-					}
-				);
+					},
+				});
 
 			// Instantiate services
 			await c.get(ServiceA);
@@ -543,13 +530,12 @@ describe('DependencyContainer', () => {
 		it('should clear instance cache even if finalization fails', async () => {
 			class TestService extends Tag.Class('TestService') {}
 
-			const c = container().register(
-				TestService,
-				() => new TestService(),
-				() => {
+			const c = container().register(TestService, {
+				factory: () => new TestService(),
+				finalizer: () => {
 					throw new Error('Finalizer error');
-				}
-			);
+				},
+			});
 
 			await c.get(TestService);
 
@@ -631,11 +617,10 @@ describe('DependencyContainer', () => {
 				instance.cleanup();
 			});
 
-			const c = container().register(
-				TestService,
-				() => new TestService(),
-				finalizer
-			);
+			const c = container().register(TestService, {
+				factory: () => new TestService(),
+				finalizer,
+			});
 
 			// First cycle
 			const instance1 = await c.get(TestService);
