@@ -147,7 +147,6 @@ export function service<T extends AnyTag, TParams = undefined>(
 	const serviceFactory = (params?: TParams) => {
 		const serviceLayer = layer<ServiceDependencies<T>, T>((container) => {
 			return container.register(serviceClass, (c) =>
-				 
 				factory(c, params as TParams)
 			);
 		})();

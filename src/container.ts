@@ -550,7 +550,7 @@ export class ScopedContainer<TReg extends AnyTag, TScope extends Scope>
 		if (scope === undefined || scope === this.scope) {
 			if (this.factories.has(tag)) {
 				throw new DependencyContainerError(
-					`Dependency ${Tag.id(tag)} already registered in scope ${String(this.scope)}`
+					`Dependency ${Tag.id(tag)} already registered in scope '${String(this.scope)}'`
 				);
 			}
 			if (typeof factoryOrLifecycle === 'function') {
@@ -565,7 +565,7 @@ export class ScopedContainer<TReg extends AnyTag, TScope extends Scope>
 		// Target scope doesn't match current scope - delegate to parent
 		if (this.parent === null) {
 			throw new DependencyContainerError(
-				`Scope ${String(scope)} not found in container chain`
+				`Scope '${String(scope)}' not found in container chain`
 			);
 		}
 

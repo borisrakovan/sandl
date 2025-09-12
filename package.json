@@ -1,21 +1,30 @@
 {
-	"name": "lambdaverse",
+	"name": "difinitive",
 	"version": "0.0.2",
 	"keywords": [
-		"lambdaverse",
+		"typescript",
+		"dependency-injection",
+		"dependency-inversion",
+		"injection",
+		"di",
+		"inversion-of-control",
+		"ioc",
+		"container",
+		"layer",
+		"service",
 		"aws",
 		"lambda",
-		"typescript",
-		"aws-lambda"
+		"aws-lambda",
+		"devops"
 	],
-	"homepage": "https://github.com/borisrakovan/lambdaverse",
+	"homepage": "https://github.com/borisrakovan/difine",
 	"bugs": {
-		"url": "https://github.com/borisrakovan/lambdaverse/issues"
+		"url": "https://github.com/borisrakovan/difine/issues"
 	},
 	"author": "Boris Rakovan <b.rakovan@gmail.com> (https://github.com/borisrakovan)",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/borisrakovan/lambdaverse.git"
+		"url": "git+https://github.com/borisrakovan/difine.git"
 	},
 	"license": "MIT",
 	"files": [
@@ -43,7 +52,6 @@
 		"release": "changeset version && changeset publish"
 	},
 	"devDependencies": {
-		"@aws-sdk/client-secrets-manager": "^3.862.0",
 		"@changesets/cli": "^2.29.5",
 		"@eslint/js": "^9.26.0",
 		"@total-typescript/ts-reset": "^0.6.1",
