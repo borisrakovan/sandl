@@ -1,8 +1,9 @@
 {
-	"name": "difinitive",
+	"name": "kore",
 	"version": "0.0.2",
 	"keywords": [
 		"typescript",
+		"kore",
 		"dependency-injection",
 		"dependency-inversion",
 		"injection",
@@ -14,17 +15,16 @@
 		"service",
 		"aws",
 		"lambda",
-		"aws-lambda",
-		"devops"
+		"aws-lambda"
 	],
-	"homepage": "https://github.com/borisrakovan/difine",
+	"homepage": "https://github.com/borisrakovan/kore",
 	"bugs": {
-		"url": "https://github.com/borisrakovan/difine/issues"
+		"url": "https://github.com/borisrakovan/kore/issues"
 	},
 	"author": "Boris Rakovan <b.rakovan@gmail.com> (https://github.com/borisrakovan)",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/borisrakovan/difine.git"
+		"url": "git+https://github.com/borisrakovan/kore.git"
 	},
 	"license": "MIT",
 	"files": [

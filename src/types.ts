@@ -1,6 +1,18 @@
-import { PromiseOrValue } from '@/types.js';
 import { IContainer } from './container.js';
 import { AnyTag, ValueTag } from './tag.js';
+
+export type JsonObject = { [key: string]: JsonValue };
+export type JsonValue =
+	| string
+	| number
+	| boolean
+	| null
+	| undefined
+	| Date
+	| JsonObject
+	| JsonValue[];
+
+export type PromiseOrValue<T> = T | Promise<T>;
 
 /**
  * Unique symbol used to store the original ValueTag in Inject<T> types.
