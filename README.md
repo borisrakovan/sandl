@@ -66,15 +66,13 @@ const runtime = scopedContainer('runtime').register(DatabaseService, {
 	finalizer: (db) => db.disconnect(),
 });
 
-// Request-scoped dependencies (per-request instances)
-const request = runtime.child('request').register(
-	UserService,
-	async (c) => new UserService(await c.get(DatabaseService)) // Uses runtime DB
-);
-
 // Lambda handler example
 export const handler = async (event, context) => {
-	const requestContainer = runtime.child('request');
+	// Create request scope for this invocation
+	const requestContainer = runtime.child('request').register(
+		UserService,
+		async (c) => new UserService(await c.get(DatabaseService)) // Uses runtime DB
+	);
 
 	try {
 		const userService = await requestContainer.get(UserService);
@@ -158,7 +156,6 @@ const app = container()
 			new DatabaseService(await c.get(ConfigTag), await c.get(ApiKeyTag))
 	);
 ```
-
 
 ### Complex Layer Composition
 
