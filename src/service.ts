@@ -145,11 +145,15 @@ export function service<T extends AnyTag, TParams = undefined>(
 	? () => Service<T>
 	: (params: TParams) => Service<T> {
 	const serviceFactory = (params?: TParams) => {
-		const serviceLayer = layer<ServiceDependencies<T>, T>(<TScope extends Scope>(container: IContainer<ServiceDependencies<T>, TScope>) => {
-			return container.register(serviceClass, (c) =>
-				factory(c, params as TParams)
-			);
-		})();
+		const serviceLayer = layer<ServiceDependencies<T>, T>(
+			<TScope extends Scope>(
+				container: IContainer<ServiceDependencies<T>, TScope>
+			) => {
+				return container.register(serviceClass, (c) =>
+					factory(c, params as TParams)
+				);
+			}
+		)();
 
 		// Create the service object that implements the Service interface
 		const serviceImpl: Service<T> = {
