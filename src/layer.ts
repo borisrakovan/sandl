@@ -244,7 +244,9 @@ export function layer<
 ): LayerFactory<TRequires, TProvides, TParams> {
 	const factory = (params?: TParams) => {
 		const layerImpl: Layer<TRequires, TProvides> = {
-			register: (container) => register(container, params as TParams),
+			register: <TScope extends Scope>(
+				container: IContainer<TRequires, TScope>
+			) => register(container, params as TParams),
 			to(target) {
 				return createComposedLayer(layerImpl, target);
 			},
@@ -275,13 +277,20 @@ function createComposedLayer<
 	TRequires1 | Exclude<TRequires2, TProvides1>,
 	TProvides1 | TProvides2
 > {
-	return layer((container) => {
-		const containerWithSource = source.register(container);
-		return target.register(
-			// Type assertion needed due to contravariance - composition is safe
-			containerWithSource as unknown as IContainer<TRequires2>
-		);
-	})() as unknown as Layer<
+	return layer(
+		<TScope extends Scope>(
+			container: IContainer<
+				TRequires1 | Exclude<TRequires2, TProvides1>,
+				TScope
+			>
+		) => {
+			const containerWithSource = source.register(container);
+			return target.register(
+				// Type assertion needed due to contravariance - composition is safe
+				containerWithSource as unknown as IContainer<TRequires2, TScope>
+			);
+		}
+	)() as unknown as Layer<
 		TRequires1 | Exclude<TRequires2, TProvides1>,
 		TProvides1 | TProvides2
 	>;
@@ -302,13 +311,17 @@ function createMergedLayer<
 	layer1: Layer<TRequires1, TProvides1>,
 	layer2: Layer<TRequires2, TProvides2>
 ): Layer<TRequires1 | TRequires2, TProvides1 | TProvides2> {
-	return layer((container) => {
-		const container1 = layer1.register(container);
-		return layer2.register(
-			// Type assertion needed due to contravariance - composition is safe
-			container1 as unknown as IContainer<TRequires2>
-		);
-	})() as unknown as Layer<TRequires1 | TRequires2, TProvides1 | TProvides2>;
+	return layer(
+		<TScope extends Scope>(
+			container: IContainer<TRequires1 | TRequires2, TScope>
+		) => {
+			const container1 = layer1.register(container);
+			return layer2.register(
+				// Type assertion needed due to contravariance - composition is safe
+				container1 as unknown as IContainer<TRequires2, TScope>
+			);
+		}
+	)() as unknown as Layer<TRequires1 | TRequires2, TProvides1 | TProvides2>;
 }
 
 /**
@@ -352,7 +365,10 @@ export const Layer = {
 	 * ```
 	 */
 	empty(): Layer {
-		return layer((container) => container)();
+		return layer(
+			<TScope extends Scope>(container: IContainer<never, TScope>) =>
+				container
+		)();
 	},
 
 	/**
