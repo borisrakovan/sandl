@@ -1,6 +1,6 @@
-import { container } from '@/di/container.js';
-import { layer, Layer } from '@/di/layer.js';
-import { Tag } from '@/di/tag.js';
+import { container } from '@/container.js';
+import { layer, Layer } from '@/layer.js';
+import { Tag } from '@/tag.js';
 import { describe, expect, it, vi } from 'vitest';
 
 describe('Layer', () => {

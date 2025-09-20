@@ -1,6 +1,6 @@
-import { container } from '@/di/container.js';
-import { Layer, layer } from '@/di/layer.js';
-import { Tag } from '@/di/tag.js';
+import { container } from '@/container.js';
+import { Layer, layer } from '@/layer.js';
+import { Tag } from '@/tag.js';
 import { describe, expectTypeOf, it } from 'vitest';
 
 describe('Layer Type Safety', () => {

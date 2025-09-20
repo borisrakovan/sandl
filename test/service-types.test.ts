@@ -1,8 +1,8 @@
-import { container, IContainer } from '@/di/container.js';
-import { Layer } from '@/di/layer.js';
-import { service, Service } from '@/di/service.js';
-import { Tag } from '@/di/tag.js';
-import { Inject } from '@/di/types.js';
+import { container, IContainer } from '@/container.js';
+import { Layer } from '@/layer.js';
+import { service, Service } from '@/service.js';
+import { Tag } from '@/tag.js';
+import { Inject } from '@/types.js';
 import { describe, expectTypeOf, it } from 'vitest';
 
 describe('Service Type Safety', () => {

@@ -1,8 +1,8 @@
+import { container } from '@/container.js';
+import { service } from '@/service.js';
+import { Tag } from '@/tag.js';
+import { Inject } from '@/types.js';
 import { describe, expect, it } from 'vitest';
-import { container } from '../../src/di/container.js';
-import { service } from '../../src/di/service.js';
-import { Tag } from '../../src/di/tag.js';
-import { Inject } from '../../src/di/types.js';
 
 describe('Service', () => {
 	describe('Basic service creation', () => {

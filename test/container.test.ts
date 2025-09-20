@@ -1,12 +1,12 @@
-import { Container, IContainer, container } from '@/di/container.js';
+import { Container, IContainer, container } from '@/container.js';
 import {
 	CircularDependencyError,
 	DependencyContainerError,
 	DependencyContainerFinalizationError,
 	DependencyCreationError,
 	UnknownDependencyError,
-} from '@/di/errors.js';
-import { Tag } from '@/di/tag.js';
+} from '@/errors.js';
+import { Tag } from '@/tag.js';
 import { describe, expect, it, vi } from 'vitest';
 
 describe('DependencyContainer', () => {

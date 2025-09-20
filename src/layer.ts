@@ -159,7 +159,7 @@ export type LayerFactory<
  *
  * @example Simple layer without parameters
  * ```typescript
- * import { layer, Tag } from '@/di/layer.js';
+ * import { layer, Tag } from 'sandl';
  *
  * class DatabaseService extends Tag.Class('DatabaseService') {
  *   constructor(private url: string = 'sqlite://memory') {}

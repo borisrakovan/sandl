@@ -154,5 +154,5 @@ export type Finalizer<T> = (instance: T) => PromiseOrValue<void>;
 
 export type Scope = string | symbol;
 
-export const DefaultScope: unique symbol = Symbol('default');
+export const DefaultScope = Symbol('default');
 export type DefaultScope = typeof DefaultScope;
