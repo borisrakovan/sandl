@@ -12,8 +12,7 @@ import { Scope } from './types.js';
  *
  * @example Basic layer usage
  * ```typescript
- * import { layer, Tag } from '@/di/layer.js';
- * import { container } from '@/di/container.js';
+ * import { layer, Tag, container } from 'sandl';
  *
  * class DatabaseService extends Tag.Class('DatabaseService') {
  *   query() { return 'data'; }
@@ -344,7 +343,7 @@ export const Layer = {
 	 *
 	 * @example
 	 * ```typescript
-	 * import { Layer } from '@/di/layer.js';
+	 * import { Layer } from 'sandl';
 	 *
 	 * const baseLayer = Layer.empty();
 	 * const appLayer = baseLayer
@@ -370,7 +369,7 @@ export const Layer = {
 	 *
 	 * @example Basic usage
 	 * ```typescript
-	 * import { Layer } from '@/di/layer.js';
+	 * import { Layer } from 'sandl';
 	 *
 	 * const infraLayer = Layer.merge(
 	 *   databaseLayer(),

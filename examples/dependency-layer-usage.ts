@@ -1,6 +1,6 @@
-import { container } from '@/di/container.js';
-import { Tag } from '@/di/tag.js';
-import { layer, Layer } from '@/di/layer.js';
+import { container } from '@/container.js';
+import { layer, Layer } from '@/layer.js';
+import { Tag } from '@/tag.js';
 
 // Real-world services with proper dependencies
 

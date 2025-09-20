@@ -145,7 +145,7 @@ export interface IContainer<
  *
  * @example Basic usage with class tags
  * ```typescript
- * import { container, Tag } from '@/di/';
+ * import { container, Tag } from 'sandl';
  *
  * class DatabaseService extends Tag.Class('DatabaseService') {
  *   query() { return 'data'; }
@@ -689,7 +689,7 @@ export class ScopedContainer<TReg extends AnyTag, TScope extends Scope>
  *
  * @example
  * ```typescript
- * import { container, Tag } from '@/di/';
+ * import { container, Tag } from 'sandl';
  *
  * class DatabaseService extends Tag.Class('DatabaseService') {}
  * class UserService extends Tag.Class('UserService') {}

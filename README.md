@@ -1,8 +1,10 @@
-# Kore
+# Sandl
 
 **⚠️ This project is under heavy development and APIs may change.**
 
 A dependency injection framework for TypeScript that emphasizes complete type safety, modular architecture, and scope management.
+
+*Sandl* stands for **Services & Layers** - reflecting the framework's core concepts of organizing code into composable service layers.
 
 ## Key Features
 
@@ -13,7 +15,7 @@ A dependency injection framework for TypeScript that emphasizes complete type sa
 - **Constructor-based DI**: Dependencies are inferred from class constructors
 
 ```typescript
-import { container, Tag } from 'kore';
+import { container, Tag } from 'sandl';
 
 class DatabaseService extends Tag.Class('DatabaseService') {
 	query() {
@@ -88,7 +90,7 @@ export const handler = async (event, context) => {
 ### Basic Container Usage
 
 ```typescript
-import { container, Tag } from 'kore';
+import { container, Tag } from 'sandl';
 
 class EmailService extends Tag.Class('EmailService') {
 	sendEmail(to: string, subject: string) {
@@ -120,7 +122,7 @@ const userService = await app.get(UserService);
 ### Service Pattern with Auto-Composition
 
 ```typescript
-import { service, Layer } from 'kore';
+import { service, Layer } from 'sandl';
 
 const emailService = service(EmailService, () => new EmailService());
 const userService = service(
