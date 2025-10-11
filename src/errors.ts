@@ -200,7 +200,7 @@ export class DependencyCreationError extends DependencyContainerError {
 	 * @param error - The original error thrown by the factory function
 	 */
 	constructor(tag: AnyTag, error: unknown) {
-		super(`Error creating instance of ${Tag.id(tag)}: ${error}`, {
+		super(`Error creating instance of ${Tag.id(tag)}`, {
 			cause: error,
 			detail: {
 				tag: Tag.id(tag),
