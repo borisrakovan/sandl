@@ -114,7 +114,7 @@ export type DependencyLifecycle<
 };
 
 export interface IContainer<
-	TReg extends AnyTag,
+	in TReg extends AnyTag,
 	TScope extends Scope = DefaultScope,
 > {
 	register<T extends AnyTag>(
@@ -199,7 +199,7 @@ export interface IContainer<
  * await c.destroy(); // Calls all finalizers
  * ```
  */
-export class Container<TReg extends AnyTag> implements IContainer<TReg> {
+export class Container<in TReg extends AnyTag> implements IContainer<TReg> {
 	/**
 	 * Cache of instantiated dependencies as promises.
 	 * Ensures singleton behavior and supports concurrent access.
@@ -475,7 +475,7 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	}
 }
 
-export class ScopedContainer<TReg extends AnyTag, TScope extends Scope>
+export class ScopedContainer<in TReg extends AnyTag, TScope extends Scope>
 	implements IContainer<TReg, TScope>
 {
 	private readonly scope: TScope;
