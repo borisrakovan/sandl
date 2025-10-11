@@ -88,10 +88,9 @@ export interface Service<T extends AnyTag>
  * - No constructor dependencies are needed since they don't have constructors
  *
  * @template T - The tag representing the service (ClassTag or ValueTag)
- * @template TParams - Optional parameters for service configuration
  * @param serviceClass - The tag (ClassTag or ValueTag)
- * @param factory - Factory function for service instantiation with container and optional params
- * @returns A factory function that creates a service layer
+ * @param factory - Factory function for service instantiation with container
+ * @returns The service layer
  *
  * @example Simple service without dependencies
  * ```typescript
@@ -120,53 +119,28 @@ export interface Service<T extends AnyTag>
  *   new UserService(await container.get(DatabaseService))
  * );
  * ```
- *
- * @example Service with configuration parameters
- * ```typescript
- * class DatabaseService extends Tag.Class('DatabaseService') {
- *   constructor(private config: { dbUrl: string }) {
- *     super();
- *   }
- * }
- *
- * const dbService = service(
- *   DatabaseService,
- *   (container, params: { dbUrl: string }) => new DatabaseService(params)
- * );
- * ```
  */
-export function service<T extends AnyTag, TParams = undefined>(
+export function service<T extends AnyTag>(
 	serviceClass: T,
 	factory: <TScope extends Scope>(
-		container: IContainer<ServiceDependencies<T>, TScope>,
-		params: TParams
+		container: IContainer<ServiceDependencies<T>, TScope>
 	) => PromiseOrValue<ServiceOf<T>>
-): TParams extends undefined
-	? () => Service<T>
-	: (params: TParams) => Service<T> {
-	const serviceFactory = (params?: TParams) => {
-		const serviceLayer = layer<ServiceDependencies<T>, T>(
-			<TScope extends Scope>(
-				container: IContainer<ServiceDependencies<T>, TScope>
-			) => {
-				return container.register(serviceClass, (c) =>
-					factory(c, params as TParams)
-				);
-			}
-		)();
+): Service<T> {
+	const serviceLayer = layer<ServiceDependencies<T>, T>(
+		<TScope extends Scope>(
+			container: IContainer<ServiceDependencies<T>, TScope>
+		) => {
+			return container.register(serviceClass, (c) => factory(c));
+		}
+	);
 
-		// Create the service object that implements the Service interface
-		const serviceImpl: Service<T> = {
-			serviceClass,
-			register: serviceLayer.register,
-			to: serviceLayer.to,
-			and: serviceLayer.and,
-		};
-
-		return serviceImpl;
+	// Create the service object that implements the Service interface
+	const serviceImpl: Service<T> = {
+		serviceClass,
+		register: serviceLayer.register,
+		to: serviceLayer.to,
+		and: serviceLayer.and,
 	};
 
-	return serviceFactory as TParams extends undefined
-		? () => Service<T>
-		: (params: TParams) => Service<T>;
+	return serviceImpl;
 }

@@ -132,32 +132,16 @@ export interface Layer<
 }
 
 /**
- * A factory function for creating layers.
- *
- * @template TRequires - The union of tags this layer requires
- * @template TProvides - The union of tags this layer provides
- * @template TParams - Optional parameters that can be passed to configure the layer
- */
-export type LayerFactory<
-	TRequires extends AnyTag,
-	TProvides extends AnyTag,
-	TParams = undefined,
-> = TParams extends undefined
-	? () => Layer<TRequires, TProvides>
-	: (params: TParams) => Layer<TRequires, TProvides>;
-
-/**
  * Creates a new dependency layer that encapsulates a set of dependency registrations.
  * Layers are the primary building blocks for organizing and composing dependency injection setups.
  *
  * @template TRequires - The union of dependency tags this layer requires from other layers or external setup
  * @template TProvides - The union of dependency tags this layer registers/provides
- * @template TParams - Optional parameters that can be passed to configure the layer
  *
- * @param register - Function that performs the dependency registrations. Receives a container and optional params.
- * @returns A layer factory function. If TParams is undefined, returns a parameterless function. Otherwise returns a function that takes TParams.
+ * @param register - Function that performs the dependency registrations. Receives a container.
+ * @returns The layer instance.
  *
- * @example Simple layer without parameters
+ * @example Simple layer
  * ```typescript
  * import { layer, Tag } from 'sandl';
  *
@@ -172,37 +156,7 @@ export type LayerFactory<
  * );
  *
  * // Usage
- * const dbLayerInstance = databaseLayer(); // No parameters needed
- * ```
- *
- * @example Layer with dependencies
- * ```typescript
- * const ConfigTag = Tag.of('config')<{ dbUrl: string }>();
- *
- * // Layer that requires ConfigTag and provides DatabaseService
- * const databaseLayer = layer<typeof ConfigTag, typeof DatabaseService>((container) =>
- *   container.register(DatabaseService, async (c) => {
- *     const config = await c.get(ConfigTag);
- *     return new DatabaseService(config.dbUrl);
- *   })
- * );
- * ```
- *
- * @example Parameterized layer
- * ```typescript
- * interface DatabaseConfig {
- *   host: string;
- *   port: number;
- * }
- *
- * // Layer that takes configuration parameters
- * const databaseLayer = layer<never, typeof DatabaseService, DatabaseConfig>(
- *   (container, config) =>
- *     container.register(DatabaseService, () => new DatabaseService(config))
- * );
- *
- * // Usage with parameters
- * const dbLayerInstance = databaseLayer({ host: 'localhost', port: 5432 });
+ * const dbLayerInstance = databaseLayer();
  * ```
  *
  * @example Complex application layer structure
@@ -235,28 +189,23 @@ export type LayerFactory<
 export function layer<
 	TRequires extends AnyTag = never,
 	TProvides extends AnyTag = never,
-	TParams = undefined,
 >(
 	register: <TScope extends Scope>(
-		container: IContainer<TRequires, TScope>,
-		params: TParams
+		container: IContainer<TRequires, TScope>
 	) => IContainer<TRequires | TProvides, TScope>
-): LayerFactory<TRequires, TProvides, TParams> {
-	const factory = (params?: TParams) => {
-		const layerImpl: Layer<TRequires, TProvides> = {
-			register: <TScope extends Scope>(
-				container: IContainer<TRequires, TScope>
-			) => register(container, params as TParams),
-			to(target) {
-				return createComposedLayer(layerImpl, target);
-			},
-			and(other) {
-				return createMergedLayer(layerImpl, other);
-			},
-		};
-		return layerImpl;
+): Layer<TRequires, TProvides> {
+	const layerImpl: Layer<TRequires, TProvides> = {
+		register: <TScope extends Scope>(
+			container: IContainer<TRequires, TScope>
+		) => register(container),
+		to(target) {
+			return createComposedLayer(layerImpl, target);
+		},
+		and(other) {
+			return createMergedLayer(layerImpl, other);
+		},
 	};
-	return factory as LayerFactory<TRequires, TProvides, TParams>;
+	return layerImpl;
 }
 
 /**
@@ -290,7 +239,7 @@ function createComposedLayer<
 				containerWithSource as unknown as IContainer<TRequires2, TScope>
 			);
 		}
-	)() as unknown as Layer<
+	) as unknown as Layer<
 		TRequires1 | Exclude<TRequires2, TProvides1>,
 		TProvides1 | TProvides2
 	>;
@@ -321,7 +270,7 @@ function createMergedLayer<
 				container1 as unknown as IContainer<TRequires2, TScope>
 			);
 		}
-	)() as unknown as Layer<TRequires1 | TRequires2, TProvides1 | TProvides2>;
+	) as unknown as Layer<TRequires1 | TRequires2, TProvides1 | TProvides2>;
 }
 
 /**
@@ -368,7 +317,7 @@ export const Layer = {
 		return layer(
 			<TScope extends Scope>(container: IContainer<never, TScope>) =>
 				container
-		)();
+		);
 	},
 
 	/**
