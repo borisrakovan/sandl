@@ -49,7 +49,7 @@ async function resolveDependency<
 		| undefined;
 
 	if (factory === undefined) {
-		return Promise.reject(new UnknownDependencyError(tag));
+		throw new UnknownDependencyError(tag);
 	}
 
 	// Create and cache the promise
@@ -544,10 +544,10 @@ export class ScopedContainer<TReg extends AnyTag, TScope extends Scope>
 		factoryOrLifecycle:
 			| Factory<ServiceOf<T>, TReg, TScope>
 			| DependencyLifecycle<T, TReg, TScope>,
-		scope?: TScope
+		scope: TScope = this.scope
 	): ScopedContainer<TReg | T, TScope> {
-		// If no target scope specified, or target scope matches current scope, register here
-		if (scope === undefined || scope === this.scope) {
+		// If target scope matches current scope, register here
+		if (scope === this.scope) {
 			if (this.factories.has(tag)) {
 				throw new DependencyContainerError(
 					`Dependency ${Tag.id(tag)} already registered in scope '${String(this.scope)}'`
