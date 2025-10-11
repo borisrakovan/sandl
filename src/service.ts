@@ -69,13 +69,7 @@ export type ServiceDependencies<T extends AnyTag> =
  * For ClassTag services, dependencies are automatically inferred from constructor parameters.
  * For ValueTag services, there are no dependencies since they don't have constructors.
  */
-export interface Service<T extends AnyTag>
-	extends Layer<ServiceDependencies<T>, T> {
-	/**
-	 * The tag that this service represents (ClassTag or ValueTag)
-	 */
-	readonly serviceClass: T;
-}
+export type Service<T extends AnyTag> = Layer<ServiceDependencies<T>, T>;
 
 /**
  * Creates a service layer from any tag type (ClassTag or ValueTag) with optional parameters.
@@ -136,7 +130,6 @@ export function service<T extends AnyTag>(
 
 	// Create the service object that implements the Service interface
 	const serviceImpl: Service<T> = {
-		serviceClass,
 		register: serviceLayer.register,
 		to: serviceLayer.to,
 		and: serviceLayer.and,
