@@ -121,10 +121,11 @@ export function service<T extends AnyTag>(
 	) => PromiseOrValue<ServiceOf<T>>
 ): Service<T> {
 	const serviceLayer = layer<ServiceDependencies<T>, T>(
-		<TScope extends Scope>(
-			container: IContainer<ServiceDependencies<T>, TScope>
+		<TScope extends Scope, TContainer extends ServiceDependencies<T>>(
+			container: IContainer<TContainer, TScope>
 		) => {
-			return container.register(serviceClass, (c) => factory(c));
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
+			return container.register(serviceClass, (c) => factory(c as any));
 		}
 	);
 
