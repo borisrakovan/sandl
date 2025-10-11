@@ -325,7 +325,6 @@ describe('Layer', () => {
 
 			const infraLayer = persistenceLayer
 				.and(communicationLayer)
-				.and(communicationLayer)
 				.and(observabilityLayer);
 
 			const c = container();
@@ -565,6 +564,7 @@ describe('Layer', () => {
 			const circularLayer = layerA.and(layerB);
 
 			const c = container();
+			// @ts-expect-error - circular dependency
 			const finalContainer = circularLayer.register(c);
 
 			await expect(finalContainer.get(ServiceA)).rejects.toThrow();
