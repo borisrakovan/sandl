@@ -16,33 +16,11 @@ describe('Layer', () => {
 				container.register(TestService, () => new TestService())
 			);
 
-			const layerInstance = testLayer();
+			const layerInstance = testLayer;
 			expect(layerInstance).toBeDefined();
 			expect(layerInstance.register).toBeDefined();
 			expect(layerInstance.to).toBeDefined();
 			expect(layerInstance.and).toBeDefined();
-		});
-
-		it('should create a layer with parameters', () => {
-			class ConfigService extends Tag.Class('ConfigService') {
-				constructor(public config: { apiKey: string }) {
-					super();
-				}
-			}
-
-			const configLayer = layer<
-				never,
-				typeof ConfigService,
-				{ apiKey: string }
-			>((container, params: { apiKey: string }) =>
-				container.register(
-					ConfigService,
-					() => new ConfigService(params)
-				)
-			);
-
-			const layerInstance = configLayer({ apiKey: 'test-key' });
-			expect(layerInstance).toBeDefined();
 		});
 
 		it('should register services correctly', async () => {
@@ -57,7 +35,7 @@ describe('Layer', () => {
 			);
 
 			const c = container();
-			const updatedContainer = testLayer().register(c);
+			const updatedContainer = testLayer.register(c);
 
 			const instance = await updatedContainer.get(TestService);
 			expect(instance).toBeInstanceOf(TestService);
@@ -100,7 +78,7 @@ describe('Layer', () => {
 					)
 			);
 
-			const composedLayer = databaseLayer().to(userLayer());
+			const composedLayer = databaseLayer.to(userLayer);
 
 			const c = container();
 			const finalContainer = composedLayer.register(c);
@@ -160,9 +138,7 @@ describe('Layer', () => {
 					)
 			);
 
-			const finalLayer = configLayer()
-				.to(databaseLayer())
-				.to(userLayer());
+			const finalLayer = configLayer.to(databaseLayer).to(userLayer);
 
 			const c = container();
 			const finalContainer = finalLayer.register(c);
@@ -211,7 +187,7 @@ describe('Layer', () => {
 				)
 			);
 
-			const composedLayer = databaseLayer().to(userLayer());
+			const composedLayer = databaseLayer.to(userLayer);
 
 			// Pre-register the API key dependency
 			const c = container().register(ApiKeyTag, () => 'secret-key');
@@ -244,7 +220,7 @@ describe('Layer', () => {
 				container.register(ServiceB, () => new ServiceB())
 			);
 
-			const mergedLayer = layerA().and(layerB());
+			const mergedLayer = layerA.and(layerB);
 
 			const c = container();
 			const finalContainer = mergedLayer.register(c);
@@ -305,8 +281,8 @@ describe('Layer', () => {
 			);
 
 			// First register config, then merge the service layers
-			const baseLayer = configLayer();
-			const mergedServices = serviceLayerA().and(serviceLayerB());
+			const baseLayer = configLayer;
+			const mergedServices = serviceLayerA.and(serviceLayerB);
 			const finalLayer = baseLayer.to(mergedServices);
 
 			const c = container();
@@ -347,9 +323,10 @@ describe('Layer', () => {
 					)
 			);
 
-			const infraLayer = persistenceLayer()
-				.and(communicationLayer())
-				.and(observabilityLayer());
+			const infraLayer = persistenceLayer
+				.and(communicationLayer)
+				.and(communicationLayer)
+				.and(observabilityLayer);
 
 			const c = container();
 			const finalContainer = infraLayer.register(c);
@@ -393,7 +370,7 @@ describe('Layer', () => {
 				container.register(ServiceC, () => new ServiceC())
 			);
 
-			const mergedLayer = Layer.merge(layerA(), layerB(), layerC());
+			const mergedLayer = Layer.merge(layerA, layerB, layerC);
 
 			const c = container();
 			const finalContainer = mergedLayer.register(c);
@@ -425,7 +402,7 @@ describe('Layer', () => {
 			);
 
 			const c = container();
-			const finalContainer = layerWithFinalizer().register(c);
+			const finalContainer = layerWithFinalizer.register(c);
 
 			const service = await finalContainer.get(ServiceWithCleanup);
 			expect(service).toBeInstanceOf(ServiceWithCleanup);
@@ -462,7 +439,7 @@ describe('Layer', () => {
 				})
 			);
 
-			const composedLayer = layerA().to(layerB());
+			const composedLayer = layerA.to(layerB);
 
 			const c = container();
 			const finalContainer = composedLayer.register(c);
@@ -495,7 +472,7 @@ describe('Layer', () => {
 			);
 
 			const c = container();
-			const finalContainer = configLayer().register(c);
+			const finalContainer = configLayer.register(c);
 
 			const dbUrl = await finalContainer.get(DatabaseUrlTag);
 			const apiKey = await finalContainer.get(ApiKeyTag);
@@ -529,7 +506,7 @@ describe('Layer', () => {
 					)
 			);
 
-			const appLayer = configLayer().to(serviceLayer());
+			const appLayer = configLayer.to(serviceLayer);
 
 			const c = container();
 			const finalContainer = appLayer.register(c);
@@ -551,7 +528,7 @@ describe('Layer', () => {
 			);
 
 			const c = container();
-			const finalContainer = failingLayer().register(c);
+			const finalContainer = failingLayer.register(c);
 
 			await expect(finalContainer.get(FailingService)).rejects.toThrow();
 		});
@@ -585,112 +562,12 @@ describe('Layer', () => {
 					)
 			);
 
-			const circularLayer = layerA().and(layerB());
+			const circularLayer = layerA.and(layerB);
 
 			const c = container();
 			const finalContainer = circularLayer.register(c);
 
 			await expect(finalContainer.get(ServiceA)).rejects.toThrow();
-		});
-	});
-
-	describe('parameterized layers', () => {
-		it('should handle parameterized layer factories', async () => {
-			interface DatabaseConfig {
-				host: string;
-				port: number;
-			}
-
-			class DatabaseService extends Tag.Class('DatabaseService') {
-				constructor(private config: DatabaseConfig) {
-					super();
-				}
-
-				getConnectionString() {
-					return `${this.config.host}:${this.config.port}`;
-				}
-			}
-
-			const databaseLayer = layer<
-				never,
-				typeof DatabaseService,
-				DatabaseConfig
-			>((container, config: DatabaseConfig) =>
-				container.register(
-					DatabaseService,
-					() => new DatabaseService(config)
-				)
-			);
-
-			const configuredLayer = databaseLayer({
-				host: 'localhost',
-				port: 5432,
-			});
-
-			const c = container();
-			const finalContainer = configuredLayer.register(c);
-
-			const dbService = await finalContainer.get(DatabaseService);
-			expect(dbService.getConnectionString()).toBe('localhost:5432');
-		});
-
-		it('should compose parameterized layers', async () => {
-			interface Config {
-				dbHost: string;
-				apiKey: string;
-			}
-
-			class DatabaseService extends Tag.Class('DatabaseService') {
-				constructor(private host: string) {
-					super();
-				}
-
-				getHost() {
-					return this.host;
-				}
-			}
-
-			class ApiService extends Tag.Class('ApiService') {
-				constructor(private apiKey: string) {
-					super();
-				}
-
-				getApiKey() {
-					return this.apiKey;
-				}
-			}
-
-			const databaseLayer = layer<never, typeof DatabaseService, Config>(
-				(container, config: Config) =>
-					container.register(
-						DatabaseService,
-						() => new DatabaseService(config.dbHost)
-					)
-			);
-
-			const apiLayer = layer<never, typeof ApiService, Config>(
-				(container, config: Config) =>
-					container.register(
-						ApiService,
-						() => new ApiService(config.apiKey)
-					)
-			);
-
-			const config: Config = {
-				dbHost: 'db.example.com',
-				apiKey: 'secret',
-			};
-
-			const appLayer = databaseLayer(config).and(apiLayer(config));
-
-			const c = container();
-			const finalContainer = appLayer.register(c);
-
-			const dbService = await finalContainer.get(DatabaseService);
-			const apiService = await finalContainer.get(ApiService);
-
-			expect(dbService.getHost()).toBe('db.example.com');
-			expect(apiService.getApiKey()).toBe('secret');
 		});
 	});
 
@@ -777,7 +654,7 @@ describe('Layer', () => {
 			);
 
 			// Application layer
-			const appLayer = configLayer().to(infraLayer()).to(serviceLayer());
+			const appLayer = configLayer.to(infraLayer).to(serviceLayer);
 
 			const c = container();
 			const finalContainer = appLayer.register(c);

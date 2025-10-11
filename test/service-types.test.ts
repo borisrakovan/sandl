@@ -17,7 +17,7 @@ describe('Service Type Safety', () => {
 			const loggerService = service(
 				LoggerService,
 				() => new LoggerService()
-			)();
+			);
 
 			expectTypeOf(loggerService).toEqualTypeOf<
 				Service<typeof LoggerService>
@@ -26,11 +26,6 @@ describe('Service Type Safety', () => {
 			// Service should extend Layer with correct types
 			expectTypeOf(loggerService).toExtend<
 				Layer<never, typeof LoggerService>
-			>();
-
-			// Service should have serviceClass property
-			expectTypeOf(loggerService.serviceClass).toEqualTypeOf<
-				typeof LoggerService
 			>();
 		});
 
@@ -58,7 +53,7 @@ describe('Service Type Safety', () => {
 				expectTypeOf(db).toEqualTypeOf<DatabaseService>();
 
 				return new UserService(db);
-			})();
+			});
 
 			// Service should require DatabaseService and provide UserService
 			expectTypeOf(userService).toEqualTypeOf<
@@ -107,7 +102,7 @@ describe('Service Type Safety', () => {
 				expectTypeOf(logger).toEqualTypeOf<LoggerService>();
 
 				return new UserService(db, cache, logger);
-			})();
+			});
 
 			expectTypeOf(userService).toExtend<
 				Layer<
@@ -133,11 +128,11 @@ describe('Service Type Safety', () => {
 			const dbService = service(
 				DatabaseService,
 				() => new DatabaseService()
-			)();
+			);
 			const userService = service(UserService, async (container) => {
 				const db = await container.get(DatabaseService);
 				return new UserService(db);
-			})();
+			});
 
 			const composedService = dbService.to(userService);
 
@@ -154,11 +149,11 @@ describe('Service Type Safety', () => {
 			const loggerService = service(
 				LoggerService,
 				() => new LoggerService()
-			)();
+			);
 			const cacheService = service(
 				CacheService,
 				() => new CacheService()
-			)();
+			);
 
 			const mergedService = loggerService.and(cacheService);
 
@@ -186,7 +181,7 @@ describe('Service Type Safety', () => {
 			const dbService = service(DatabaseService, async (container) => {
 				const external = await container.get(ExternalService);
 				return new DatabaseService(external);
-			})();
+			});
 
 			const userService = service(UserService, async (container) => {
 				const [db, external] = await Promise.all([
@@ -194,13 +189,13 @@ describe('Service Type Safety', () => {
 					container.get(ExternalService),
 				]);
 				return new UserService(db, external);
-			})();
+			});
 
 			const composedService = dbService.to(userService);
 
 			// ExternalService is still required (needed by both services)
 			// DatabaseService requirement is satisfied by dbService
-			expectTypeOf(composedService).toEqualTypeOf<
+			expectTypeOf(composedService).branded.toEqualTypeOf<
 				Layer<
 					typeof ExternalService,
 					typeof DatabaseService | typeof UserService
@@ -234,22 +229,22 @@ describe('Service Type Safety', () => {
 			const configService = service(
 				ConfigService,
 				() => new ConfigService()
-			)();
+			);
 
 			const dbService = service(DatabaseService, async (container) => {
 				const config = await container.get(ConfigService);
 				return new DatabaseService(config);
-			})();
+			});
 
 			const repoService = service(UserRepository, async (container) => {
 				const db = await container.get(DatabaseService);
 				return new UserRepository(db);
-			})();
+			});
 
 			const userService = service(UserService, async (container) => {
 				const repo = await container.get(UserRepository);
 				return new UserService(repo);
-			})();
+			});
 
 			const fullService = configService
 				.to(dbService)
@@ -295,17 +290,17 @@ describe('Service Type Safety', () => {
 			const configService = service(
 				ConfigService,
 				() => new ConfigService()
-			)();
+			);
 
 			const dbService = service(DatabaseService, async (container) => {
 				const config = await container.get(ConfigService);
 				return new DatabaseService(config);
-			})();
+			});
 
 			const cacheService = service(CacheService, async (container) => {
 				const config = await container.get(ConfigService);
 				return new CacheService(config);
-			})();
+			});
 
 			const userService = service(UserService, async (container) => {
 				const [db, cache] = await Promise.all([
@@ -313,7 +308,7 @@ describe('Service Type Safety', () => {
 					container.get(CacheService),
 				]);
 				return new UserService(db, cache);
-			})();
+			});
 
 			// Build the diamond: Config -> (Database & Cache) -> User
 			const infraLayer = configService.to(dbService.and(cacheService));
@@ -331,38 +326,11 @@ describe('Service Type Safety', () => {
 		});
 	});
 
-	describe('service with parameters', () => {
-		it('should work with parameterized services', () => {
-			class ConfigService extends Tag.Class('ConfigService') {
-				constructor(private _config: { apiKey: string }) {
-					super();
-				}
-			}
-
-			const configService = service(
-				ConfigService,
-				(_container, params: { apiKey: string }) => {
-					return new ConfigService(params);
-				}
-			);
-
-			// Should be a factory function that takes params
-			expectTypeOf(configService).toEqualTypeOf<
-				(params: { apiKey: string }) => Service<typeof ConfigService>
-			>();
-
-			const configServiceInstance = configService({ apiKey: 'test-key' });
-			expectTypeOf(configServiceInstance).toEqualTypeOf<
-				Service<typeof ConfigService>
-			>();
-		});
-	});
-
 	describe('service interface completeness', () => {
 		it('should maintain all Layer methods', () => {
 			class TestService extends Tag.Class('TestService') {}
 
-			const testService = service(TestService, () => new TestService())();
+			const testService = service(TestService, () => new TestService());
 
 			// Should have all Layer methods
 			expectTypeOf(testService.register).toEqualTypeOf<
@@ -375,11 +343,6 @@ describe('Service Type Safety', () => {
 
 			expectTypeOf(testService.and).toEqualTypeOf<
 				Layer<never, typeof TestService>['and']
-			>();
-
-			// Plus the additional serviceClass property
-			expectTypeOf(testService.serviceClass).toEqualTypeOf<
-				typeof TestService
 			>();
 		});
 	});
@@ -397,11 +360,11 @@ describe('Service Type Safety', () => {
 			const dbService = service(
 				DatabaseService,
 				() => new DatabaseService()
-			)();
+			);
 			const userService = service(UserService, async (container) => {
 				const db = await container.get(DatabaseService);
 				return new UserService(db);
-			})();
+			});
 
 			const appService = dbService.to(userService);
 
@@ -433,17 +396,17 @@ describe('Service Type Safety', () => {
 				}
 			}
 
-			const serviceA = service(ServiceA, () => new ServiceA())();
+			const serviceA = service(ServiceA, () => new ServiceA());
 			const serviceC = service(ServiceC, async (container) => {
 				const b = await container.get(ServiceB);
 				return new ServiceC(b);
-			})();
+			});
 
 			// This composition should be allowed at type level but leave ServiceB unsatisfied
 			const composed = serviceA.to(serviceC);
 
 			// ServiceB should still be required
-			expectTypeOf(composed).toEqualTypeOf<
+			expectTypeOf(composed).branded.toEqualTypeOf<
 				Layer<typeof ServiceB, typeof ServiceA | typeof ServiceC>
 			>();
 		});
@@ -453,7 +416,7 @@ describe('Service Type Safety', () => {
 		it('should create service with correct layer type for ValueTag service', () => {
 			const ApiKeyTag = Tag.of('apiKey')<string>();
 
-			const apiKeyService = service(ApiKeyTag, () => 'test-key')();
+			const apiKeyService = service(ApiKeyTag, () => 'test-key');
 
 			expectTypeOf(apiKeyService).toEqualTypeOf<
 				Service<typeof ApiKeyTag>
@@ -462,39 +425,6 @@ describe('Service Type Safety', () => {
 			// ValueTag service should extend Layer with no requirements (never)
 			expectTypeOf(apiKeyService).toExtend<
 				Layer<never, typeof ApiKeyTag>
-			>();
-
-			// Service should have serviceClass property
-			expectTypeOf(apiKeyService.serviceClass).toEqualTypeOf<
-				typeof ApiKeyTag
-			>();
-		});
-
-		it('should handle parameterized ValueTag services', () => {
-			const ConfigTag = Tag.of('config')<{
-				host: string;
-				port: number;
-			}>();
-
-			const configService = service(
-				ConfigTag,
-				(_container, params: { host: string; port: number }) => params
-			);
-
-			// Should be a factory function that takes params
-			expectTypeOf(configService).toEqualTypeOf<
-				(params: {
-					host: string;
-					port: number;
-				}) => Service<typeof ConfigTag>
-			>();
-
-			const configServiceInstance = configService({
-				host: 'localhost',
-				port: 3000,
-			});
-			expectTypeOf(configServiceInstance).toEqualTypeOf<
-				Service<typeof ConfigTag>
 			>();
 		});
 
@@ -510,7 +440,7 @@ describe('Service Type Safety', () => {
 			const dbUrlService = service(
 				DatabaseUrlTag,
 				() => 'postgresql://localhost:5432'
-			)();
+			);
 			const dbService = service(DatabaseService, async (container) => {
 				expectTypeOf(container).toExtend<
 					// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -521,7 +451,7 @@ describe('Service Type Safety', () => {
 				expectTypeOf(url).toEqualTypeOf<string>();
 
 				return new DatabaseService(url);
-			})();
+			});
 
 			const composedService = dbUrlService.to(dbService);
 
@@ -548,12 +478,12 @@ describe('Service Type Safety', () => {
 
 			const configService = service(ConfigTag, () => ({
 				dbUrl: 'test',
-			}))();
+			}));
 			const loggerService = service(LoggerTag, () => ({
 				log: (_msg: string) => {
 					return;
 				},
-			}))();
+			}));
 
 			const dbService = service(DatabaseService, async (container) => {
 				// Container should require both ValueTags for manual injection - test key properties
@@ -565,7 +495,7 @@ describe('Service Type Safety', () => {
 				const config = await container.get(ConfigTag);
 				const logger = await container.get(LoggerTag);
 				return new DatabaseService(config, logger);
-			})();
+			});
 
 			// Build complete layer
 			const appLayer = configService.and(loggerService).to(dbService);

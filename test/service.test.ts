@@ -16,7 +16,7 @@ describe('Service', () => {
 			const loggerService = service(
 				LoggerService,
 				() => new LoggerService()
-			)();
+			);
 
 			// Apply the service to a container
 			const c = container();
@@ -51,11 +51,11 @@ describe('Service', () => {
 			const dbService = service(
 				DatabaseService,
 				() => new DatabaseService()
-			)();
+			);
 			const userService = service(UserService, async (container) => {
 				const db = await container.get(DatabaseService);
 				return new UserService(db);
-			})();
+			});
 
 			// Compose layers
 			const appLayer = dbService.to(userService);
@@ -93,10 +93,10 @@ describe('Service', () => {
 			const configService = service(
 				ConfigService,
 				() => new ConfigService()
-			)();
+			);
 			const dbService = service(DatabaseService, async (container) => {
 				return new DatabaseService(await container.get(ConfigService));
-			})();
+			});
 
 			// Compose services
 			const infraLayer = configService.to(dbService);
@@ -126,11 +126,11 @@ describe('Service', () => {
 			const loggerService = service(
 				LoggerService,
 				() => new LoggerService()
-			)();
+			);
 			const cacheService = service(
 				CacheService,
 				() => new CacheService()
-			)();
+			);
 
 			// Merge independent services
 			const utilsLayer = loggerService.and(cacheService);
@@ -146,24 +146,11 @@ describe('Service', () => {
 		});
 	});
 
-	describe('Service interface', () => {
-		it('should expose the serviceClass property', () => {
-			class TestService extends Tag.Class('TestService') {}
-
-			const testService = service(TestService, () => new TestService())();
-
-			expect(testService.serviceClass).toBe(TestService);
-		});
-	});
-
 	describe('ValueTag services', () => {
 		it('should create a service layer for a ValueTag', async () => {
 			const ApiKeyTag = Tag.of('apiKey')<string>();
 
-			const apiKeyService = service(
-				ApiKeyTag,
-				() => 'test-api-key-123'
-			)();
+			const apiKeyService = service(ApiKeyTag, () => 'test-api-key-123');
 
 			// Apply the service to a container
 			const c = container();
@@ -172,31 +159,6 @@ describe('Service', () => {
 			// Get the service value
 			const apiKey = await finalContainer.get(ApiKeyTag);
 			expect(apiKey).toBe('test-api-key-123');
-		});
-
-		it('should create a parameterized ValueTag service', async () => {
-			const ConfigTag = Tag.of('config')<{
-				host: string;
-				port: number;
-			}>();
-
-			const configService = service(
-				ConfigTag,
-				(_container, params: { host: string; port: number }) => params
-			);
-
-			const configInstance = configService({
-				host: 'localhost',
-				port: 3000,
-			});
-
-			// Apply the service to a container
-			const c = container();
-			const finalContainer = configInstance.register(c);
-
-			// Get the service value
-			const config = await finalContainer.get(ConfigTag);
-			expect(config).toEqual({ host: 'localhost', port: 3000 });
 		});
 
 		it('should compose ValueTag services with ClassTag services', async () => {
@@ -215,12 +177,12 @@ describe('Service', () => {
 			const dbUrlService = service(
 				DatabaseUrlTag,
 				() => 'postgresql://localhost:5432'
-			)();
+			);
 
 			const dbService = service(DatabaseService, async (container) => {
 				const url = await container.get(DatabaseUrlTag);
 				return new DatabaseService(url);
-			})();
+			});
 
 			// Compose the services
 			const appLayer = dbUrlService.to(dbService);
