@@ -233,16 +233,21 @@ function createComposedLayer<
 				TScope
 			>
 		) => {
-			const containerWithSource = source.register(container);
-			return target.register(
-				// Type assertion needed due to contravariance - composition is safe
-				containerWithSource as unknown as IContainer<TRequires2, TScope>
-			);
+			const containerWithSource = source.register(
+				container
+			) as IContainer<
+				TRequires1 | TRequires2 | TProvides1, // equivalent to TRequires1 | Exclude<TRequires2, TProvides1> | TProvides1
+				TScope
+			>;
+			const finalContainer = target.register(
+				containerWithSource
+			) as IContainer<
+				TRequires1 | TRequires2 | TProvides1 | TProvides2,
+				TScope
+			>;
+			return finalContainer;
 		}
-	) as unknown as Layer<
-		TRequires1 | Exclude<TRequires2, TProvides1>,
-		TProvides1 | TProvides2
-	>;
+	);
 }
 
 /**
@@ -264,13 +269,17 @@ function createMergedLayer<
 		<TScope extends Scope>(
 			container: IContainer<TRequires1 | TRequires2, TScope>
 		) => {
-			const container1 = layer1.register(container);
-			return layer2.register(
-				// Type assertion needed due to contravariance - composition is safe
-				container1 as unknown as IContainer<TRequires2, TScope>
-			);
+			const container1 = layer1.register(container) as IContainer<
+				TRequires1 | TRequires2 | TProvides1,
+				TScope
+			>;
+			const container2 = layer2.register(container1) as IContainer<
+				TRequires1 | TRequires2 | TProvides1 | TProvides2,
+				TScope
+			>;
+			return container2;
 		}
-	) as unknown as Layer<TRequires1 | TRequires2, TProvides1 | TProvides2>;
+	);
 }
 
 /**
@@ -279,8 +288,10 @@ function createMergedLayer<
  *
  * @internal
  */
-type UnionOfRequires<T extends readonly Layer<AnyTag, AnyTag>[]> = {
-	[K in keyof T]: T[K] extends Layer<infer R, AnyTag> ? R : never;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type UnionOfRequires<T extends readonly Layer<any, any>[]> = {
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	[K in keyof T]: T[K] extends Layer<infer R, any> ? R : never;
 }[number];
 
 /**
@@ -289,8 +300,10 @@ type UnionOfRequires<T extends readonly Layer<AnyTag, AnyTag>[]> = {
  *
  * @internal
  */
-type UnionOfProvides<T extends readonly Layer<AnyTag, AnyTag>[]> = {
-	[K in keyof T]: T[K] extends Layer<AnyTag, infer P> ? P : never;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type UnionOfProvides<T extends readonly Layer<any, any>[]> = {
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	[K in keyof T]: T[K] extends Layer<any, infer P> ? P : never;
 }[number];
 
 /**
@@ -368,9 +381,12 @@ export const Layer = {
 	 */
 	merge<
 		T extends readonly [
-			Layer<AnyTag, AnyTag>,
-			Layer<AnyTag, AnyTag>,
-			...Layer<AnyTag, AnyTag>[],
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			Layer<any, any>,
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			Layer<any, any>,
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			...Layer<any, any>[],
 		],
 	>(...layers: T): Layer<UnionOfRequires<T>, UnionOfProvides<T>> {
 		return layers.reduce((acc, layer) => acc.and(layer)) as Layer<
