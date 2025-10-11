@@ -24,11 +24,11 @@ export const TagId = '__tag_id__' as const;
  * container.register(ApiKeyTag, () => 'my-secret-key');
  * ```
  */
-export type ValueTag<T, Id extends string | symbol> = Readonly<{
+export interface ValueTag<T, Id extends string | symbol> {
 	readonly [TagId]: Id;
 	/** @internal Phantom type to carry T */
 	readonly __type: T;
-}>;
+}
 
 /**
  * Type representing a class-based dependency tag.
@@ -200,8 +200,9 @@ export const Tag = {
 	 * ```
 	 */
 	for: <T>(): ValueTag<T, symbol> => {
+		const sym = Symbol();
 		return {
-			[TagId]: Symbol(),
+			[TagId]: sym,
 			__type: undefined as T,
 		};
 	},
