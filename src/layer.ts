@@ -63,9 +63,9 @@ export interface Layer<
 	 * const updatedContainer = myLayer.register(container);
 	 * ```
 	 */
-	register: <TScope extends Scope, TContainer extends TRequires>(
-		container: IContainer<TContainer, TScope>
-	) => IContainer<TContainer | TProvides, TScope>;
+	register: <TScope extends Scope, TContainer extends AnyTag>(
+		container: IContainer<TRequires | TContainer, TScope>
+	) => IContainer<TRequires | TContainer | TProvides, TScope>;
 
 	/**
 	 * Composes this layer with a target layer, creating a pipeline where this layer's
@@ -194,13 +194,13 @@ export function layer<
 	TRequires extends AnyTag = never,
 	TProvides extends AnyTag = never,
 >(
-	register: <TScope extends Scope, TContainer extends TRequires>(
-		container: IContainer<TContainer, TScope>
-	) => IContainer<TContainer | TProvides, TScope>
+	register: <TScope extends Scope, TContainer extends AnyTag>(
+		container: IContainer<TRequires | TContainer, TScope>
+	) => IContainer<TRequires | TContainer | TProvides, TScope>
 ): Layer<TRequires, TProvides> {
 	const layerImpl: Layer<TRequires, TProvides> = {
-		register: <TScope extends Scope, TContainer extends TRequires>(
-			container: IContainer<TContainer, TScope>
+		register: <TScope extends Scope, TContainer extends AnyTag>(
+			container: IContainer<TRequires | TContainer, TScope>
 		) => register(container),
 		to(target) {
 			return createComposedLayer(layerImpl, target);
@@ -231,20 +231,20 @@ function createComposedLayer<
 	TProvides1 | TProvides2
 > {
 	return layer(
-		<
-			TScope extends Scope,
-			TContainer extends TRequires1 | Exclude<TRequires2, TProvides1>,
-		>(
-			container: IContainer<TContainer, TScope>
+		<TScope extends Scope, TContainer extends AnyTag>(
+			container: IContainer<TRequires1 | TContainer, TScope>
 		) => {
 			const containerWithSource = source.register(
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
 				container as any
-			) as IContainer<TContainer | TProvides1, TScope>;
+			);
 			const finalContainer = target.register(
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
 				containerWithSource as any
-			) as IContainer<TContainer | TProvides1 | TProvides2, TScope>;
+			) as IContainer<
+				TRequires1 | TContainer | TProvides1 | TProvides2,
+				TScope
+			>;
 			return finalContainer;
 		}
 	);
@@ -266,19 +266,11 @@ function createMergedLayer<
 	layer2: Layer<TRequires2, TProvides2>
 ): Layer<TRequires1 | TRequires2, TProvides1 | TProvides2> {
 	return layer(
-		<TScope extends Scope, TContainer extends TRequires1 | TRequires2>(
-			container: IContainer<TContainer, TScope>
+		<TScope extends Scope, TContainer extends AnyTag>(
+			container: IContainer<TRequires1 | TRequires2 | TContainer, TScope>
 		) => {
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
-			const container1 = layer1.register(container as any) as IContainer<
-				TContainer | TProvides1,
-				TScope
-			>;
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
-			const container2 = layer2.register(container1 as any) as IContainer<
-				TContainer | TProvides1 | TProvides2,
-				TScope
-			>;
+			const container1 = layer1.register(container);
+			const container2 = layer2.register(container1);
 			return container2;
 		}
 	);
@@ -330,8 +322,9 @@ export const Layer = {
 	 */
 	empty(): Layer {
 		return layer(
-			<TScope extends Scope>(container: IContainer<never, TScope>) =>
-				container
+			<TScope extends Scope, TContainer extends AnyTag>(
+				container: IContainer<TContainer, TScope>
+			) => container
 		);
 	},
 
