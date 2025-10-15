@@ -224,6 +224,12 @@ export class Container<in TReg extends AnyTag> implements IContainer<TReg> {
 	private readonly finalizers = new Map<AnyTag, Finalizer<any>>();
 
 	/**
+	 * Flag indicating whether this container has been destroyed.
+	 * @internal
+	 */
+	private isDestroyed = false;
+
+	/**
 	 * Registers a dependency in the container with a factory function and optional finalizer.
 	 *
 	 * The factory function receives the current container instance and must return the
@@ -300,6 +306,12 @@ export class Container<in TReg extends AnyTag> implements IContainer<TReg> {
 			| Factory<TagType<T>, TReg, DefaultScope>
 			| DependencyLifecycle<T, TReg, DefaultScope>
 	): IContainer<TReg | T> {
+		if (this.isDestroyed) {
+			throw new DependencyContainerError(
+				'Cannot register dependencies on a destroyed container'
+			);
+		}
+
 		if (this.factories.has(tag)) {
 			throw new DependencyContainerError(
 				`Dependency ${Tag.id(tag)} already registered`
@@ -390,15 +402,21 @@ export class Container<in TReg extends AnyTag> implements IContainer<TReg> {
 	 * ```
 	 */
 	async get<T extends TReg>(tag: T): Promise<TagType<T>> {
+		if (this.isDestroyed) {
+			throw new DependencyContainerError(
+				'Cannot resolve dependencies from a destroyed container'
+			);
+		}
+
 		return resolveDependency(tag, this.cache, this.factories, this);
 	}
 
 	/**
-	 * Destroys all instantiated dependencies by calling their finalizers, then clears the instance cache.
+	 * Destroys all instantiated dependencies by calling their finalizers and makes the container unusable.
 	 *
-	 * **Important: This method preserves the container structure (factories and finalizers) for reuse.**
-	 * The container can be used again after destruction to create fresh instances following the same
-	 * dependency patterns.
+	 * **Important: After calling destroy(), the container becomes permanently unusable.**
+	 * Any subsequent calls to register(), get(), or destroy() will throw a DependencyContainerError.
+	 * This ensures proper cleanup and prevents runtime errors from accessing destroyed resources.
 	 *
 	 * All finalizers for instantiated dependencies are called concurrently using Promise.allSettled()
 	 * for maximum cleanup performance.
@@ -412,7 +430,7 @@ export class Container<in TReg extends AnyTag> implements IContainer<TReg> {
 	 * @returns Promise that resolves when all cleanup is complete
 	 * @throws {DependencyContainerFinalizationError} If any finalizers fail during cleanup
 	 *
-	 * @example Basic cleanup and reuse
+	 * @example Basic cleanup
 	 * ```typescript
 	 * const c = container()
 	 *   .register(DatabaseConnection,
@@ -424,24 +442,32 @@ export class Container<in TReg extends AnyTag> implements IContainer<TReg> {
 	 *     (conn) => conn.disconnect() // Finalizer
 	 *   );
 	 *
-	 * // First use cycle
-	 * const db1 = await c.get(DatabaseConnection);
-	 * await c.destroy(); // Calls conn.disconnect(), clears cache
+	 * const db = await c.get(DatabaseConnection);
+	 * await c.destroy(); // Calls conn.disconnect(), container becomes unusable
 	 *
-	 * // Container can be reused - creates fresh instances
-	 * const db2 = await c.get(DatabaseConnection); // New connection
-	 * expect(db2).not.toBe(db1); // Different instances
+	 * // This will throw an error
+	 * try {
+	 *   await c.get(DatabaseConnection);
+	 * } catch (error) {
+	 *   console.log(error.message); // "Cannot resolve dependencies from a destroyed container"
+	 * }
 	 * ```
 	 *
-	 * @example Multiple destroy/reuse cycles
+	 * @example Application shutdown
 	 * ```typescript
-	 * const c = container().register(UserService, () => new UserService());
+	 * const appContainer = container()
+	 *   .register(DatabaseService, () => new DatabaseService())
+	 *   .register(HTTPServer, async (c) => new HTTPServer(await c.get(DatabaseService)));
 	 *
-	 * for (let i = 0; i < 5; i++) {
-	 *   const user = await c.get(UserService);
-	 *   // ... use service ...
-	 *   await c.destroy(); // Clean up, ready for next cycle
-	 * }
+	 * // During application shutdown
+	 * process.on('SIGTERM', async () => {
+	 *   try {
+	 *     await appContainer.destroy(); // Clean shutdown of all services
+	 *   } catch (error) {
+	 *     console.error('Error during shutdown:', error);
+	 *   }
+	 *   process.exit(0);
+	 * });
 	 * ```
 	 *
 	 * @example Handling cleanup errors
@@ -453,10 +479,14 @@ export class Container<in TReg extends AnyTag> implements IContainer<TReg> {
 	 *     console.error('Some dependencies failed to clean up:', error.detail.errors);
 	 *   }
 	 * }
-	 * // Container is still reusable even after finalizer errors
+	 * // Container is destroyed regardless of finalizer errors
 	 * ```
 	 */
 	async destroy(): Promise<void> {
+		if (this.isDestroyed) {
+			return; // Already destroyed, nothing to do
+		}
+
 		try {
 			// TODO: Consider adding support for sequential cleanup in the future.
 			// Some use cases (e.g., HTTP server -> services -> database) benefit from
@@ -468,9 +498,11 @@ export class Container<in TReg extends AnyTag> implements IContainer<TReg> {
 
 			await runFinalizers(this.finalizers, this.cache);
 		} finally {
-			// Clear only the instance cache - preserve factories and finalizers for reuse
-			// This allows the container to be used again with the same dependency structure
+			// Mark as destroyed and clear all state
+			this.isDestroyed = true;
 			this.cache.clear();
+			// Note: We keep factories/finalizers for potential debugging,
+			// but the container is no longer usable
 		}
 	}
 }
@@ -480,9 +512,10 @@ export class ScopedContainer<in TReg extends AnyTag, TScope extends Scope>
 {
 	private readonly scope: TScope;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	private readonly parent: IContainer<any, any> | null;
+	private parent: IContainer<any, any> | null;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	private readonly children: ScopedContainer<any, any>[] = [];
+	private readonly children: WeakRef<ScopedContainer<any, any>>[] = [];
+	private isDestroyed = false;
 
 	/**
 	 * Cache of instantiated dependencies as promises for this scope.
@@ -546,6 +579,12 @@ export class ScopedContainer<in TReg extends AnyTag, TScope extends Scope>
 			| DependencyLifecycle<T, TReg, TScope>,
 		scope: TScope = this.scope
 	): ScopedContainer<TReg | T, TScope> {
+		if (this.isDestroyed) {
+			throw new DependencyContainerError(
+				'Cannot register dependencies on a destroyed container'
+			);
+		}
+
 		// If target scope matches current scope, register here
 		if (scope === this.scope) {
 			if (this.factories.has(tag)) {
@@ -605,6 +644,12 @@ export class ScopedContainer<in TReg extends AnyTag, TScope extends Scope>
 	 * 4. If no parent or parent doesn't have it, throw UnknownDependencyError
 	 */
 	async get<T extends TReg>(tag: T): Promise<TagType<T>> {
+		if (this.isDestroyed) {
+			throw new DependencyContainerError(
+				'Cannot resolve dependencies from a destroyed container'
+			);
+		}
+
 		// First try to resolve in current scope
 		if (this.factories.has(tag)) {
 			return resolveDependency(tag, this.cache, this.factories, this);
@@ -631,13 +676,23 @@ export class ScopedContainer<in TReg extends AnyTag, TScope extends Scope>
 	 * before their dependents.
 	 */
 	async destroy(): Promise<void> {
+		if (this.isDestroyed) {
+			return; // Already destroyed, nothing to do
+		}
+
 		const allFailures: unknown[] = [];
 
 		try {
 			// Destroy all child scopes FIRST (they may depend on our dependencies)
-			const childDestroyPromises = this.children.map((child) =>
-				child.destroy()
-			);
+			const childDestroyPromises = this.children
+				.map((weakRef) => weakRef.deref())
+				.filter(
+					// eslint-disable-next-line @typescript-eslint/no-explicit-any
+					(child): child is ScopedContainer<any, any> =>
+						child !== undefined
+				)
+				.map((child) => child.destroy());
+
 			const childResults = await Promise.allSettled(childDestroyPromises);
 
 			const childFailures = childResults
@@ -652,9 +707,12 @@ export class ScopedContainer<in TReg extends AnyTag, TScope extends Scope>
 			// Catch our own finalizer failures
 			allFailures.push(error);
 		} finally {
-			// Clear only the instance cache
-			// Keep factories, finalizers, and children for reactivation
+			// Mark as destroyed and break parent chain for GC
+			this.isDestroyed = true;
+			this.parent = null;
 			this.cache.clear();
+			// Note: We keep factories/finalizers for potential debugging,
+			// but the container is no longer usable
 		}
 
 		// Throw collected errors after cleanup is complete
@@ -672,8 +730,14 @@ export class ScopedContainer<in TReg extends AnyTag, TScope extends Scope>
 	child<TChildScope extends Scope>(
 		scope: TChildScope
 	): ScopedContainer<TReg, TScope | TChildScope> {
+		if (this.isDestroyed) {
+			throw new DependencyContainerError(
+				'Cannot create child containers from a destroyed container'
+			);
+		}
+
 		const child = new ScopedContainer(this, scope);
-		this.children.push(child);
+		this.children.push(new WeakRef(child));
 		return child;
 	}
 }

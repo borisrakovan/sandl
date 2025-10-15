@@ -293,6 +293,9 @@ export async function demonstrateLayerUsage() {
 
 	// Clean up
 	await finalContainer.destroy();
+
+	const connectionString = await finalContainer.get(ConnectionString);
+	console.log('Connection string:', connectionString);
 }
 
 // Usage example with one-go composition

@@ -546,7 +546,7 @@ describe('DependencyContainer', () => {
 			expect(c.has(TestService)).toBe(false);
 		});
 
-		it('should clear instance cache but preserve structure for reuse', async () => {
+		it('should make container unusable after destroy', async () => {
 			class ServiceA extends Tag.Class('ServiceA') {}
 			class ServiceB extends Tag.Class('ServiceB') {}
 
@@ -566,19 +566,20 @@ describe('DependencyContainer', () => {
 			expect(c.has(ServiceA)).toBe(false);
 			expect(c.has(ServiceB)).toBe(false);
 
-			// But container should be reusable - can create new instances
-			const newServiceA = await c.get(ServiceA);
-			const newServiceB = await c.get(ServiceB);
+			// Container should now be unusable
+			await expect(c.get(ServiceA)).rejects.toThrow(
+				'Cannot resolve dependencies from a destroyed container'
+			);
 
-			expect(newServiceA).toBeInstanceOf(ServiceA);
-			expect(newServiceB).toBeInstanceOf(ServiceB);
+			expect(() => c.register(ServiceA, () => new ServiceA())).toThrow(
+				'Cannot register dependencies on a destroyed container'
+			);
 
-			// And they should be cached again
-			expect(c.has(ServiceA)).toBe(true);
-			expect(c.has(ServiceB)).toBe(true);
+			// Subsequent destroy calls should be safe (idempotent)
+			await expect(c.destroy()).resolves.toBeUndefined();
 		});
 
-		it('should support multiple destroy/reuse cycles', async () => {
+		it('should throw error when trying to use destroyed container multiple times', async () => {
 			class TestService extends Tag.Class('TestService') {
 				constructor(public id: number) {
 					super();
@@ -595,20 +596,17 @@ describe('DependencyContainer', () => {
 			expect(instance1.id).toBe(1);
 			await c.destroy();
 
-			// Second cycle
-			const instance2 = await c.get(TestService);
-			expect(instance2.id).toBe(2);
-			expect(instance2).not.toBe(instance1); // Different instances
-			await c.destroy();
+			// Container should now be unusable
+			await expect(c.get(TestService)).rejects.toThrow(
+				'Cannot resolve dependencies from a destroyed container'
+			);
 
-			// Third cycle
-			const instance3 = await c.get(TestService);
-			expect(instance3.id).toBe(3);
-			expect(instance3).not.toBe(instance1);
-			expect(instance3).not.toBe(instance2);
+			// Multiple destroy calls should be safe
+			await expect(c.destroy()).resolves.toBeUndefined();
+			await expect(c.destroy()).resolves.toBeUndefined();
 		});
 
-		it('should preserve finalizers across destroy/reuse cycles', async () => {
+		it('should verify finalizers are called but container becomes unusable', async () => {
 			class TestService extends Tag.Class('TestService') {
 				cleanup = vi.fn();
 			}
@@ -628,11 +626,10 @@ describe('DependencyContainer', () => {
 			expect(finalizer).toHaveBeenCalledTimes(1);
 			expect(instance1.cleanup).toHaveBeenCalledTimes(1);
 
-			// Second cycle - finalizer should still work
-			const instance2 = await c.get(TestService);
-			await c.destroy();
-			expect(finalizer).toHaveBeenCalledTimes(2);
-			expect(instance2.cleanup).toHaveBeenCalledTimes(1);
+			// Container should now be unusable
+			await expect(c.get(TestService)).rejects.toThrow(
+				'Cannot resolve dependencies from a destroyed container'
+			);
 		});
 	});
 
