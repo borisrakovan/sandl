@@ -4,13 +4,13 @@ import { Scope } from './types.js';
 
 /**
  * The most generic layer type that works with variance - accepts any concrete layer.
- * 
+ *
  * This type is carefully constructed to work with the Layer interface's variance annotations:
- * - `never` for TRequires (contravariant): Any layer requiring specific dependencies can be 
+ * - `never` for TRequires (contravariant): Any layer requiring specific dependencies can be
  *   assigned to this since requiring something is more restrictive than requiring nothing
  * - `AnyTag` for TProvides (covariant): Any layer providing specific services can be assigned
  *   to this since the general AnyTag type can represent any specific tag type
- * 
+ *
  * Used internally for functions like Layer.merge() that need to accept arrays of layers
  * with different requirement/provision types while preserving type safety through variance.
  */
@@ -22,17 +22,17 @@ export type AnyLayer = Layer<never, AnyTag>;
  * that can be combined and reused across different contexts.
  *
  * ## Type Variance
- * 
+ *
  * The Layer interface uses TypeScript's variance annotations to enable safe substitutability:
- * 
+ *
  * ### TRequires (contravariant with `in`)
  * A layer requiring fewer dependencies can substitute one requiring more:
  * - `Layer<never, X>` can be used where `Layer<A | B, X>` is expected
  * - Intuition: A service that needs nothing is more flexible than one that needs specific deps
- * 
- * ### TProvides (covariant with `out`) 
+ *
+ * ### TProvides (covariant with `out`)
  * A layer providing more services can substitute one providing fewer:
- * - `Layer<X, A | B>` can be used where `Layer<X, A>` is expected  
+ * - `Layer<X, A | B>` can be used where `Layer<X, A>` is expected
  * - Intuition: A service that gives you extra things is compatible with expecting fewer things
  *
  * @template TRequires - The union of tags this layer requires to be satisfied by other layers
@@ -69,8 +69,8 @@ export type AnyLayer = Layer<never, AnyTag>;
  *
  * // Compose layers: database layer provides what user layer needs
  * const appLayer = databaseLayer.to(userLayer);
- * 
- * // Thanks to variance, Layer<never, typeof DatabaseService> automatically works 
+ *
+ * // Thanks to variance, Layer<never, typeof DatabaseService> automatically works
  * // where Layer<typeof DatabaseService, typeof UserService> requires DatabaseService
  * ```
  */
@@ -84,14 +84,14 @@ export interface Layer<
 > {
 	/**
 	 * Applies this layer's registrations to the given container.
-	 * 
+	 *
 	 * ## Generic Container Support
-	 * 
-	 * The signature uses `TContainer extends AnyTag` to accept containers with any existing 
-	 * services while preserving type information. The container must provide at least this 
+	 *
+	 * The signature uses `TContainer extends AnyTag` to accept containers with any existing
+	 * services while preserving type information. The container must provide at least this
 	 * layer's requirements (`TRequires`) but can have additional services (`TContainer`).
-	 * 
-	 * Result container has: `TRequires | TContainer | TProvides` - everything that was 
+	 *
+	 * Result container has: `TRequires | TContainer | TProvides` - everything that was
 	 * already there plus this layer's new provisions.
 	 *
 	 * @param container - The container to register dependencies into (must satisfy TRequires)
@@ -102,12 +102,12 @@ export interface Layer<
 	 * const c = container();
 	 * const updatedContainer = myLayer.register(c);
 	 * ```
-	 * 
+	 *
 	 * @example With existing services preserved
 	 * ```typescript
 	 * const baseContainer = container()
 	 *   .register(ExistingService, () => new ExistingService());
-	 *   
+	 *
 	 * const enhanced = myLayer.register(baseContainer);
 	 * // Enhanced container has both ExistingService and myLayer's provisions
 	 * ```
@@ -328,7 +328,7 @@ function createMergedLayer<
 /**
  * Helper type that extracts the union of all requirements from an array of layers.
  * Used by Layer.merge() to compute the correct requirement type for the merged layer.
- * 
+ *
  * Works with AnyLayer[] constraint which accepts any concrete layer through variance:
  * - Layer<never, X> → extracts `never` (no requirements)
  * - Layer<A | B, Y> → extracts `A | B` (specific requirements)
@@ -342,9 +342,9 @@ type UnionOfRequires<T extends readonly AnyLayer[]> = {
 /**
  * Helper type that extracts the union of all provisions from an array of layers.
  * Used by Layer.merge() to compute the correct provision type for the merged layer.
- * 
+ *
  * Works with AnyLayer[] constraint which accepts any concrete layer through variance:
- * - Layer<X, never> → extracts `never` (no provisions)  
+ * - Layer<X, never> → extracts `never` (no provisions)
  * - Layer<Y, A | B> → extracts `A | B` (specific provisions)
  *
  * @internal
@@ -386,15 +386,15 @@ export const Layer = {
 	 * This is equivalent to chaining `.and()` calls but more convenient for multiple layers.
 	 *
 	 * ## Type Safety with Variance
-	 * 
-	 * Uses the AnyLayer constraint (Layer<never, AnyTag>) which accepts any concrete layer 
+	 *
+	 * Uses the AnyLayer constraint (Layer<never, AnyTag>) which accepts any concrete layer
 	 * through the Layer interface's variance annotations:
-	 * 
-	 * - **Contravariant TRequires**: Layer<typeof ServiceA, X> can be passed because requiring 
+	 *
+	 * - **Contravariant TRequires**: Layer<typeof ServiceA, X> can be passed because requiring
 	 *   ServiceA is more restrictive than requiring `never` (nothing)
-	 * - **Covariant TProvides**: Layer<Y, typeof ServiceB> can be passed because providing 
+	 * - **Covariant TProvides**: Layer<Y, typeof ServiceB> can be passed because providing
 	 *   ServiceB is compatible with the general `AnyTag` type
-	 * 
+	 *
 	 * The return type correctly extracts and unions the actual requirement/provision types
 	 * from all input layers, preserving full type safety.
 	 *
@@ -414,7 +414,7 @@ export const Layer = {
 	 * const dbLayer = layer<never, typeof DatabaseService>(...);           // no requirements
 	 * const userLayer = layer<typeof DatabaseService, typeof UserService>(...); // requires DB
 	 * const configLayer = layer<never, typeof ConfigService>(...);        // no requirements
-	 * 
+	 *
 	 * const infraLayer = Layer.merge(dbLayer, userLayer, configLayer);
 	 * // Type: Layer<typeof DatabaseService, typeof DatabaseService | typeof UserService | typeof ConfigService>
 	 * ```

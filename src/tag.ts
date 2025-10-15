@@ -200,9 +200,8 @@ export const Tag = {
 	 * ```
 	 */
 	for: <T>(): ValueTag<T, symbol> => {
-		const sym = Symbol();
 		return {
-			[TagId]: sym,
+			[TagId]: Symbol(),
 			__type: undefined as T,
 		};
 	},
@@ -323,8 +322,8 @@ export const Tag = {
  * const StringTag = Tag.of('myString')<string>();
  * const ConfigTag = Tag.of('config')<{ apiKey: string }>();
  *
- * type StringService = ServiceOf<typeof StringTag>; // string
- * type ConfigService = ServiceOf<typeof ConfigTag>; // { apiKey: string }
+ * type StringService = TagType<typeof StringTag>; // string
+ * type ConfigService = TagType<typeof ConfigTag>; // { apiKey: string }
  * ```
  *
  * @example With class tags
@@ -333,12 +332,12 @@ export const Tag = {
  *   getUsers() { return []; }
  * }
  *
- * type UserServiceType = ServiceOf<typeof UserService>; // UserService
+ * type UserServiceType = TagType<typeof UserService>; // UserService
  * ```
  *
  * @example Used in container methods
  * ```typescript
- * // The container uses ServiceOf internally for type inference
+ * // The container uses TagType internally for type inference
  * container.register(StringTag, () => 'hello'); // Factory must return string
  * container.register(UserService, () => new UserService()); // Factory must return UserService
  *
@@ -346,7 +345,7 @@ export const Tag = {
  * const user: UserService = await container.get(UserService); // Automatically typed as UserService
  * ```
  */
-export type ServiceOf<T> =
+export type TagType<T> =
 	T extends ValueTag<infer S, string | symbol>
 		? S
 		: T extends ClassTag<infer S>

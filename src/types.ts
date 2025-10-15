@@ -66,7 +66,8 @@ export interface ClassConstructor<T = unknown> {
  * };
  * ```
  */
-export type Factory<T, TReg extends AnyTag, TScope extends Scope> = (
+// @ts-expect-error - variance annotation
+export type Factory<T, in TReg extends AnyTag, TScope extends Scope> = (
 	container: IContainer<TReg, TScope>
 ) => PromiseOrValue<T>;
 

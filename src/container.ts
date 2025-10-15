@@ -6,7 +6,7 @@ import {
 	DependencyCreationError,
 	UnknownDependencyError,
 } from './errors.js';
-import { AnyTag, ServiceOf, Tag } from './tag.js';
+import { AnyTag, Tag, TagType } from './tag.js';
 import { DefaultScope, Factory, Finalizer, Scope } from './types.js';
 
 /**
@@ -30,9 +30,9 @@ async function resolveDependency<
 	cache: Map<AnyTag, Promise<unknown>>,
 	factories: Map<AnyTag, Factory<unknown, TReg, TScope>>,
 	container: IContainer<TReg, TScope>
-): Promise<ServiceOf<T>> {
+): Promise<TagType<T>> {
 	// Check cache first
-	const cached = cache.get(tag) as Promise<ServiceOf<T>> | undefined;
+	const cached = cache.get(tag) as Promise<TagType<T>> | undefined;
 	if (cached !== undefined) {
 		return cached;
 	}
@@ -45,7 +45,7 @@ async function resolveDependency<
 
 	// Get factory
 	const factory = factories.get(tag) as
-		| Factory<ServiceOf<T>, TReg, TScope>
+		| Factory<TagType<T>, TReg, TScope>
 		| undefined;
 
 	if (factory === undefined) {
@@ -53,12 +53,12 @@ async function resolveDependency<
 	}
 
 	// Create and cache the promise
-	const instancePromise: Promise<ServiceOf<T>> = resolutionChain
+	const instancePromise: Promise<TagType<T>> = resolutionChain
 		.run([...currentChain, tag], async () => {
 			try {
 				const instance = await factory(container);
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-return
-				return instance as ServiceOf<T>;
+				return instance as TagType<T>;
 			} catch (error) {
 				// Don't wrap CircularDependencyError, rethrow as-is
 				if (error instanceof CircularDependencyError) {
@@ -109,8 +109,8 @@ export type DependencyLifecycle<
 	TReg extends AnyTag,
 	TScope extends Scope,
 > = {
-	factory: Factory<ServiceOf<T>, TReg, TScope>;
-	finalizer: Finalizer<ServiceOf<T>>;
+	factory: Factory<TagType<T>, TReg, TScope>;
+	finalizer: Finalizer<TagType<T>>;
 };
 
 export interface IContainer<
@@ -120,14 +120,14 @@ export interface IContainer<
 	register<T extends AnyTag>(
 		tag: T,
 		factoryOrLifecycle:
-			| Factory<ServiceOf<T>, TReg, TScope>
+			| Factory<TagType<T>, TReg, TScope>
 			| DependencyLifecycle<T, TReg, TScope>,
 		scope?: TScope
 	): IContainer<TReg | T, TScope>;
 
 	has(tag: AnyTag): boolean;
 
-	get<T extends TReg>(tag: T): Promise<ServiceOf<T>>;
+	get<T extends TReg>(tag: T): Promise<TagType<T>>;
 
 	destroy(): Promise<void>;
 }
@@ -297,7 +297,7 @@ export class Container<in TReg extends AnyTag> implements IContainer<TReg> {
 	register<T extends AnyTag>(
 		tag: T,
 		factoryOrLifecycle:
-			| Factory<ServiceOf<T>, TReg, DefaultScope>
+			| Factory<TagType<T>, TReg, DefaultScope>
 			| DependencyLifecycle<T, TReg, DefaultScope>
 	): IContainer<TReg | T> {
 		if (this.factories.has(tag)) {
@@ -389,7 +389,7 @@ export class Container<in TReg extends AnyTag> implements IContainer<TReg> {
 	 * const userService = await c.get(UserService);
 	 * ```
 	 */
-	async get<T extends TReg>(tag: T): Promise<ServiceOf<T>> {
+	async get<T extends TReg>(tag: T): Promise<TagType<T>> {
 		return resolveDependency(tag, this.cache, this.factories, this);
 	}
 
@@ -542,7 +542,7 @@ export class ScopedContainer<in TReg extends AnyTag, TScope extends Scope>
 	register<T extends AnyTag>(
 		tag: T,
 		factoryOrLifecycle:
-			| Factory<ServiceOf<T>, TReg, TScope>
+			| Factory<TagType<T>, TReg, TScope>
 			| DependencyLifecycle<T, TReg, TScope>,
 		scope: TScope = this.scope
 	): ScopedContainer<TReg | T, TScope> {
@@ -604,7 +604,7 @@ export class ScopedContainer<in TReg extends AnyTag, TScope extends Scope>
 	 * 3. Otherwise, delegate to parent scope
 	 * 4. If no parent or parent doesn't have it, throw UnknownDependencyError
 	 */
-	async get<T extends TReg>(tag: T): Promise<ServiceOf<T>> {
+	async get<T extends TReg>(tag: T): Promise<TagType<T>> {
 		// First try to resolve in current scope
 		if (this.factories.has(tag)) {
 			return resolveDependency(tag, this.cache, this.factories, this);

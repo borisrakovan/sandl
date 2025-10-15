@@ -1,7 +1,7 @@
 import { PromiseOrValue } from '@/types.js';
 import { IContainer } from './container.js';
 import { Layer, layer } from './layer.js';
-import { AnyTag, ClassTag, ServiceOf, TaggedClass, TagId } from './tag.js';
+import { AnyTag, ClassTag, TaggedClass, TagId, TagType } from './tag.js';
 import { ExtractInjectTag, Scope } from './types.js';
 
 /**
@@ -118,7 +118,7 @@ export function service<T extends AnyTag>(
 	serviceClass: T,
 	factory: <TScope extends Scope, TContainer extends AnyTag>(
 		container: IContainer<TContainer | ServiceDependencies<T>, TScope>
-	) => PromiseOrValue<ServiceOf<T>>
+	) => PromiseOrValue<TagType<T>>
 ): Service<T> {
 	const serviceLayer = layer<ServiceDependencies<T>, T>(
 		<TScope extends Scope, TContainer extends AnyTag>(

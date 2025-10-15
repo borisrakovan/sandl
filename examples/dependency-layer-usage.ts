@@ -1,6 +1,7 @@
 import { container } from '@/container.js';
 import { layer, Layer } from '@/layer.js';
 import { Tag } from '@/tag.js';
+import { value } from '@/value.js';
 
 // Real-world services with proper dependencies
 
@@ -18,7 +19,10 @@ export class DatabaseConnection extends Tag.Class('DatabaseConnection') {
 
 // Cache layer - provides Redis client
 export class CacheService extends Tag.Class('CacheService') {
-	constructor(private redisUrl: string) {
+	constructor(
+		private redisUrl: string,
+		private redisPassword: string
+	) {
 		super();
 	}
 
@@ -133,28 +137,33 @@ export class AppService extends Tag.Class('AppService') {
 	}
 }
 
-// Layer definitions
+// Configuration value tags
+const ConnectionString = Tag.of('ConnectionString')<string>();
+const ApiKey = Tag.of('ApiKey')<string>();
+const RedisConfig = Tag.of('RedisConfig')<{ url: string; password: string }>();
 
 // Infrastructure layers (no dependencies)
-const databaseLayer = layer<
-	never,
-	typeof DatabaseConnection,
-	{ connectionString: string }
->((container, { connectionString }) =>
+const databaseLayer = layer<typeof ConnectionString, typeof DatabaseConnection>(
+	(container) =>
+		container.register(
+			DatabaseConnection,
+			async () =>
+				new DatabaseConnection(await container.get(ConnectionString))
+		)
+);
+
+const cacheLayer = layer<typeof RedisConfig, typeof CacheService>((container) =>
+	container.register(CacheService, async () => {
+		const config = await container.get(RedisConfig);
+		return new CacheService(config.url, config.password);
+	})
+);
+
+const emailLayer = layer<typeof ApiKey, typeof EmailService>((container) =>
 	container.register(
-		DatabaseConnection,
-		() => new DatabaseConnection(connectionString)
+		EmailService,
+		async () => new EmailService(await container.get(ApiKey))
 	)
-);
-
-const cacheLayer = layer<never, typeof CacheService, { redisUrl: string }>(
-	(container, { redisUrl }) =>
-		container.register(CacheService, () => new CacheService(redisUrl))
-);
-
-const emailLayer = layer<never, typeof EmailService, { apiKey: string }>(
-	(container, { apiKey }) =>
-		container.register(EmailService, () => new EmailService(apiKey))
 );
 
 // Repository layer (requires database)
@@ -208,53 +217,59 @@ const appServiceLayer = layer<
 	)
 );
 
-// Demonstration of improved layer composition
+// Demonstration of layer composition
 
-// 1. Build infrastructure layers - now using merge!
-const infrastructure = Layer.merge(
-	databaseLayer({ connectionString: 'postgresql://localhost:5432/myapp' }),
-	cacheLayer({ redisUrl: 'redis://localhost:6379' }),
-	emailLayer({ apiKey: 'email-api-key-123' })
-);
+// Build infrastructure layers
+const infrastructure = Layer.merge(databaseLayer, cacheLayer, emailLayer);
 
-// 2. Add repository layer that depends on database
-const withRepositories = infrastructure.to(userRepositoryLayer());
+// Add repository layer that depends on database
+const withRepositories = infrastructure.to(userRepositoryLayer);
 
-// 3. Add service layers that depend on repositories and infrastructure
+// Add service layers that depend on repositories and infrastructure
 const businessServices = Layer.merge(
-	userServiceLayer(),
-	notificationServiceLayer()
+	userServiceLayer,
+	notificationServiceLayer
 );
 
 const withServices = withRepositories.to(businessServices);
 
-// 4. Finally add application layer
-const completeApplication = withServices.to(appServiceLayer());
+// Finally add application layer
+const completeApplication = withServices.to(appServiceLayer);
 
 // Alternative: Build the entire application in one go using merge
 const completeApplicationOneGo = Layer.merge(
-	databaseLayer({ connectionString: 'postgresql://localhost:5432/myapp' }),
-	cacheLayer({ redisUrl: 'redis://localhost:6379' }),
-	emailLayer({ apiKey: 'email-api-key-123' })
+	databaseLayer,
+	cacheLayer,
+	emailLayer
 )
-	.to(userRepositoryLayer())
-	.to(Layer.merge(userServiceLayer(), notificationServiceLayer()))
-	.to(appServiceLayer());
+	.to(userRepositoryLayer)
+	.to(Layer.merge(userServiceLayer, notificationServiceLayer))
+	.to(appServiceLayer);
 
 // Working example - providing everything needed step by step
 export const workingExampleApp = Layer.merge(
-	databaseLayer({ connectionString: 'postgresql://localhost:5432/myapp' }),
-	cacheLayer({ redisUrl: 'redis://localhost:6379' }),
-	emailLayer({ apiKey: 'email-api-key-123' })
+	databaseLayer,
+	cacheLayer,
+	emailLayer
 )
-	.to(userRepositoryLayer()) // Database -> UserRepository ✓
-	.to(userServiceLayer()) // UserRepository + Cache -> UserService ✓
-	.to(notificationServiceLayer()) // Email -> NotificationService ✓
-	.to(appServiceLayer()); // UserService + NotificationService -> AppService ✓
+	.to(userRepositoryLayer) // Database -> UserRepository ✓
+	.to(userServiceLayer) // UserRepository + Cache -> UserService ✓
+	.to(notificationServiceLayer) // Email -> NotificationService ✓
+	.to(appServiceLayer); // UserService + NotificationService -> AppService ✓
+
+const config = Layer.merge(
+	value(ConnectionString, 'sqlite://memory'),
+	value(RedisConfig, { url: 'redis://localhost', password: 'password' }),
+	value(ApiKey, 'api-key')
+);
 
 // Usage example with step-by-step composition
 export async function demonstrateLayerUsage() {
-	const finalContainer = completeApplication.register(container());
+	const appContainer = container();
+
+	const appWithConfig = config.to(completeApplication);
+
+	const finalContainer = appWithConfig.register(appContainer);
 
 	// Now we can use the fully configured application
 	const app = await finalContainer.get(AppService);
@@ -283,7 +298,9 @@ export async function demonstrateLayerUsage() {
 // Usage example with one-go composition
 export async function demonstrateOneGoLayerUsage() {
 	const appContainer = container();
-	const finalContainer = completeApplicationOneGo.register(appContainer);
+	const finalContainer = config
+		.to(completeApplicationOneGo)
+		.register(appContainer);
 
 	const app = await finalContainer.get(AppService);
 
@@ -300,49 +317,55 @@ export async function demonstrateOneGoLayerUsage() {
 
 // Example with many infrastructure layers
 export const bigInfrastructureLayer = Layer.merge(
-	databaseLayer({ connectionString: 'postgresql://localhost:5432/myapp' }),
-	cacheLayer({ redisUrl: 'redis://localhost:6379' }),
-	emailLayer({ apiKey: 'email-api-key-123' }),
+	databaseLayer,
+	cacheLayer,
+	emailLayer,
 	// Could add more...
-	layer<never, typeof DatabaseConnection, { connectionString: string }>(
-		(container, { connectionString }) =>
-			container.register(
-				DatabaseConnection,
-				() => new DatabaseConnection(connectionString)
-			)
-	)({ connectionString: 'backup-db' }),
-	layer<never, typeof CacheService, { redisUrl: string }>(
-		(container, { redisUrl }) =>
-			container.register(CacheService, () => new CacheService(redisUrl))
-	)({ redisUrl: 'backup-cache' })
+	layer<typeof ConnectionString, typeof DatabaseConnection>((container) =>
+		container.register(
+			DatabaseConnection,
+			async () =>
+				new DatabaseConnection(await container.get(ConnectionString))
+		)
+	),
+	layer<typeof RedisConfig, typeof CacheService>((container) =>
+		container.register(CacheService, async () => {
+			const config = await container.get(RedisConfig);
+			return new CacheService(config.url, config.password);
+		})
+	)
 );
 
 // Complete app using merge for business services too
 export const completeAppWithmerge = Layer.merge(
-	databaseLayer({ connectionString: 'postgresql://localhost:5432/myapp' }),
-	cacheLayer({ redisUrl: 'redis://localhost:6379' }),
-	emailLayer({ apiKey: 'email-api-key-123' })
+	databaseLayer,
+	cacheLayer,
+	emailLayer
 )
-	.to(userRepositoryLayer())
-	.to(Layer.merge(userServiceLayer(), notificationServiceLayer()))
-	.to(appServiceLayer());
+	.to(userRepositoryLayer)
+	.to(Layer.merge(userServiceLayer, notificationServiceLayer))
+	.to(appServiceLayer);
 
 // Partial applications for specific use cases
-export const n = infrastructure
-	.to(userRepositoryLayer())
-	.to(userServiceLayer());
+export const n = infrastructure.to(userRepositoryLayer).to(userServiceLayer);
 
-export const notificationsOnly = emailLayer({ apiKey: 'prod-email-key' }).to(
-	notificationServiceLayer()
-);
+export const notificationsOnly = emailLayer.to(notificationServiceLayer);
 
 // Type test - the complete application should require nothing external (never)
 // and provide all the services we defined
 export async function testCompleteApplication() {
-	const appContainer = container();
+	const appContainer = container()
+		.register(ConnectionString, () => 'sqlite://memory')
+		.register(RedisConfig, () => ({
+			url: 'redis://localhost',
+			password: 'password',
+		}))
+		.register(ApiKey, () => 'api-key');
 
 	// This should work - completeApplication requires `never` (no external dependencies)
-	const finalContainer = completeApplication.register(appContainer);
+	const finalContainer = config
+		.to(completeApplication)
+		.register(appContainer);
 
 	// Should be able to get all our services
 	const app = await finalContainer.get(AppService);
@@ -367,3 +390,5 @@ export async function testCompleteApplication() {
 
 	await finalContainer.destroy();
 }
+
+void testCompleteApplication();
