@@ -1,9 +1,9 @@
 import { Container, container } from '@/container.js';
 import {
 	CircularDependencyError,
-	DependencyContainerError,
-	DependencyContainerFinalizationError,
+	DependencyAlreadyRegisteredError,
 	DependencyCreationError,
+	DependencyFinalizationError,
 	UnknownDependencyError,
 } from '@/errors.js';
 import { Tag } from '@/tag.js';
@@ -94,7 +94,7 @@ describe('DependencyContainer', () => {
 
 			expect(() =>
 				c.register(TestService, () => new TestService())
-			).toThrowError(DependencyContainerError);
+			).toThrowError(DependencyAlreadyRegisteredError);
 		});
 
 		it('should preserve container chain for multiple registrations', () => {
@@ -525,7 +525,7 @@ describe('DependencyContainer', () => {
 			await c.get(ServiceB);
 
 			await expect(c.destroy()).rejects.toThrow(
-				DependencyContainerFinalizationError
+				DependencyFinalizationError
 			);
 		});
 

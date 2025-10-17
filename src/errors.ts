@@ -74,14 +74,31 @@ export class BaseError extends Error {
  * try {
  *   await container.get(SomeService);
  * } catch (error) {
- *   if (error instanceof DependencyContainerError) {
+ *   if (error instanceof ContainerError) {
  *     console.error('DI Error:', error.message);
  *     console.error('Details:', error.detail);
  *   }
  * }
  * ```
  */
-export class DependencyContainerError extends BaseError {}
+export class ContainerError extends BaseError {}
+
+/**
+ * Error thrown when attempting to register a dependency that has already been registered.
+ *
+ * This error occurs when calling `container.register()` for a tag that has already been registered.
+ * It indicates a programming error where the dependency is being registered multiple times.
+ */
+export class DependencyAlreadyRegisteredError extends ContainerError {}
+
+/**
+ * Error thrown when attempting to use a container that has been destroyed.
+ *
+ * This error occurs when calling `container.get()`, `container.register()`, or `container.destroy()`
+ * on a container that has already been destroyed. It indicates a programming error where the container
+ * is being used after it has been destroyed.
+ */
+export class ContainerDestroyedError extends ContainerError {}
 
 /**
  * Error thrown when attempting to retrieve a dependency that hasn't been registered.
@@ -103,7 +120,7 @@ export class DependencyContainerError extends BaseError {}
  * }
  * ```
  */
-export class UnknownDependencyError extends DependencyContainerError {
+export class UnknownDependencyError extends ContainerError {
 	/**
 	 * @internal
 	 * Creates an UnknownDependencyError for the given tag.
@@ -145,7 +162,7 @@ export class UnknownDependencyError extends DependencyContainerError {
  * }
  * ```
  */
-export class CircularDependencyError extends DependencyContainerError {
+export class CircularDependencyError extends ContainerError {
 	/**
 	 * @internal
 	 * Creates a CircularDependencyError with the dependency chain information.
@@ -191,7 +208,7 @@ export class CircularDependencyError extends DependencyContainerError {
  * }
  * ```
  */
-export class DependencyCreationError extends DependencyContainerError {
+export class DependencyCreationError extends ContainerError {
 	/**
 	 * @internal
 	 * Creates a DependencyCreationError wrapping the original factory error.
@@ -221,17 +238,17 @@ export class DependencyCreationError extends DependencyContainerError {
  * try {
  *   await container.destroy();
  * } catch (error) {
- *   if (error instanceof DependencyContainerFinalizationError) {
+ *   if (error instanceof DependencyFinalizationError) {
  *     console.error('Some finalizers failed');
  *     console.error('Error details:', error.detail.errors);
  *   }
  * }
  * ```
  */
-export class DependencyContainerFinalizationError extends DependencyContainerError {
+export class DependencyFinalizationError extends ContainerError {
 	/**
 	 * @internal
-	 * Creates a DependencyContainerFinalizationError aggregating multiple finalizer failures.
+	 * Creates a DependencyFinalizationError aggregating multiple finalizer failures.
 	 *
 	 * @param errors - Array of errors thrown by individual finalizers
 	 */

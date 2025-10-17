@@ -1,9 +1,10 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import {
 	CircularDependencyError,
-	DependencyContainerError,
-	DependencyContainerFinalizationError,
+	ContainerDestroyedError,
+	DependencyAlreadyRegisteredError,
 	DependencyCreationError,
+	DependencyFinalizationError,
 	UnknownDependencyError,
 } from './errors.js';
 import { AnyTag, Tag, TagType } from './tag.js';
@@ -15,61 +16,6 @@ import { Factory, Finalizer, Scope } from './types.js';
  * @internal
  */
 const resolutionChain = new AsyncLocalStorage<AnyTag[]>();
-
-/**
- * Shared logic for dependency resolution that handles caching, circular dependency detection,
- * and error handling. Used by both Container and ScopedContainer.
- * @internal
- */
-async function resolveDependency<T extends AnyTag, TReg extends AnyTag>(
-	tag: T,
-	cache: Map<AnyTag, Promise<unknown>>,
-	factories: Map<AnyTag, Factory<unknown, TReg>>,
-	container: IContainer<TReg>
-): Promise<TagType<T>> {
-	// Check cache first
-	const cached = cache.get(tag) as Promise<TagType<T>> | undefined;
-	if (cached !== undefined) {
-		return cached;
-	}
-
-	// Check for circular dependency using AsyncLocalStorage
-	const currentChain = resolutionChain.getStore() ?? [];
-	if (currentChain.includes(tag)) {
-		throw new CircularDependencyError(tag, currentChain);
-	}
-
-	// Get factory
-	const factory = factories.get(tag) as Factory<TagType<T>, TReg> | undefined;
-
-	if (factory === undefined) {
-		throw new UnknownDependencyError(tag);
-	}
-
-	// Create and cache the promise
-	const instancePromise: Promise<TagType<T>> = resolutionChain
-		.run([...currentChain, tag], async () => {
-			try {
-				const instance = await factory(container);
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-return
-				return instance as TagType<T>;
-			} catch (error) {
-				// Don't wrap CircularDependencyError, rethrow as-is
-				if (error instanceof CircularDependencyError) {
-					throw error;
-				}
-				throw new DependencyCreationError(tag, error);
-			}
-		})
-		.catch((error: unknown) => {
-			// Remove failed promise from cache on any error
-			cache.delete(tag);
-			throw error;
-		});
-
-	cache.set(tag, instancePromise);
-	return instancePromise;
-}
 
 /**
  * Shared logic for running finalizers and handling cleanup errors.
@@ -92,7 +38,7 @@ async function runFinalizers(
 
 	const failures = results.filter((result) => result.status === 'rejected');
 	if (failures.length > 0) {
-		throw new DependencyContainerFinalizationError(
+		throw new DependencyFinalizationError(
 			failures.map((result) => result.reason as unknown)
 		);
 	}
@@ -224,7 +170,7 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 * @param factory - Function that creates the service instance, receives container for dependency injection
 	 * @param finalizer - Optional cleanup function called when container is destroyed
 	 * @returns A new container instance with the dependency registered
-	 * @throws {DependencyContainerError} If the dependency is already registered
+	 * @throws {ContainerError} If the dependency is already registered
 	 *
 	 * @example Registering a simple service
 	 * ```typescript
@@ -290,13 +236,13 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 			| DependencyLifecycle<T, TReg>
 	): IContainer<TReg | T> {
 		if (this.isDestroyed) {
-			throw new DependencyContainerError(
+			throw new ContainerDestroyedError(
 				'Cannot register dependencies on a destroyed container'
 			);
 		}
 
 		if (this.factories.has(tag)) {
-			throw new DependencyContainerError(
+			throw new DependencyAlreadyRegisteredError(
 				`Dependency ${Tag.id(tag)} already registered in the container`
 			);
 		}
@@ -382,19 +328,62 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 */
 	async get<T extends TReg>(tag: T): Promise<TagType<T>> {
 		if (this.isDestroyed) {
-			throw new DependencyContainerError(
+			throw new ContainerDestroyedError(
 				'Cannot resolve dependencies from a destroyed container'
 			);
 		}
 
-		return resolveDependency(tag, this.cache, this.factories, this);
+		// Check cache first
+		const cached = this.cache.get(tag) as Promise<TagType<T>> | undefined;
+		if (cached !== undefined) {
+			return cached;
+		}
+
+		// Check for circular dependency using AsyncLocalStorage
+		const currentChain = resolutionChain.getStore() ?? [];
+		if (currentChain.includes(tag)) {
+			throw new CircularDependencyError(tag, currentChain);
+		}
+
+		// Get factory
+		const factory = this.factories.get(tag) as
+			| Factory<TagType<T>, TReg>
+			| undefined;
+
+		if (factory === undefined) {
+			throw new UnknownDependencyError(tag);
+		}
+
+		// Create and cache the promise
+		const instancePromise: Promise<TagType<T>> = resolutionChain
+			.run([...currentChain, tag], async () => {
+				try {
+					const instance = await factory(this);
+					// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+					return instance as TagType<T>;
+				} catch (error) {
+					// Don't wrap CircularDependencyError, rethrow as-is
+					if (error instanceof CircularDependencyError) {
+						throw error;
+					}
+					throw new DependencyCreationError(tag, error);
+				}
+			})
+			.catch((error: unknown) => {
+				// Remove failed promise from cache on any error
+				this.cache.delete(tag);
+				throw error;
+			});
+
+		this.cache.set(tag, instancePromise);
+		return instancePromise;
 	}
 
 	/**
 	 * Destroys all instantiated dependencies by calling their finalizers and makes the container unusable.
 	 *
 	 * **Important: After calling destroy(), the container becomes permanently unusable.**
-	 * Any subsequent calls to register(), get(), or destroy() will throw a DependencyContainerError.
+	 * Any subsequent calls to register(), get(), or destroy() will throw a ContainerError.
 	 * This ensures proper cleanup and prevents runtime errors from accessing destroyed resources.
 	 *
 	 * All finalizers for instantiated dependencies are called concurrently using Promise.allSettled()
@@ -407,7 +396,7 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 * dependencies are cleaned up.
 	 *
 	 * @returns Promise that resolves when all cleanup is complete
-	 * @throws {DependencyContainerFinalizationError} If any finalizers fail during cleanup
+	 * @throws {DependencyFinalizationError} If any finalizers fail during cleanup
 	 *
 	 * @example Basic cleanup
 	 * ```typescript
@@ -590,7 +579,7 @@ export class ScopedContainer<TReg extends AnyTag> extends Container<TReg> {
 
 		// Throw collected errors after cleanup is complete
 		if (allFailures.length > 0) {
-			throw new DependencyContainerFinalizationError(allFailures);
+			throw new DependencyFinalizationError(allFailures);
 		}
 	}
 
@@ -602,7 +591,7 @@ export class ScopedContainer<TReg extends AnyTag> extends Container<TReg> {
 	 */
 	child(scope: Scope): ScopedContainer<TReg> {
 		if (this.isDestroyed) {
-			throw new DependencyContainerError(
+			throw new ContainerDestroyedError(
 				'Cannot create child containers from a destroyed container'
 			);
 		}
