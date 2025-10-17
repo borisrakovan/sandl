@@ -66,9 +66,8 @@ export interface ClassConstructor<T = unknown> {
  * };
  * ```
  */
-// @ts-expect-error - variance annotation
-export type Factory<T, in TReg extends AnyTag, TScope extends Scope> = (
-	container: IContainer<TReg, TScope>
+export type Factory<T, TReg extends AnyTag> = (
+	container: IContainer<TReg>
 ) => PromiseOrValue<T>;
 
 /**
@@ -154,6 +153,3 @@ export type ExtractInjectTag<T> = T extends {
 export type Finalizer<T> = (instance: T) => PromiseOrValue<void>;
 
 export type Scope = string | symbol;
-
-export const DefaultScope = Symbol('default');
-export type DefaultScope = typeof DefaultScope;

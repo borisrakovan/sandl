@@ -45,8 +45,7 @@ describe('Service Type Safety', () => {
 			const userService = service(UserService, async (container) => {
 				// Container should have DatabaseService available
 				expectTypeOf(container).toExtend<
-					// eslint-disable-next-line @typescript-eslint/no-explicit-any
-					IContainer<typeof DatabaseService, any>
+					IContainer<typeof DatabaseService>
 				>();
 
 				const db = await container.get(DatabaseService);
@@ -85,9 +84,7 @@ describe('Service Type Safety', () => {
 					IContainer<
 						| typeof DatabaseService
 						| typeof CacheService
-						| typeof LoggerService,
-						// eslint-disable-next-line @typescript-eslint/no-explicit-any
-						any
+						| typeof LoggerService
 					>
 				>();
 
@@ -443,8 +440,7 @@ describe('Service Type Safety', () => {
 			);
 			const dbService = service(DatabaseService, async (container) => {
 				expectTypeOf(container).toExtend<
-					// eslint-disable-next-line @typescript-eslint/no-explicit-any
-					IContainer<typeof DatabaseUrlTag, any>
+					IContainer<typeof DatabaseUrlTag>
 				>();
 
 				const url = await container.get(DatabaseUrlTag);

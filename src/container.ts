@@ -7,7 +7,7 @@ import {
 	UnknownDependencyError,
 } from './errors.js';
 import { AnyTag, Tag, TagType } from './tag.js';
-import { DefaultScope, Factory, Finalizer, Scope } from './types.js';
+import { Factory, Finalizer, Scope } from './types.js';
 
 /**
  * AsyncLocalStorage instance used to track the dependency resolution chain.
@@ -18,18 +18,14 @@ const resolutionChain = new AsyncLocalStorage<AnyTag[]>();
 
 /**
  * Shared logic for dependency resolution that handles caching, circular dependency detection,
- * and error handling. Used by both BasicDependencyContainer and ScopedDependencyContainer.
+ * and error handling. Used by both Container and ScopedContainer.
  * @internal
  */
-async function resolveDependency<
-	T extends AnyTag,
-	TReg extends AnyTag,
-	TScope extends Scope,
->(
+async function resolveDependency<T extends AnyTag, TReg extends AnyTag>(
 	tag: T,
 	cache: Map<AnyTag, Promise<unknown>>,
-	factories: Map<AnyTag, Factory<unknown, TReg, TScope>>,
-	container: IContainer<TReg, TScope>
+	factories: Map<AnyTag, Factory<unknown, TReg>>,
+	container: IContainer<TReg>
 ): Promise<TagType<T>> {
 	// Check cache first
 	const cached = cache.get(tag) as Promise<TagType<T>> | undefined;
@@ -44,9 +40,7 @@ async function resolveDependency<
 	}
 
 	// Get factory
-	const factory = factories.get(tag) as
-		| Factory<TagType<T>, TReg, TScope>
-		| undefined;
+	const factory = factories.get(tag) as Factory<TagType<T>, TReg> | undefined;
 
 	if (factory === undefined) {
 		throw new UnknownDependencyError(tag);
@@ -104,26 +98,18 @@ async function runFinalizers(
 	}
 }
 
-export type DependencyLifecycle<
-	T extends AnyTag,
-	TReg extends AnyTag,
-	TScope extends Scope,
-> = {
-	factory: Factory<TagType<T>, TReg, TScope>;
+export type DependencyLifecycle<T extends AnyTag, TReg extends AnyTag> = {
+	factory: Factory<TagType<T>, TReg>;
 	finalizer: Finalizer<TagType<T>>;
 };
 
-export interface IContainer<
-	in TReg extends AnyTag,
-	TScope extends Scope = DefaultScope,
-> {
+export interface IContainer<in TReg extends AnyTag> {
 	register<T extends AnyTag>(
 		tag: T,
 		factoryOrLifecycle:
-			| Factory<TagType<T>, TReg, TScope>
-			| DependencyLifecycle<T, TReg, TScope>,
-		scope?: TScope
-	): IContainer<TReg | T, TScope>;
+			| Factory<TagType<T>, TReg>
+			| DependencyLifecycle<T, TReg>
+	): IContainer<TReg | T>;
 
 	has(tag: AnyTag): boolean;
 
@@ -199,35 +185,32 @@ export interface IContainer<
  * await c.destroy(); // Calls all finalizers
  * ```
  */
-export class Container<in TReg extends AnyTag> implements IContainer<TReg> {
+export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	/**
 	 * Cache of instantiated dependencies as promises.
 	 * Ensures singleton behavior and supports concurrent access.
 	 * @internal
 	 */
-	private readonly cache = new Map<AnyTag, Promise<unknown>>();
+	protected readonly cache = new Map<AnyTag, Promise<unknown>>();
 
 	/**
 	 * Factory functions for creating dependency instances.
 	 * @internal
 	 */
-	private readonly factories = new Map<
-		AnyTag,
-		Factory<unknown, TReg, DefaultScope>
-	>();
+	protected readonly factories = new Map<AnyTag, Factory<unknown, TReg>>();
 
 	/**
 	 * Finalizer functions for cleaning up dependencies when the container is destroyed.
 	 * @internal
 	 */
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	private readonly finalizers = new Map<AnyTag, Finalizer<any>>();
+	protected readonly finalizers = new Map<AnyTag, Finalizer<any>>();
 
 	/**
 	 * Flag indicating whether this container has been destroyed.
 	 * @internal
 	 */
-	private isDestroyed = false;
+	protected isDestroyed = false;
 
 	/**
 	 * Registers a dependency in the container with a factory function and optional finalizer.
@@ -303,8 +286,8 @@ export class Container<in TReg extends AnyTag> implements IContainer<TReg> {
 	register<T extends AnyTag>(
 		tag: T,
 		factoryOrLifecycle:
-			| Factory<TagType<T>, TReg, DefaultScope>
-			| DependencyLifecycle<T, TReg, DefaultScope>
+			| Factory<TagType<T>, TReg>
+			| DependencyLifecycle<T, TReg>
 	): IContainer<TReg | T> {
 		if (this.isDestroyed) {
 			throw new DependencyContainerError(
@@ -314,7 +297,7 @@ export class Container<in TReg extends AnyTag> implements IContainer<TReg> {
 
 		if (this.factories.has(tag)) {
 			throw new DependencyContainerError(
-				`Dependency ${Tag.id(tag)} already registered`
+				`Dependency ${Tag.id(tag)} already registered in the container`
 			);
 		}
 
@@ -329,26 +312,22 @@ export class Container<in TReg extends AnyTag> implements IContainer<TReg> {
 	}
 
 	/**
-	 * Checks if a dependency has been instantiated (cached) in the container.
+	 * Checks if a dependency has been registered in the container.
 	 *
-	 * Note: This returns `true` only after the dependency has been created via `.get()`.
-	 * A registered but not-yet-instantiated dependency will return `false`.
+	 * This returns `true` if the dependency has been registered via `.register()`,
+	 * regardless of whether it has been instantiated yet.
 	 *
 	 * @param tag - The dependency tag to check
-	 * @returns `true` if the dependency has been instantiated and cached, `false` otherwise
+	 * @returns `true` if the dependency has been registered, `false` otherwise
 	 *
 	 * @example
 	 * ```typescript
 	 * const c = container().register(DatabaseService, () => new DatabaseService());
-	 *
-	 * console.log(c.has(DatabaseService)); // false - not instantiated yet
-	 *
-	 * await c.get(DatabaseService);
-	 * console.log(c.has(DatabaseService)); // true - now instantiated and cached
+	 * console.log(c.has(DatabaseService)); // true
 	 * ```
 	 */
 	has(tag: AnyTag): boolean {
-		return this.cache.has(tag);
+		return this.factories.has(tag);
 	}
 
 	/**
@@ -507,126 +486,27 @@ export class Container<in TReg extends AnyTag> implements IContainer<TReg> {
 	}
 }
 
-export class ScopedContainer<in TReg extends AnyTag, TScope extends Scope>
-	implements IContainer<TReg, TScope>
-{
-	private readonly scope: TScope;
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	private parent: IContainer<any, any> | null;
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	private readonly children: WeakRef<ScopedContainer<any, any>>[] = [];
-	private isDestroyed = false;
+export class ScopedContainer<TReg extends AnyTag> extends Container<TReg> {
+	public readonly scope: Scope;
 
-	/**
-	 * Cache of instantiated dependencies as promises for this scope.
-	 * @internal
-	 */
-	private readonly cache = new Map<AnyTag, Promise<unknown>>();
+	private parent: IContainer<TReg> | null;
+	private readonly children: WeakRef<ScopedContainer<TReg>>[] = [];
 
-	/**
-	 * Factory functions for creating dependency instances in this scope.
-	 * @internal
-	 */
-	private readonly factories = new Map<
-		AnyTag,
-		Factory<unknown, TReg, TScope>
-	>();
-
-	/**
-	 * Finalizer functions for cleaning up dependencies when this scope is destroyed.
-	 * @internal
-	 */
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	private readonly finalizers = new Map<AnyTag, Finalizer<any>>();
-
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	constructor(parent: IContainer<any, any> | null, scope: TScope) {
+	constructor(parent: IContainer<TReg> | null, scope: Scope) {
+		super();
 		this.parent = parent;
 		this.scope = scope;
 	}
 
 	/**
-	 * Registers a dependency in the specified scope within this container's scope chain.
-	 *
-	 * If no scope is specified, registers in the current (leaf) scope. If a scope is specified,
-	 * delegates to the parent container if the target scope doesn't match the current scope.
-	 *
-	 * This allows registering dependencies at different scope levels from any container
-	 * in the scope chain, providing flexibility for dependency organization.
-	 *
-	 * @param tag - The dependency tag to register
-	 * @param factory - Factory function to create the dependency
-	 * @param finalizer - Optional cleanup function
-	 * @param scope - Target scope for registration (defaults to current scope)
-	 * @returns This container with updated type information
-	 *
-	 * @example Registering in different scopes
-	 * ```typescript
-	 * const runtime = scopedContainer('runtime');
-	 * const request = runtime.child('request');
-	 *
-	 * // Register in current (request) scope
-	 * request.register(RequestService, () => new RequestService());
-	 *
-	 * // Register in runtime scope from request container - delegates to parent
-	 * request.register(DatabaseService, () => new DatabaseService(), undefined, 'runtime');
-	 * ```
-	 */
-	register<T extends AnyTag>(
-		tag: T,
-		factoryOrLifecycle:
-			| Factory<TagType<T>, TReg, TScope>
-			| DependencyLifecycle<T, TReg, TScope>,
-		scope: TScope = this.scope
-	): ScopedContainer<TReg | T, TScope> {
-		if (this.isDestroyed) {
-			throw new DependencyContainerError(
-				'Cannot register dependencies on a destroyed container'
-			);
-		}
-
-		// If target scope matches current scope, register here
-		if (scope === this.scope) {
-			if (this.factories.has(tag)) {
-				throw new DependencyContainerError(
-					`Dependency ${Tag.id(tag)} already registered in scope '${String(this.scope)}'`
-				);
-			}
-			if (typeof factoryOrLifecycle === 'function') {
-				this.factories.set(tag, factoryOrLifecycle);
-			} else {
-				this.factories.set(tag, factoryOrLifecycle.factory);
-				this.finalizers.set(tag, factoryOrLifecycle.finalizer);
-			}
-			return this as ScopedContainer<TReg | T, TScope>;
-		}
-
-		// Target scope doesn't match current scope - delegate to parent
-		if (this.parent === null) {
-			throw new DependencyContainerError(
-				`Scope '${String(scope)}' not found in container chain`
-			);
-		}
-
-		// Delegate registration to parent container
-		// The parent's register method will handle the registration
-		this.parent.register(tag, factoryOrLifecycle, scope);
-
-		// Even though we delegated, update our type to include the new dependency
-		// This ensures type safety - the child container "knows" about dependencies
-		// registered in parent scopes through it
-		return this as ScopedContainer<TReg | T, TScope>;
-	}
-
-	/**
-	 * Checks if a dependency has been instantiated in this scope or any parent scope.
+	 * Checks if a dependency has been registered in this scope or any parent scope.
 	 *
 	 * This method checks the current scope first, then walks up the parent chain.
-	 * Returns true only if the dependency has been created and cached somewhere in the scope hierarchy.
+	 * Returns true if the dependency has been registered somewhere in the scope hierarchy.
 	 */
-	has(tag: AnyTag): boolean {
+	override has(tag: AnyTag): boolean {
 		// Check current scope first
-		if (this.cache.has(tag)) {
+		if (super.has(tag)) {
 			return true;
 		}
 
@@ -643,24 +523,18 @@ export class ScopedContainer<in TReg extends AnyTag, TScope extends Scope>
 	 * 3. Otherwise, delegate to parent scope
 	 * 4. If no parent or parent doesn't have it, throw UnknownDependencyError
 	 */
-	async get<T extends TReg>(tag: T): Promise<TagType<T>> {
-		if (this.isDestroyed) {
-			throw new DependencyContainerError(
-				'Cannot resolve dependencies from a destroyed container'
-			);
-		}
-
-		// First try to resolve in current scope
+	override async get<T extends TReg>(tag: T): Promise<TagType<T>> {
+		// If this scope has a factory, resolve here (uses this scope's cache)
 		if (this.factories.has(tag)) {
-			return resolveDependency(tag, this.cache, this.factories, this);
+			return super.get(tag);
 		}
 
-		// Delegate to parent if we don't have the factory
+		// Otherwise delegate to parent scope if available
 		if (this.parent !== null) {
 			return this.parent.get(tag);
 		}
 
-		// No factory found in a root scope
+		// Not found in this scope or any parent
 		throw new UnknownDependencyError(tag);
 	}
 
@@ -675,7 +549,7 @@ export class ScopedContainer<in TReg extends AnyTag, TScope extends Scope>
 	 * Child destruction happens first to ensure dependencies don't get cleaned up
 	 * before their dependents.
 	 */
-	async destroy(): Promise<void> {
+	override async destroy(): Promise<void> {
 		if (this.isDestroyed) {
 			return; // Already destroyed, nothing to do
 		}
@@ -687,8 +561,7 @@ export class ScopedContainer<in TReg extends AnyTag, TScope extends Scope>
 			const childDestroyPromises = this.children
 				.map((weakRef) => weakRef.deref())
 				.filter(
-					// eslint-disable-next-line @typescript-eslint/no-explicit-any
-					(child): child is ScopedContainer<any, any> =>
+					(child): child is ScopedContainer<TReg> =>
 						child !== undefined
 				)
 				.map((child) => child.destroy());
@@ -727,9 +600,7 @@ export class ScopedContainer<in TReg extends AnyTag, TScope extends Scope>
 	 * Child containers inherit access to parent dependencies but maintain
 	 * their own scope for new registrations and instance caching.
 	 */
-	child<TChildScope extends Scope>(
-		scope: TChildScope
-	): ScopedContainer<TReg, TScope | TChildScope> {
+	child(scope: Scope): ScopedContainer<TReg> {
 		if (this.isDestroyed) {
 			throw new DependencyContainerError(
 				'Cannot create child containers from a destroyed container'
@@ -771,8 +642,32 @@ export function container(): Container<never> {
 	return new Container();
 }
 
-export function scopedContainer<TScope extends Scope>(
-	scope: TScope
-): ScopedContainer<never, TScope> {
+/**
+ * Creates a new scoped dependency injection container with the given scope name.
+ *
+ * Scoped containers allow hierarchical dependency management where child scopes
+ * can inherit dependencies from parent scopes while maintaining their own
+ * isolated registrations and instance caches.
+ *
+ * @param scope - A string identifier for this scope (used for debugging)
+ * @returns A new empty ScopedContainer instance
+ *
+ * @example
+ * ```typescript
+ * import { scopedContainer, Tag } from 'sandl';
+ *
+ * const appContainer = scopedContainer('app');
+ * const requestContainer = appContainer.child('request');
+ *
+ * // App-level services
+ * appContainer.register(DatabaseService, () => new DatabaseService());
+ *
+ * // Request-level services that can access app services
+ * requestScope.register(UserService, async (container) =>
+ *   new UserService(await container.get(DatabaseService))
+ * );
+ * ```
+ */
+export function scopedContainer(scope: string): ScopedContainer<never> {
 	return new ScopedContainer(null, scope);
 }

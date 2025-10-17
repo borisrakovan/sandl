@@ -1,4 +1,4 @@
-import { Container, IContainer, container } from '@/container.js';
+import { Container, container } from '@/container.js';
 import {
 	CircularDependencyError,
 	DependencyContainerError,
@@ -118,7 +118,7 @@ describe('DependencyContainer', () => {
 			expect(c.has(TestService)).toBe(false);
 		});
 
-		it('should return false for registered but not instantiated dependency', () => {
+		it('should return true for registered dependency', () => {
 			class TestService extends Tag.Class('TestService') {}
 
 			const c = container().register(
@@ -126,7 +126,7 @@ describe('DependencyContainer', () => {
 				() => new TestService()
 			);
 
-			expect(c.has(TestService)).toBe(false);
+			expect(c.has(TestService)).toBe(true);
 		});
 
 		it('should return true for instantiated dependency', async () => {
@@ -198,9 +198,10 @@ describe('DependencyContainer', () => {
 
 			const c = container();
 
-			await expect(
-				(c as IContainer<typeof TestService>).get(TestService)
-			).rejects.toThrow(UnknownDependencyError);
+			// @ts-expect-error - TestService is not registered
+			await expect(c.get(TestService)).rejects.toThrow(
+				UnknownDependencyError
+			);
 		});
 
 		it('should wrap factory errors in DependencyCreationError', async () => {
@@ -244,8 +245,8 @@ describe('DependencyContainer', () => {
 				DependencyCreationError
 			);
 
-			// Should not be in cache after failure
-			expect(c.has(TestService)).toBe(false);
+			// Service should still be registered even after failure
+			expect(c.has(TestService)).toBe(true);
 
 			// Second call should succeed
 			shouldFail = false;
@@ -372,17 +373,18 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			const c = container() as IContainer<
-				typeof ServiceA | typeof ServiceB
-			>;
-			c.register(
-				ServiceA,
-				async (container) => new ServiceA(await container.get(ServiceB))
-			);
-			c.register(
-				ServiceB,
-				async (container) => new ServiceB(await container.get(ServiceA))
-			);
+			const c = container()
+				.register(
+					ServiceA,
+					async (container) =>
+						// @ts-expect-error - ServiceB is not registered
+						new ServiceA(await container.get(ServiceB))
+				)
+				.register(
+					ServiceB,
+					async (container) =>
+						new ServiceB(await container.get(ServiceA))
+				);
 
 			// Should throw CircularDependencyError, not hang
 			await expect(c.get(ServiceA)).rejects.toThrow(
@@ -542,8 +544,8 @@ describe('DependencyContainer', () => {
 			// Should throw due to finalizer error
 			await expect(c.destroy()).rejects.toThrow();
 
-			// But instance cache should still be cleared (not has() because that only checks cache)
-			expect(c.has(TestService)).toBe(false);
+			// Service should still be registered even after destroy fails
+			expect(c.has(TestService)).toBe(true);
 		});
 
 		it('should make container unusable after destroy', async () => {
@@ -562,9 +564,9 @@ describe('DependencyContainer', () => {
 
 			await c.destroy();
 
-			// Instance cache should be cleared
-			expect(c.has(ServiceA)).toBe(false);
-			expect(c.has(ServiceB)).toBe(false);
+			// Services should still be registered even after destroy
+			expect(c.has(ServiceA)).toBe(true);
+			expect(c.has(ServiceB)).toBe(true);
 
 			// Container should now be unusable
 			await expect(c.get(ServiceA)).rejects.toThrow(

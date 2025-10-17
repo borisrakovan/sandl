@@ -2,7 +2,7 @@ import { PromiseOrValue } from '@/types.js';
 import { IContainer } from './container.js';
 import { Layer, layer } from './layer.js';
 import { AnyTag, ClassTag, TaggedClass, TagId, TagType } from './tag.js';
-import { ExtractInjectTag, Scope } from './types.js';
+import { ExtractInjectTag } from './types.js';
 
 /**
  * Extracts constructor parameter types from a TaggedClass.
@@ -116,13 +116,13 @@ export type Service<T extends AnyTag> = Layer<ServiceDependencies<T>, T>;
  */
 export function service<T extends AnyTag>(
 	serviceClass: T,
-	factory: <TScope extends Scope, TContainer extends AnyTag>(
-		container: IContainer<TContainer | ServiceDependencies<T>, TScope>
+	factory: <TContainer extends AnyTag>(
+		container: IContainer<TContainer | ServiceDependencies<T>>
 	) => PromiseOrValue<TagType<T>>
 ): Service<T> {
 	const serviceLayer = layer<ServiceDependencies<T>, T>(
-		<TScope extends Scope, TContainer extends AnyTag>(
-			container: IContainer<TContainer | ServiceDependencies<T>, TScope>
+		<TContainer extends AnyTag>(
+			container: IContainer<TContainer | ServiceDependencies<T>>
 		) => {
 			return container.register(serviceClass, (c) => factory(c));
 		}
