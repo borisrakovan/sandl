@@ -386,13 +386,30 @@ describe('DependencyContainer', () => {
 						new ServiceB(await container.get(ServiceA))
 				);
 
-			// Should throw CircularDependencyError, not hang
-			await expect(c.get(ServiceA)).rejects.toThrow(
-				CircularDependencyError
-			);
-			await expect(c.get(ServiceB)).rejects.toThrow(
-				CircularDependencyError
-			);
+			// Should throw DependencyCreationError with nested error chain leading to CircularDependencyError
+			try {
+				await c.get(ServiceA);
+				expect.fail('Should have thrown');
+			} catch (error) {
+				expect(error).toBeInstanceOf(DependencyCreationError);
+				// The error chain is: DependencyCreationError(ServiceA) -> DependencyCreationError(ServiceB) -> CircularDependencyError
+				const serviceAError = error as DependencyCreationError;
+				expect(serviceAError.cause).toBeInstanceOf(DependencyCreationError);
+				const serviceBError = serviceAError.cause as DependencyCreationError;
+				expect(serviceBError.cause).toBeInstanceOf(CircularDependencyError);
+			}
+
+			try {
+				await c.get(ServiceB);
+				expect.fail('Should have thrown');
+			} catch (error) {
+				expect(error).toBeInstanceOf(DependencyCreationError);
+				// The error chain is: DependencyCreationError(ServiceB) -> DependencyCreationError(ServiceA) -> CircularDependencyError
+				const serviceBError = error as DependencyCreationError;
+				expect(serviceBError.cause).toBeInstanceOf(DependencyCreationError);
+				const serviceAError = serviceBError.cause as DependencyCreationError;
+				expect(serviceAError.cause).toBeInstanceOf(CircularDependencyError);
+			}
 		});
 	});
 

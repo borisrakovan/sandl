@@ -362,10 +362,6 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 					// eslint-disable-next-line @typescript-eslint/no-unsafe-return
 					return instance as TagType<T>;
 				} catch (error) {
-					// Don't wrap CircularDependencyError, rethrow as-is
-					if (error instanceof CircularDependencyError) {
-						throw error;
-					}
 					throw new DependencyCreationError(tag, error);
 				}
 			})
