@@ -1,6 +1,7 @@
 import { Container, container } from '@/container.js';
 import {
 	CircularDependencyError,
+	ContainerDestroyedError,
 	DependencyAlreadyRegisteredError,
 	DependencyCreationError,
 	DependencyFinalizationError,
@@ -106,6 +107,151 @@ describe('DependencyContainer', () => {
 				.register(ServiceB, () => new ServiceB());
 
 			expect(c).toBeDefined();
+		});
+	});
+
+	describe('override', () => {
+		it('should override existing dependency factory and use new factory', async () => {
+			class TestService extends Tag.Class('TestService') {
+				constructor(public value: string) {
+					super();
+				}
+			}
+
+			const c = container()
+				.register(TestService, () => new TestService('original'))
+				.override(TestService, () => new TestService('overridden'));
+
+			const instance = await c.get(TestService);
+			expect(instance.value).toBe('overridden');
+		});
+
+		it('should override with lifecycle object and use new finalizer', async () => {
+			class TestService extends Tag.Class('TestService') {
+				cleanup = vi.fn();
+			}
+
+			const originalFinalizer = vi.fn();
+			const newFinalizer = vi.fn((instance: TestService) => {
+				instance.cleanup();
+			});
+
+			const c = container()
+				.register(TestService, {
+					factory: () => new TestService(),
+					finalizer: originalFinalizer,
+				})
+				.override(TestService, {
+					factory: () => new TestService(),
+					finalizer: newFinalizer,
+				});
+
+			const instance = await c.get(TestService);
+			await c.destroy();
+
+			expect(originalFinalizer).not.toHaveBeenCalled();
+			expect(newFinalizer).toHaveBeenCalledWith(instance);
+			expect(instance.cleanup).toHaveBeenCalled();
+		});
+
+		it('should remove finalizer when overriding with just factory', async () => {
+			class TestService extends Tag.Class('TestService') {}
+
+			const originalFinalizer = vi.fn();
+
+			const c = container()
+				.register(TestService, {
+					factory: () => new TestService(),
+					finalizer: originalFinalizer,
+				})
+				.override(TestService, () => new TestService());
+
+			const _instance = await c.get(TestService);
+			await c.destroy();
+
+			// Original finalizer should not be called since it was removed
+			expect(originalFinalizer).not.toHaveBeenCalled();
+		});
+
+		it('should not affect other dependencies when overriding', async () => {
+			class ServiceA extends Tag.Class('ServiceA') {
+				constructor(public value: string) {
+					super();
+				}
+			}
+			class ServiceB extends Tag.Class('ServiceB') {
+				constructor(public value: string) {
+					super();
+				}
+			}
+
+			const serviceAFactory = vi.fn(() => new ServiceA('A-original'));
+			const serviceBFactory = vi.fn(() => new ServiceB('B-unchanged'));
+
+			const c = container()
+				.register(ServiceA, serviceAFactory)
+				.register(ServiceB, serviceBFactory)
+				.override(ServiceA, () => new ServiceA('A-overridden'));
+
+			const instanceA = await c.get(ServiceA);
+			const instanceB = await c.get(ServiceB);
+
+			expect(instanceA.value).toBe('A-overridden');
+			expect(instanceB.value).toBe('B-unchanged');
+
+			// Original ServiceA factory should not have been called
+			expect(serviceAFactory).not.toHaveBeenCalled();
+			// ServiceB factory should have been called normally
+			expect(serviceBFactory).toHaveBeenCalledTimes(1);
+		});
+
+		it('should throw error when overriding unregistered dependency', () => {
+			class TestService extends Tag.Class('TestService') {}
+
+			const c = container();
+
+			expect(() =>
+				// @ts-expect-error - TestService is not registered
+				c.override(TestService, () => new TestService())
+			).toThrow(UnknownDependencyError);
+		});
+
+		it('should throw error when overriding instantiated dependency', async () => {
+			class TestService extends Tag.Class('TestService') {
+				constructor(public value: string) {
+					super();
+				}
+			}
+
+			const c = container().register(
+				TestService,
+				() => new TestService('original')
+			);
+
+			// Instantiate the service
+			await c.get(TestService);
+
+			// Now try to override - should throw
+			expect(() =>
+				c.override(TestService, () => new TestService('overridden'))
+			).toThrow(
+				'Cannot override dependency TestService - it has already been instantiated'
+			);
+		});
+
+		it('should throw error when overriding destroyed container', async () => {
+			class TestService extends Tag.Class('TestService') {}
+
+			const c = container().register(
+				TestService,
+				() => new TestService()
+			);
+
+			await c.destroy();
+
+			expect(() =>
+				c.override(TestService, () => new TestService())
+			).toThrow(ContainerDestroyedError);
 		});
 	});
 
@@ -394,9 +540,14 @@ describe('DependencyContainer', () => {
 				expect(error).toBeInstanceOf(DependencyCreationError);
 				// The error chain is: DependencyCreationError(ServiceA) -> DependencyCreationError(ServiceB) -> CircularDependencyError
 				const serviceAError = error as DependencyCreationError;
-				expect(serviceAError.cause).toBeInstanceOf(DependencyCreationError);
-				const serviceBError = serviceAError.cause as DependencyCreationError;
-				expect(serviceBError.cause).toBeInstanceOf(CircularDependencyError);
+				expect(serviceAError.cause).toBeInstanceOf(
+					DependencyCreationError
+				);
+				const serviceBError =
+					serviceAError.cause as DependencyCreationError;
+				expect(serviceBError.cause).toBeInstanceOf(
+					CircularDependencyError
+				);
 			}
 
 			try {
@@ -406,9 +557,14 @@ describe('DependencyContainer', () => {
 				expect(error).toBeInstanceOf(DependencyCreationError);
 				// The error chain is: DependencyCreationError(ServiceB) -> DependencyCreationError(ServiceA) -> CircularDependencyError
 				const serviceBError = error as DependencyCreationError;
-				expect(serviceBError.cause).toBeInstanceOf(DependencyCreationError);
-				const serviceAError = serviceBError.cause as DependencyCreationError;
-				expect(serviceAError.cause).toBeInstanceOf(CircularDependencyError);
+				expect(serviceBError.cause).toBeInstanceOf(
+					DependencyCreationError
+				);
+				const serviceAError =
+					serviceBError.cause as DependencyCreationError;
+				expect(serviceAError.cause).toBeInstanceOf(
+					CircularDependencyError
+				);
 			}
 		});
 	});

@@ -97,19 +97,18 @@ describe('ScopedContainer', () => {
 			).toThrow(DependencyAlreadyRegisteredError);
 		});
 
-		it('should allow same dependency in different scopes', () => {
+		it('should throw error when trying to register dependency that exists in parent scope', () => {
 			class TestService extends Tag.Class('TestService') {}
 
 			const parent = scopedContainer('parent').register(
 				TestService,
 				() => new TestService()
 			);
-			const child = parent
-				.child('child')
-				.register(TestService, () => new TestService());
+			const child = parent.child('child');
 
-			expect(parent.has(TestService)).toBe(true);
-			expect(child.has(TestService)).toBe(true);
+			expect(() =>
+				child.register(TestService, () => new TestService())
+			).toThrow(DependencyAlreadyRegisteredError);
 		});
 	});
 
@@ -156,22 +155,6 @@ describe('ScopedContainer', () => {
 
 			expect(child.has(TestService)).toBe(true);
 		});
-
-		it('should prioritize current scope over parent scope', () => {
-			class TestService extends Tag.Class('TestService') {}
-
-			const parent = scopedContainer('parent').register(
-				TestService,
-				() => new TestService()
-			);
-			const child = parent
-				.child('child')
-				.register(TestService, () => new TestService());
-
-			// Both should return true, but child scope takes precedence
-			expect(parent.has(TestService)).toBe(true);
-			expect(child.has(TestService)).toBe(true);
-		});
 	});
 
 	describe('get method and dependency resolution', () => {
@@ -210,7 +193,7 @@ describe('ScopedContainer', () => {
 			expect(instance.getValue()).toBe('parent-scope');
 		});
 
-		it('should prioritize current scope over parent scope', async () => {
+		it('should resolve from parent scope when not overridden', async () => {
 			class TestService extends Tag.Class('TestService') {
 				constructor(public value: string) {
 					super();
@@ -221,16 +204,15 @@ describe('ScopedContainer', () => {
 				TestService,
 				() => new TestService('parent')
 			);
-			const child = parent
-				.child('child')
-				.register(TestService, () => new TestService('child'));
+			const child = parent.child('child');
 
 			const parentInstance = await parent.get(TestService);
 			const childInstance = await child.get(TestService);
 
+			// Both should get the same instance from parent scope
 			expect(parentInstance.value).toBe('parent');
-			expect(childInstance.value).toBe('child');
-			expect(parentInstance).not.toBe(childInstance);
+			expect(childInstance.value).toBe('parent');
+			expect(parentInstance).toBe(childInstance);
 		});
 
 		it('should cache instances per scope', async () => {
@@ -262,42 +244,23 @@ describe('ScopedContainer', () => {
 			expect(factory).toHaveBeenCalledTimes(1);
 		});
 
-		it('should maintain separate caches when child overrides parent', async () => {
+		it('should throw error when child tries to register parent dependency', () => {
 			class TestService extends Tag.Class('TestService') {
 				constructor(public value: string) {
 					super();
 				}
 			}
 
-			const parentFactory = vi.fn(() => new TestService('parent'));
-			const childFactory = vi.fn(() => new TestService('child'));
-
 			const parent = scopedContainer('parent').register(
 				TestService,
-				parentFactory
+				() => new TestService('parent')
 			);
-			const child = parent
-				.child('child')
-				.register(TestService, childFactory);
+			const child = parent.child('child');
 
-			const parentInstance1 = await parent.get(TestService);
-			const parentInstance2 = await parent.get(TestService);
-			const childInstance1 = await child.get(TestService);
-			const childInstance2 = await child.get(TestService);
-
-			// Same instance within each scope
-			expect(parentInstance1).toBe(parentInstance2);
-			expect(childInstance1).toBe(childInstance2);
-
-			// Different instances across scopes
-			expect(parentInstance1).not.toBe(childInstance1);
-
-			// Each factory called once
-			expect(parentFactory).toHaveBeenCalledTimes(1);
-			expect(childFactory).toHaveBeenCalledTimes(1);
-
-			expect(parentInstance1.value).toBe('parent');
-			expect(childInstance1.value).toBe('child');
+			// Child cannot register the same dependency as parent
+			expect(() =>
+				child.register(TestService, () => new TestService('child'))
+			).toThrow(DependencyAlreadyRegisteredError);
 		});
 
 		it('should throw UnknownDependencyError for unregistered dependency', async () => {
@@ -713,22 +676,19 @@ describe('ScopedContainer', () => {
 			expect(numberValue).toBe(42);
 		});
 
-		it('should override parent ValueTag in child scope', async () => {
+		it('should throw error when child tries to register parent ValueTag', () => {
 			const ConfigTag = Tag.of('config')<{ env: string }>();
 
 			const parent = scopedContainer('parent').register(
 				ConfigTag,
 				() => ({ env: 'production' })
 			);
-			const child = parent
-				.child('child')
-				.register(ConfigTag, () => ({ env: 'development' }));
+			const child = parent.child('child');
 
-			const parentConfig = await parent.get(ConfigTag);
-			const childConfig = await child.get(ConfigTag);
-
-			expect(parentConfig.env).toBe('production');
-			expect(childConfig.env).toBe('development');
+			// Child cannot register the same ValueTag as parent
+			expect(() =>
+				child.register(ConfigTag, () => ({ env: 'development' }))
+			).toThrow(DependencyAlreadyRegisteredError);
 		});
 	});
 });

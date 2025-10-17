@@ -57,6 +57,13 @@ export interface IContainer<in TReg extends AnyTag> {
 			| DependencyLifecycle<T, TReg>
 	): IContainer<TReg | T>;
 
+	override<T extends TReg>(
+		tag: T,
+		factoryOrLifecycle:
+			| Factory<TagType<T>, TReg>
+			| DependencyLifecycle<T, TReg>
+	): IContainer<TReg>;
+
 	has(tag: AnyTag): boolean;
 
 	get<T extends TReg>(tag: T): Promise<TagType<T>>;
@@ -241,7 +248,7 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 			);
 		}
 
-		if (this.factories.has(tag)) {
+		if (this.has(tag)) {
 			throw new DependencyAlreadyRegisteredError(
 				`Dependency ${Tag.id(tag)} already registered in the container`
 			);
@@ -255,6 +262,55 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 		}
 
 		return this as Container<TReg | T>;
+	}
+
+	/**
+	 * Explicitly overrides a dependency that is already registered in this container.
+	 *
+	 * Unlike register(), this method allows replacing an existing factory function.
+	 *
+	 * Important: If the dependency has already been instantiated, this method will
+	 * throw an error. This is because the cached instance would still be used by
+	 * other dependencies, making the override ineffective. Overrides must happen
+	 * before any instantiation occurs.
+	 */
+	override<T extends TReg>(
+		tag: T,
+		factoryOrLifecycle:
+			| Factory<TagType<T>, TReg>
+			| DependencyLifecycle<T, TReg>
+	): this {
+		if (this.isDestroyed) {
+			throw new ContainerDestroyedError(
+				'Cannot override dependencies on a destroyed container'
+			);
+		}
+
+		// Ensure the dependency is already registered in this container
+		if (!this.has(tag)) {
+			throw new UnknownDependencyError(tag);
+		}
+
+		// Check if dependency has been instantiated
+		if (this.cache.has(tag)) {
+			throw new Error(
+				`Cannot override dependency ${Tag.id(tag)} - it has already been instantiated. ` +
+					`Overrides must happen before any instantiation occurs, as cached instances ` +
+					`would still be used by existing dependencies.`
+			);
+		}
+
+		// Replace the factory and finalizer
+		if (typeof factoryOrLifecycle === 'function') {
+			this.factories.set(tag, factoryOrLifecycle);
+			// Remove any existing finalizer when overriding with just a factory
+			this.finalizers.delete(tag);
+		} else {
+			this.factories.set(tag, factoryOrLifecycle.factory);
+			this.finalizers.set(tag, factoryOrLifecycle.finalizer);
+		}
+
+		return this;
 	}
 
 	/**
@@ -485,7 +541,7 @@ export class ScopedContainer<TReg extends AnyTag> extends Container<TReg> {
 
 	/**
 	 * Registers a dependency in the scoped container.
-	 * 
+	 *
 	 * Overrides the base implementation to return ScopedContainer type
 	 * for proper method chaining support.
 	 */
@@ -497,6 +553,21 @@ export class ScopedContainer<TReg extends AnyTag> extends Container<TReg> {
 	): ScopedContainer<TReg | T> {
 		super.register(tag, factoryOrLifecycle);
 		return this as ScopedContainer<TReg | T>;
+	}
+
+	/**
+	 * Overrides a dependency in the scoped container.
+	 *
+	 * Returns ScopedContainer type for proper method chaining support.
+	 */
+	override override<T extends TReg>(
+		tag: T,
+		factoryOrLifecycle:
+			| Factory<TagType<T>, TReg>
+			| DependencyLifecycle<T, TReg>
+	): this {
+		super.override(tag, factoryOrLifecycle);
+		return this;
 	}
 
 	/**
