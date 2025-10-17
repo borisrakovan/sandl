@@ -234,7 +234,7 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 		factoryOrLifecycle:
 			| Factory<TagType<T>, TReg>
 			| DependencyLifecycle<T, TReg>
-	): IContainer<TReg | T> {
+	): Container<TReg | T> {
 		if (this.isDestroyed) {
 			throw new ContainerDestroyedError(
 				'Cannot register dependencies on a destroyed container'
@@ -254,7 +254,7 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 			this.finalizers.set(tag, factoryOrLifecycle.finalizer);
 		}
 
-		return this as IContainer<TReg | T>;
+		return this as Container<TReg | T>;
 	}
 
 	/**
@@ -484,6 +484,22 @@ export class ScopedContainer<TReg extends AnyTag> extends Container<TReg> {
 	}
 
 	/**
+	 * Registers a dependency in the scoped container.
+	 * 
+	 * Overrides the base implementation to return ScopedContainer type
+	 * for proper method chaining support.
+	 */
+	override register<T extends AnyTag>(
+		tag: T,
+		factoryOrLifecycle:
+			| Factory<TagType<T>, TReg>
+			| DependencyLifecycle<T, TReg>
+	): ScopedContainer<TReg | T> {
+		super.register(tag, factoryOrLifecycle);
+		return this as ScopedContainer<TReg | T>;
+	}
+
+	/**
 	 * Checks if a dependency has been registered in this scope or any parent scope.
 	 *
 	 * This method checks the current scope first, then walks up the parent chain.
@@ -653,6 +669,6 @@ export function container(): Container<never> {
  * );
  * ```
  */
-export function scopedContainer(scope: string): ScopedContainer<never> {
+export function scopedContainer(scope: Scope): ScopedContainer<never> {
 	return new ScopedContainer(null, scope);
 }
