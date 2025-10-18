@@ -246,8 +246,8 @@ export const Tag = {
 	 *
 	 * container
 	 *   .register(DatabaseService, () => new DatabaseService())
-	 *   .register(UserRepository, async (c) =>
-	 *     new UserRepository(await c.get(DatabaseService))
+	 *   .register(UserRepository, async (ctx) =>
+	 *     new UserRepository(await ctx.get(DatabaseService))
 	 *   );
 	 * ```
 	 *

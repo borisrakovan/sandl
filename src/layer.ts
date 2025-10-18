@@ -1,6 +1,11 @@
 import { IContainer } from './container.js';
 import { AnyTag } from './tag.js';
 
+export type ResolutionContext<TReg extends AnyTag> = Pick<
+	IContainer<TReg>,
+	'get'
+>;
+
 /**
  * The most generic layer type that works with variance - accepts any concrete layer.
  *
@@ -61,8 +66,8 @@ export type AnyLayer = Layer<never, AnyTag>;
  * ```typescript
  * // Layer that requires DatabaseService and provides UserService
  * const userLayer = layer<typeof DatabaseService, typeof UserService>((container) =>
- *   container.register(UserService, async (c) =>
- *     new UserService(await c.get(DatabaseService))
+ *   container.register(UserService, async (ctx) =>
+ *     new UserService(await ctx.get(DatabaseService))
  *   )
  * );
  *
@@ -222,15 +227,15 @@ export interface Layer<
  * const infraLayer = layer<typeof ConfigTag, typeof DatabaseService | typeof CacheService>(
  *   (container) =>
  *     container
- *       .register(DatabaseService, async (c) => new DatabaseService(await c.get(ConfigTag)))
- *       .register(CacheService, async (c) => new CacheService(await c.get(ConfigTag)))
+ *       .register(DatabaseService, async (ctx) => new DatabaseService(await ctx.get(ConfigTag)))
+ *       .register(CacheService, async (ctx) => new CacheService(await ctx.get(ConfigTag)))
  * );
  *
  * // Service layer (requires infrastructure)
  * const serviceLayer = layer<typeof DatabaseService | typeof CacheService, typeof UserService>(
  *   (container) =>
- *     container.register(UserService, async (c) =>
- *       new UserService(await c.get(DatabaseService), await c.get(CacheService))
+ *     container.register(UserService, async (ctx) =>
+ *       new UserService(await ctx.get(DatabaseService), await ctx.get(CacheService))
  *     )
  * );
  *

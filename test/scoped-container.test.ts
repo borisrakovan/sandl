@@ -344,10 +344,10 @@ describe('ScopedContainer', () => {
 				.register(CacheService, () => new CacheService())
 				.register(
 					UserService,
-					async (container) =>
+					async (ctx) =>
 						new UserService(
-							await container.get(DatabaseService),
-							await container.get(CacheService)
+							await ctx.get(DatabaseService),
+							await ctx.get(CacheService)
 						)
 				);
 
@@ -615,14 +615,13 @@ describe('ScopedContainer', () => {
 			const c = scopedContainer('test')
 				.register(
 					ServiceA,
-					async (container) =>
+					async (ctx) =>
 						// @ts-expect-error - ServiceB not registered yet
-						new ServiceA(await container.get(ServiceB))
+						new ServiceA(await ctx.get(ServiceB))
 				)
 				.register(
 					ServiceB,
-					async (container) =>
-						new ServiceB(await container.get(ServiceA))
+					async (ctx) => new ServiceB(await ctx.get(ServiceA))
 				);
 
 			try {
@@ -644,16 +643,15 @@ describe('ScopedContainer', () => {
 
 			const parent = scopedContainer('parent').register(
 				ServiceA,
-				async (container) =>
+				async (ctx) =>
 					// @ts-expect-error - ServiceB not in parent scope
-					new ServiceA(await container.get(ServiceB))
+					new ServiceA(await ctx.get(ServiceB))
 			);
 			const child = parent
 				.child('child')
 				.register(
 					ServiceB,
-					async (container) =>
-						new ServiceB(await container.get(ServiceA))
+					async (ctx) => new ServiceB(await ctx.get(ServiceA))
 				);
 
 			try {

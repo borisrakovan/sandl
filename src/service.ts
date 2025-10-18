@@ -1,4 +1,4 @@
-import { PromiseOrValue } from '@/types.js';
+import { PromiseOrValue, ResolutionContext } from '@/types.js';
 import { IContainer } from './container.js';
 import { Layer, layer } from './layer.js';
 import { AnyTag, ClassTag, TaggedClass, TagId, TagType } from './tag.js';
@@ -109,22 +109,22 @@ export type Service<T extends AnyTag> = Layer<ServiceDependencies<T>, T>;
  *   getUsers() { return this.db.query(); }
  * }
  *
- * const userService = service(UserService, async (container) =>
- *   new UserService(await container.get(DatabaseService))
+ * const userService = service(UserService, async (ctx) =>
+ *   new UserService(await ctx.get(DatabaseService))
  * );
  * ```
  */
 export function service<T extends AnyTag>(
 	serviceClass: T,
 	factory: <TContainer extends AnyTag>(
-		container: IContainer<TContainer | ServiceDependencies<T>>
+		ctx: ResolutionContext<TContainer | ServiceDependencies<T>>
 	) => PromiseOrValue<TagType<T>>
 ): Service<T> {
 	const serviceLayer = layer<ServiceDependencies<T>, T>(
 		<TContainer extends AnyTag>(
 			container: IContainer<TContainer | ServiceDependencies<T>>
 		) => {
-			return container.register(serviceClass, (c) => factory(c));
+			return container.register(serviceClass, (ctx) => factory(ctx));
 		}
 	);
 

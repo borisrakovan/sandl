@@ -35,6 +35,11 @@ export interface ClassConstructor<T = unknown> {
 	new (...args: any[]): T;
 }
 
+export type ResolutionContext<TReg extends AnyTag> = Pick<
+	IContainer<TReg>,
+	'get'
+>;
+
 /**
  * Type representing a factory function used to create dependency instances.
  *
@@ -50,24 +55,24 @@ export interface ClassConstructor<T = unknown> {
  *
  * @example Synchronous factory
  * ```typescript
- * const factory: Factory<DatabaseService, never> = (container) => {
+ * const factory: Factory<DatabaseService, never> = (ctx) => {
  *   return new DatabaseService('sqlite://memory');
  * };
  * ```
  *
  * @example Asynchronous factory with dependencies
  * ```typescript
- * const factory: Factory<UserService, typeof ConfigTag | typeof DatabaseService> = async (container) => {
+ * const factory: Factory<UserService, typeof ConfigTag | typeof DatabaseService> = async (ctx) => {
  *   const [config, db] = await Promise.all([
- *     container.get(ConfigTag),
- *     container.get(DatabaseService)
+ *     ctx.get(ConfigTag),
+ *     ctx.get(DatabaseService)
  *   ]);
  *   return new UserService(config, db);
  * };
  * ```
  */
 export type Factory<T, TReg extends AnyTag> = (
-	container: IContainer<TReg>
+	ctx: ResolutionContext<TReg>
 ) => PromiseOrValue<T>;
 
 /**

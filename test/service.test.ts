@@ -52,8 +52,8 @@ describe('Service', () => {
 				DatabaseService,
 				() => new DatabaseService()
 			);
-			const userService = service(UserService, async (container) => {
-				const db = await container.get(DatabaseService);
+			const userService = service(UserService, async (ctx) => {
+				const db = await ctx.get(DatabaseService);
 				return new UserService(db);
 			});
 
@@ -94,8 +94,8 @@ describe('Service', () => {
 				ConfigService,
 				() => new ConfigService()
 			);
-			const dbService = service(DatabaseService, async (container) => {
-				return new DatabaseService(await container.get(ConfigService));
+			const dbService = service(DatabaseService, async (ctx) => {
+				return new DatabaseService(await ctx.get(ConfigService));
 			});
 
 			// Compose services
@@ -179,8 +179,8 @@ describe('Service', () => {
 				() => 'postgresql://localhost:5432'
 			);
 
-			const dbService = service(DatabaseService, async (container) => {
-				const url = await container.get(DatabaseUrlTag);
+			const dbService = service(DatabaseService, async (ctx) => {
+				const url = await ctx.get(DatabaseUrlTag);
 				return new DatabaseService(url);
 			});
 

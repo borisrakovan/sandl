@@ -182,8 +182,8 @@ export class ScopedContainer<TReg extends AnyTag> extends Container<TReg> {
  * appContainer.register(DatabaseService, () => new DatabaseService());
  *
  * // Request-level services that can access app services
- * requestScope.register(UserService, async (container) =>
- *   new UserService(await container.get(DatabaseService))
+ * requestContainer.register(UserService, async (ctx) =>
+ *   new UserService(await ctx.get(DatabaseService))
  * );
  * ```
  */

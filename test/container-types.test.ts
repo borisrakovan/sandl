@@ -1,5 +1,6 @@
-import { Container, IContainer, container } from '@/container.js';
+import { Container, container } from '@/container.js';
 import { Tag } from '@/tag.js';
+import { ResolutionContext } from '@/types.js';
 import { describe, expectTypeOf, it } from 'vitest';
 
 describe('DependencyContainer Type Safety', () => {
@@ -69,20 +70,20 @@ describe('DependencyContainer Type Safety', () => {
 
 			const c = container()
 				.register(DatabaseService, () => new DatabaseService())
-				.register(UserService, async (container) => {
+				.register(UserService, async (ctx) => {
 					// Factory should receive correctly typed container
-					expectTypeOf(container).toEqualTypeOf<
-						IContainer<typeof DatabaseService>
+					expectTypeOf(ctx).toEqualTypeOf<
+						ResolutionContext<typeof DatabaseService>
 					>();
 
 					// Should be able to get DatabaseService
-					expectTypeOf(container.get(DatabaseService)).toEqualTypeOf<
+					expectTypeOf(ctx.get(DatabaseService)).toEqualTypeOf<
 						Promise<DatabaseService>
 					>();
 
 					// Should NOT be able to get UserService (circular dependency would be caught)
 					// @ts-expect-error - UserService not available in factory container type
-					await container.get(UserService);
+					await ctx.get(UserService);
 
 					return new UserService();
 				});
@@ -181,8 +182,8 @@ describe('DependencyContainer Type Safety', () => {
 
 			const c = container()
 				.register(ApiKeyTag, () => 'secret-key')
-				.register(UserService, async (container) => {
-					const apiKey = await container.get(ApiKeyTag);
+				.register(UserService, async (ctx) => {
+					const apiKey = await ctx.get(ApiKeyTag);
 					expectTypeOf(apiKey).toEqualTypeOf<string>();
 					return new UserService(apiKey);
 				});
@@ -342,26 +343,26 @@ describe('DependencyContainer Type Safety', () => {
 
 			const c = container()
 				.register(ConfigService, () => new ConfigService())
-				.register(DatabaseService, async (container) => {
-					const config = await container.get(ConfigService);
+				.register(DatabaseService, async (ctx) => {
+					const config = await ctx.get(ConfigService);
 					expectTypeOf(config).toEqualTypeOf<ConfigService>();
 					return new DatabaseService();
 				})
-				.register(UserRepository, async (container) => {
-					const db = await container.get(DatabaseService);
+				.register(UserRepository, async (ctx) => {
+					const db = await ctx.get(DatabaseService);
 					expectTypeOf(db).toEqualTypeOf<DatabaseService>();
 					return new UserRepository();
 				})
-				.register(UserService, async (container) => {
-					const repo = await container.get(UserRepository);
+				.register(UserService, async (ctx) => {
+					const repo = await ctx.get(UserRepository);
 					expectTypeOf(repo).toEqualTypeOf<UserRepository>();
 					return new UserService();
 				})
 				.register(NotificationService, () => new NotificationService())
-				.register(AppService, async (container) => {
-					const userService = await container.get(UserService);
+				.register(AppService, async (ctx) => {
+					const userService = await ctx.get(UserService);
 					const notificationService =
-						await container.get(NotificationService);
+						await ctx.get(NotificationService);
 					expectTypeOf(userService).toEqualTypeOf<UserService>();
 					expectTypeOf(
 						notificationService

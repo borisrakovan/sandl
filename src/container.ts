@@ -65,8 +65,8 @@ export interface IContainer<in TReg extends AnyTag> {
  *
  * const c = container()
  *   .register(DatabaseService, () => new DatabaseService())
- *   .register(UserService, async (container) =>
- *     new UserService(await container.get(DatabaseService))
+ *   .register(UserService, async (ctx) =>
+ *     new UserService(await ctx.get(DatabaseService))
  *   );
  *
  * const userService = await c.get(UserService);
@@ -172,10 +172,10 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 * const c = container()
 	 *   .register(DatabaseService, () => new DatabaseService())
 	 *   .register(LoggerService, () => new LoggerService())
-	 *   .register(UserService, async (container) =>
+	 *   .register(UserService, async (ctx) =>
 	 *     new UserService(
-	 *       await container.get(DatabaseService),
-	 *       await container.get(LoggerService)
+	 *       await ctx.get(DatabaseService),
+	 *       await ctx.get(LoggerService)
 	 *     )
 	 *   );
 	 * ```
@@ -320,8 +320,8 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 * ```typescript
 	 * const c = container()
 	 *   .register(DatabaseService, () => new DatabaseService())
-	 *   .register(UserService, async (container) => {
-	 *     const db = await container.get(DatabaseService);
+	 *   .register(UserService, async (ctx) => {
+	 *     const db = await ctx.get(DatabaseService);
 	 *     return new UserService(db);
 	 *   });
 	 *
@@ -423,7 +423,7 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 * ```typescript
 	 * const appContainer = container()
 	 *   .register(DatabaseService, () => new DatabaseService())
-	 *   .register(HTTPServer, async (c) => new HTTPServer(await c.get(DatabaseService)));
+	 *   .register(HTTPServer, async (ctx) => new HTTPServer(await ctx.get(DatabaseService)));
 	 *
 	 * // During application shutdown
 	 * process.on('SIGTERM', async () => {
@@ -507,8 +507,8 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
  *
  * const c = container()
  *   .register(DatabaseService, () => new DatabaseService())
- *   .register(UserService, async (container) =>
- *     new UserService(await container.get(DatabaseService))
+ *   .register(UserService, async (ctx) =>
+ *     new UserService(await ctx.get(DatabaseService))
  *   );
  *
  * const userService = await c.get(UserService);

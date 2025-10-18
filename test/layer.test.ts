@@ -73,8 +73,8 @@ describe('Layer', () => {
 				(container) =>
 					container.register(
 						UserService,
-						async (c) =>
-							new UserService(await c.get(DatabaseService))
+						async (ctx) =>
+							new UserService(await ctx.get(DatabaseService))
 					)
 			);
 
@@ -125,7 +125,8 @@ describe('Layer', () => {
 			>((container) =>
 				container.register(
 					DatabaseService,
-					async (c) => new DatabaseService(await c.get(ConfigService))
+					async (ctx) =>
+						new DatabaseService(await ctx.get(ConfigService))
 				)
 			);
 
@@ -133,8 +134,8 @@ describe('Layer', () => {
 				(container) =>
 					container.register(
 						UserService,
-						async (c) =>
-							new UserService(await c.get(DatabaseService))
+						async (ctx) =>
+							new UserService(await ctx.get(DatabaseService))
 					)
 			);
 
@@ -179,10 +180,10 @@ describe('Layer', () => {
 			>((container) =>
 				container.register(
 					UserService,
-					async (c) =>
+					async (ctx) =>
 						new UserService(
-							await c.get(ApiKeyTag),
-							await c.get(DatabaseService)
+							await ctx.get(ApiKeyTag),
+							await ctx.get(DatabaseService)
 						)
 				)
 			);
@@ -268,7 +269,8 @@ describe('Layer', () => {
 				(container) =>
 					container.register(
 						ServiceA,
-						async (c) => new ServiceA(await c.get(ConfigService))
+						async (ctx) =>
+							new ServiceA(await ctx.get(ConfigService))
 					)
 			);
 
@@ -276,7 +278,8 @@ describe('Layer', () => {
 				(container) =>
 					container.register(
 						ServiceB,
-						async (c) => new ServiceB(await c.get(ConfigService))
+						async (ctx) =>
+							new ServiceB(await ctx.get(ConfigService))
 					)
 			);
 
@@ -501,7 +504,7 @@ describe('Layer', () => {
 				(container) =>
 					container.register(
 						ApiService,
-						async (c) => new ApiService(await c.get(ApiKeyTag))
+						async (ctx) => new ApiService(await ctx.get(ApiKeyTag))
 					)
 			);
 
@@ -549,7 +552,7 @@ describe('Layer', () => {
 				(container) =>
 					container.register(
 						ServiceA,
-						async (c) => new ServiceA(await c.get(ServiceB))
+						async (ctx) => new ServiceA(await ctx.get(ServiceB))
 					)
 			);
 
@@ -557,7 +560,7 @@ describe('Layer', () => {
 				(container) =>
 					container.register(
 						ServiceB,
-						async (c) => new ServiceB(await c.get(ServiceA))
+						async (ctx) => new ServiceB(await ctx.get(ServiceA))
 					)
 			);
 
@@ -614,12 +617,12 @@ describe('Layer', () => {
 				typeof DatabaseService | typeof CacheService
 			>((container) =>
 				container
-					.register(DatabaseService, async (c) => {
-						const config = await c.get(ConfigTag);
+					.register(DatabaseService, async (ctx) => {
+						const config = await ctx.get(ConfigTag);
 						return new DatabaseService(config.dbUrl);
 					})
-					.register(CacheService, async (c) => {
-						const config = await c.get(ConfigTag);
+					.register(CacheService, async (ctx) => {
+						const config = await ctx.get(ConfigTag);
 						return new CacheService(config.redisUrl);
 					})
 			);
@@ -643,11 +646,11 @@ describe('Layer', () => {
 				typeof DatabaseService | typeof CacheService | typeof ConfigTag,
 				typeof UserService
 			>((container) =>
-				container.register(UserService, async (c) => {
+				container.register(UserService, async (ctx) => {
 					const [db, cache, config] = await Promise.all([
-						c.get(DatabaseService),
-						c.get(CacheService),
-						c.get(ConfigTag),
+						ctx.get(DatabaseService),
+						ctx.get(CacheService),
+						ctx.get(ConfigTag),
 					]);
 					return new UserService(db, cache, config.apiKey);
 				})

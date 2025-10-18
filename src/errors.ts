@@ -146,11 +146,11 @@ export class UnknownDependencyError extends ContainerError {
  * class ServiceB extends Tag.Class('ServiceB') {}
  *
  * const c = container()
- *   .register(ServiceA, async (container) =>
- *     new ServiceA(await container.get(ServiceB)) // Depends on B
+ *   .register(ServiceA, async (ctx) =>
+ *     new ServiceA(await ctx.get(ServiceB)) // Depends on B
  *   )
- *   .register(ServiceB, async (container) =>
- *     new ServiceB(await container.get(ServiceA)) // Depends on A - CIRCULAR!
+ *   .register(ServiceB, async (ctx) =>
+ *     new ServiceB(await ctx.get(ServiceA)) // Depends on A - CIRCULAR!
  *   );
  *
  * try {

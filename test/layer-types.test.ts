@@ -13,7 +13,7 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceB,
-						async (c) => new ServiceB(await c.get(ServiceA))
+						async (ctx) => new ServiceB(await ctx.get(ServiceA))
 					)
 			);
 
@@ -63,11 +63,11 @@ describe('Layer Type Safety', () => {
 				container
 					.register(
 						ServiceC,
-						async (c) => new ServiceC(await c.get(ServiceA))
+						async (ctx) => new ServiceC(await ctx.get(ServiceA))
 					)
 					.register(
 						ServiceD,
-						async (c) => new ServiceD(await c.get(ServiceB))
+						async (ctx) => new ServiceD(await ctx.get(ServiceB))
 					)
 			);
 
@@ -93,7 +93,7 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceB,
-						async (c) => new ServiceB(await c.get(ServiceA))
+						async (ctx) => new ServiceB(await ctx.get(ServiceA))
 					)
 			);
 
@@ -115,7 +115,8 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceA,
-						async (c) => new ServiceA(await c.get(ExternalService))
+						async (ctx) =>
+							new ServiceA(await ctx.get(ExternalService))
 					)
 			);
 
@@ -123,7 +124,7 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceB,
-						async (c) => new ServiceB(await c.get(ServiceA))
+						async (ctx) => new ServiceB(await ctx.get(ServiceA))
 					)
 			);
 
@@ -159,11 +160,11 @@ describe('Layer Type Safety', () => {
 			>((container) =>
 				container.register(
 					ServiceD,
-					async (c) =>
+					async (ctx) =>
 						new ServiceD(
-							await c.get(ServiceA),
-							await c.get(ServiceB),
-							await c.get(ServiceC)
+							await ctx.get(ServiceA),
+							await ctx.get(ServiceB),
+							await ctx.get(ServiceC)
 						)
 				)
 			);
@@ -210,7 +211,7 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceA,
-						async (c) => new ServiceA(await c.get(ExternalA))
+						async (ctx) => new ServiceA(await ctx.get(ExternalA))
 					)
 			);
 
@@ -218,7 +219,7 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceB,
-						async (c) => new ServiceB(await c.get(ExternalB))
+						async (ctx) => new ServiceB(await ctx.get(ExternalB))
 					)
 			);
 
@@ -241,7 +242,8 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceA,
-						async (c) => new ServiceA(await c.get(SharedExternal))
+						async (ctx) =>
+							new ServiceA(await ctx.get(SharedExternal))
 					)
 			);
 
@@ -249,7 +251,8 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceB,
-						async (c) => new ServiceB(await c.get(SharedExternal))
+						async (ctx) =>
+							new ServiceB(await ctx.get(SharedExternal))
 					)
 			);
 
@@ -293,7 +296,7 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ApiService,
-						async (c) => new ApiService(await c.get(ConfigTag))
+						async (ctx) => new ApiService(await ctx.get(ConfigTag))
 					)
 			);
 
@@ -323,7 +326,7 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceA,
-						async (c) => new ServiceA(await c.get(ExternalA))
+						async (ctx) => new ServiceA(await ctx.get(ExternalA))
 					)
 			);
 
@@ -335,7 +338,7 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceC,
-						async (c) => new ServiceC(await c.get(ExternalB))
+						async (ctx) => new ServiceC(await ctx.get(ExternalB))
 					)
 			);
 
@@ -359,13 +362,13 @@ describe('Layer Type Safety', () => {
 				typeof ExternalService,
 				typeof ProvidedService
 			>((container) =>
-				container.register(ProvidedService, async (c) => {
+				container.register(ProvidedService, async (ctx) => {
 					// Container should have ExternalService available
-					expectTypeOf(c.get(ExternalService)).toEqualTypeOf<
+					expectTypeOf(ctx.get(ExternalService)).toEqualTypeOf<
 						Promise<ExternalService>
 					>();
 
-					return new ProvidedService(await c.get(ExternalService));
+					return new ProvidedService(await ctx.get(ExternalService));
 				})
 			);
 
@@ -397,7 +400,7 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceB,
-						async (c) => new ServiceB(await c.get(ServiceA))
+						async (ctx) => new ServiceB(await ctx.get(ServiceA))
 					)
 			);
 
@@ -405,7 +408,7 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceC,
-						async (c) => new ServiceC(await c.get(ServiceB))
+						async (ctx) => new ServiceC(await ctx.get(ServiceB))
 					)
 			);
 
@@ -413,7 +416,7 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceD,
-						async (c) => new ServiceD(await c.get(ServiceC))
+						async (ctx) => new ServiceD(await ctx.get(ServiceC))
 					)
 			);
 
@@ -445,7 +448,7 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceA,
-						async (c) => new ServiceA(await c.get(BaseService))
+						async (ctx) => new ServiceA(await ctx.get(BaseService))
 					)
 			);
 
@@ -453,7 +456,7 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceB,
-						async (c) => new ServiceB(await c.get(BaseService))
+						async (ctx) => new ServiceB(await ctx.get(BaseService))
 					)
 			);
 
@@ -467,11 +470,11 @@ describe('Layer Type Safety', () => {
 			>((container) =>
 				container.register(
 					CompositeService,
-					async (c) =>
+					async (ctx) =>
 						new CompositeService(
-							await c.get(ServiceA),
-							await c.get(ServiceB),
-							await c.get(ServiceC)
+							await ctx.get(ServiceA),
+							await ctx.get(ServiceB),
+							await ctx.get(ServiceC)
 						)
 				)
 			);
@@ -509,7 +512,8 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						UnrelatedService,
-						async (c) => new UnrelatedService(await c.get(ServiceB))
+						async (ctx) =>
+							new UnrelatedService(await ctx.get(ServiceB))
 					)
 			);
 

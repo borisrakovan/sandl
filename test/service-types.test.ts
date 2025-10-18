@@ -2,7 +2,7 @@ import { container, IContainer } from '@/container.js';
 import { Layer } from '@/layer.js';
 import { service, Service } from '@/service.js';
 import { Tag } from '@/tag.js';
-import { Inject } from '@/types.js';
+import { Inject, ResolutionContext } from '@/types.js';
 import { describe, expectTypeOf, it } from 'vitest';
 
 describe('Service Type Safety', () => {
@@ -42,13 +42,13 @@ describe('Service Type Safety', () => {
 				}
 			}
 
-			const userService = service(UserService, async (container) => {
+			const userService = service(UserService, async (ctx) => {
 				// Container should have DatabaseService available
-				expectTypeOf(container).toExtend<
-					IContainer<typeof DatabaseService>
+				expectTypeOf(ctx).toExtend<
+					ResolutionContext<typeof DatabaseService>
 				>();
 
-				const db = await container.get(DatabaseService);
+				const db = await ctx.get(DatabaseService);
 				expectTypeOf(db).toEqualTypeOf<DatabaseService>();
 
 				return new UserService(db);
@@ -78,10 +78,10 @@ describe('Service Type Safety', () => {
 				}
 			}
 
-			const userService = service(UserService, async (container) => {
+			const userService = service(UserService, async (ctx) => {
 				// Container should have all required dependencies available
-				expectTypeOf(container).toExtend<
-					IContainer<
+				expectTypeOf(ctx).toExtend<
+					ResolutionContext<
 						| typeof DatabaseService
 						| typeof CacheService
 						| typeof LoggerService
@@ -89,9 +89,9 @@ describe('Service Type Safety', () => {
 				>();
 
 				const [db, cache, logger] = await Promise.all([
-					container.get(DatabaseService),
-					container.get(CacheService),
-					container.get(LoggerService),
+					ctx.get(DatabaseService),
+					ctx.get(CacheService),
+					ctx.get(LoggerService),
 				]);
 
 				expectTypeOf(db).toEqualTypeOf<DatabaseService>();
@@ -126,8 +126,8 @@ describe('Service Type Safety', () => {
 				DatabaseService,
 				() => new DatabaseService()
 			);
-			const userService = service(UserService, async (container) => {
-				const db = await container.get(DatabaseService);
+			const userService = service(UserService, async (ctx) => {
+				const db = await ctx.get(DatabaseService);
 				return new UserService(db);
 			});
 
@@ -175,15 +175,15 @@ describe('Service Type Safety', () => {
 				}
 			}
 
-			const dbService = service(DatabaseService, async (container) => {
-				const external = await container.get(ExternalService);
+			const dbService = service(DatabaseService, async (ctx) => {
+				const external = await ctx.get(ExternalService);
 				return new DatabaseService(external);
 			});
 
-			const userService = service(UserService, async (container) => {
+			const userService = service(UserService, async (ctx) => {
 				const [db, external] = await Promise.all([
-					container.get(DatabaseService),
-					container.get(ExternalService),
+					ctx.get(DatabaseService),
+					ctx.get(ExternalService),
 				]);
 				return new UserService(db, external);
 			});
@@ -228,18 +228,18 @@ describe('Service Type Safety', () => {
 				() => new ConfigService()
 			);
 
-			const dbService = service(DatabaseService, async (container) => {
-				const config = await container.get(ConfigService);
+			const dbService = service(DatabaseService, async (ctx) => {
+				const config = await ctx.get(ConfigService);
 				return new DatabaseService(config);
 			});
 
-			const repoService = service(UserRepository, async (container) => {
-				const db = await container.get(DatabaseService);
+			const repoService = service(UserRepository, async (ctx) => {
+				const db = await ctx.get(DatabaseService);
 				return new UserRepository(db);
 			});
 
-			const userService = service(UserService, async (container) => {
-				const repo = await container.get(UserRepository);
+			const userService = service(UserService, async (ctx) => {
+				const repo = await ctx.get(UserRepository);
 				return new UserService(repo);
 			});
 
@@ -289,20 +289,20 @@ describe('Service Type Safety', () => {
 				() => new ConfigService()
 			);
 
-			const dbService = service(DatabaseService, async (container) => {
-				const config = await container.get(ConfigService);
+			const dbService = service(DatabaseService, async (ctx) => {
+				const config = await ctx.get(ConfigService);
 				return new DatabaseService(config);
 			});
 
-			const cacheService = service(CacheService, async (container) => {
-				const config = await container.get(ConfigService);
+			const cacheService = service(CacheService, async (ctx) => {
+				const config = await ctx.get(ConfigService);
 				return new CacheService(config);
 			});
 
-			const userService = service(UserService, async (container) => {
+			const userService = service(UserService, async (ctx) => {
 				const [db, cache] = await Promise.all([
-					container.get(DatabaseService),
-					container.get(CacheService),
+					ctx.get(DatabaseService),
+					ctx.get(CacheService),
 				]);
 				return new UserService(db, cache);
 			});
@@ -358,8 +358,8 @@ describe('Service Type Safety', () => {
 				DatabaseService,
 				() => new DatabaseService()
 			);
-			const userService = service(UserService, async (container) => {
-				const db = await container.get(DatabaseService);
+			const userService = service(UserService, async (ctx) => {
+				const db = await ctx.get(DatabaseService);
 				return new UserService(db);
 			});
 
@@ -394,8 +394,8 @@ describe('Service Type Safety', () => {
 			}
 
 			const serviceA = service(ServiceA, () => new ServiceA());
-			const serviceC = service(ServiceC, async (container) => {
-				const b = await container.get(ServiceB);
+			const serviceC = service(ServiceC, async (ctx) => {
+				const b = await ctx.get(ServiceB);
 				return new ServiceC(b);
 			});
 
@@ -438,12 +438,12 @@ describe('Service Type Safety', () => {
 				DatabaseUrlTag,
 				() => 'postgresql://localhost:5432'
 			);
-			const dbService = service(DatabaseService, async (container) => {
-				expectTypeOf(container).toExtend<
-					IContainer<typeof DatabaseUrlTag>
+			const dbService = service(DatabaseService, async (ctx) => {
+				expectTypeOf(ctx).toExtend<
+					ResolutionContext<typeof DatabaseUrlTag>
 				>();
 
-				const url = await container.get(DatabaseUrlTag);
+				const url = await ctx.get(DatabaseUrlTag);
 				expectTypeOf(url).toEqualTypeOf<string>();
 
 				return new DatabaseService(url);
@@ -481,15 +481,12 @@ describe('Service Type Safety', () => {
 				},
 			}));
 
-			const dbService = service(DatabaseService, async (container) => {
+			const dbService = service(DatabaseService, async (ctx) => {
 				// Container should require both ValueTags for manual injection - test key properties
-				expectTypeOf(container.get).toBeFunction();
-				expectTypeOf(container.has).toBeFunction();
-				expectTypeOf(container.register).toBeFunction();
-				expectTypeOf(container.destroy).toBeFunction();
+				expectTypeOf(ctx.get).toBeFunction();
 
-				const config = await container.get(ConfigTag);
-				const logger = await container.get(LoggerTag);
+				const config = await ctx.get(ConfigTag);
+				const logger = await ctx.get(LoggerTag);
 				return new DatabaseService(config, logger);
 			});
 

@@ -348,8 +348,8 @@ describe('DependencyContainer', () => {
 				.register(DatabaseService, () => new DatabaseService())
 				.register(
 					UserService,
-					async (container) =>
-						new UserService(await container.get(DatabaseService))
+					async (ctx) =>
+						new UserService(await ctx.get(DatabaseService))
 				);
 
 			const userService = await c.get(UserService);
@@ -393,16 +393,16 @@ describe('DependencyContainer', () => {
 				.register(ConfigService, () => new ConfigService())
 				.register(
 					DatabaseService,
-					async (container) =>
-						new DatabaseService(await container.get(ConfigService))
+					async (ctx) =>
+						new DatabaseService(await ctx.get(ConfigService))
 				)
 				.register(CacheService, () => new CacheService())
 				.register(
 					UserService,
-					async (container) =>
+					async (ctx) =>
 						new UserService(
-							await container.get(DatabaseService),
-							await container.get(CacheService)
+							await ctx.get(DatabaseService),
+							await ctx.get(CacheService)
 						)
 				);
 
@@ -429,14 +429,13 @@ describe('DependencyContainer', () => {
 			const c = container()
 				.register(
 					ServiceA,
-					async (container) =>
+					async (ctx) =>
 						// @ts-expect-error - ServiceB is not registered
-						new ServiceA(await container.get(ServiceB))
+						new ServiceA(await ctx.get(ServiceB))
 				)
 				.register(
 					ServiceB,
-					async (container) =>
-						new ServiceB(await container.get(ServiceA))
+					async (ctx) => new ServiceB(await ctx.get(ServiceA))
 				);
 
 			// Should throw DependencyCreationError with nested error chain leading to CircularDependencyError
@@ -760,8 +759,7 @@ describe('DependencyContainer', () => {
 				.register(ApiKeyTag, () => 'secret-key')
 				.register(
 					UserService,
-					async (container) =>
-						new UserService(await container.get(ApiKeyTag))
+					async (ctx) => new UserService(await ctx.get(ApiKeyTag))
 				);
 
 			const userService = await c.get(UserService);
@@ -800,8 +798,8 @@ describe('DependencyContainer', () => {
 				})
 				.register(
 					UserService,
-					async (container) =>
-						new UserService(await container.get(DatabaseService))
+					async (ctx) =>
+						new UserService(await ctx.get(DatabaseService))
 				);
 
 			try {
