@@ -2,7 +2,7 @@ import { Container, container } from '@/container.js';
 import {
 	CircularDependencyError,
 	ContainerDestroyedError,
-	DependencyAlreadyRegisteredError,
+	DependencyAlreadyInstantiatedError,
 	DependencyCreationError,
 	DependencyFinalizationError,
 	UnknownDependencyError,
@@ -85,17 +85,18 @@ describe('DependencyContainer', () => {
 			expect(c).toBeDefined();
 		});
 
-		it('should throw error for duplicate registration', () => {
-			class TestService extends Tag.Class('TestService') {}
+		it('should allow overriding registration before instantiation', () => {
+			class TestService extends Tag.Class('TestService') {
+				constructor(public value: string) {
+					super();
+				}
+			}
 
-			const c = container().register(
-				TestService,
-				() => new TestService()
-			);
+			const c = container()
+				.register(TestService, () => new TestService('original'))
+				.register(TestService, () => new TestService('overridden'));
 
-			expect(() =>
-				c.register(TestService, () => new TestService())
-			).toThrowError(DependencyAlreadyRegisteredError);
+			expect(c).toBeDefined();
 		});
 
 		it('should preserve container chain for multiple registrations', () => {
@@ -108,115 +109,8 @@ describe('DependencyContainer', () => {
 
 			expect(c).toBeDefined();
 		});
-	});
 
-	describe('override', () => {
-		it('should override existing dependency factory and use new factory', async () => {
-			class TestService extends Tag.Class('TestService') {
-				constructor(public value: string) {
-					super();
-				}
-			}
-
-			const c = container()
-				.register(TestService, () => new TestService('original'))
-				.override(TestService, () => new TestService('overridden'));
-
-			const instance = await c.get(TestService);
-			expect(instance.value).toBe('overridden');
-		});
-
-		it('should override with lifecycle object and use new finalizer', async () => {
-			class TestService extends Tag.Class('TestService') {
-				cleanup = vi.fn();
-			}
-
-			const originalFinalizer = vi.fn();
-			const newFinalizer = vi.fn((instance: TestService) => {
-				instance.cleanup();
-			});
-
-			const c = container()
-				.register(TestService, {
-					factory: () => new TestService(),
-					finalizer: originalFinalizer,
-				})
-				.override(TestService, {
-					factory: () => new TestService(),
-					finalizer: newFinalizer,
-				});
-
-			const instance = await c.get(TestService);
-			await c.destroy();
-
-			expect(originalFinalizer).not.toHaveBeenCalled();
-			expect(newFinalizer).toHaveBeenCalledWith(instance);
-			expect(instance.cleanup).toHaveBeenCalled();
-		});
-
-		it('should remove finalizer when overriding with just factory', async () => {
-			class TestService extends Tag.Class('TestService') {}
-
-			const originalFinalizer = vi.fn();
-
-			const c = container()
-				.register(TestService, {
-					factory: () => new TestService(),
-					finalizer: originalFinalizer,
-				})
-				.override(TestService, () => new TestService());
-
-			const _instance = await c.get(TestService);
-			await c.destroy();
-
-			// Original finalizer should not be called since it was removed
-			expect(originalFinalizer).not.toHaveBeenCalled();
-		});
-
-		it('should not affect other dependencies when overriding', async () => {
-			class ServiceA extends Tag.Class('ServiceA') {
-				constructor(public value: string) {
-					super();
-				}
-			}
-			class ServiceB extends Tag.Class('ServiceB') {
-				constructor(public value: string) {
-					super();
-				}
-			}
-
-			const serviceAFactory = vi.fn(() => new ServiceA('A-original'));
-			const serviceBFactory = vi.fn(() => new ServiceB('B-unchanged'));
-
-			const c = container()
-				.register(ServiceA, serviceAFactory)
-				.register(ServiceB, serviceBFactory)
-				.override(ServiceA, () => new ServiceA('A-overridden'));
-
-			const instanceA = await c.get(ServiceA);
-			const instanceB = await c.get(ServiceB);
-
-			expect(instanceA.value).toBe('A-overridden');
-			expect(instanceB.value).toBe('B-unchanged');
-
-			// Original ServiceA factory should not have been called
-			expect(serviceAFactory).not.toHaveBeenCalled();
-			// ServiceB factory should have been called normally
-			expect(serviceBFactory).toHaveBeenCalledTimes(1);
-		});
-
-		it('should throw error when overriding unregistered dependency', () => {
-			class TestService extends Tag.Class('TestService') {}
-
-			const c = container();
-
-			expect(() =>
-				// @ts-expect-error - TestService is not registered
-				c.override(TestService, () => new TestService())
-			).toThrow(UnknownDependencyError);
-		});
-
-		it('should throw error when overriding instantiated dependency', async () => {
+		it('should throw error when trying to register after instantiation', async () => {
 			class TestService extends Tag.Class('TestService') {
 				constructor(public value: string) {
 					super();
@@ -231,15 +125,13 @@ describe('DependencyContainer', () => {
 			// Instantiate the service
 			await c.get(TestService);
 
-			// Now try to override - should throw
+			// Now try to register again - should throw
 			expect(() =>
-				c.override(TestService, () => new TestService('overridden'))
-			).toThrow(
-				'Cannot override dependency TestService - it has already been instantiated'
-			);
+				c.register(TestService, () => new TestService('overridden'))
+			).toThrow(DependencyAlreadyInstantiatedError);
 		});
 
-		it('should throw error when overriding destroyed container', async () => {
+		it('should throw error when registering on destroyed container', async () => {
 			class TestService extends Tag.Class('TestService') {}
 
 			const c = container().register(
@@ -250,7 +142,7 @@ describe('DependencyContainer', () => {
 			await c.destroy();
 
 			expect(() =>
-				c.override(TestService, () => new TestService())
+				c.register(TestService, () => new TestService())
 			).toThrow(ContainerDestroyedError);
 		});
 	});
@@ -416,6 +308,21 @@ describe('DependencyContainer', () => {
 			expect(instance1).toBe(instance2);
 			expect(instance2).toBe(instance3);
 			expect(factory).toHaveBeenCalledTimes(1);
+		});
+
+		it('should throw error when getting from destroyed container', async () => {
+			class TestService extends Tag.Class('TestService') {}
+
+			const c = container().register(
+				TestService,
+				() => new TestService()
+			);
+
+			await c.destroy();
+
+			await expect(c.get(TestService)).rejects.toThrow(
+				ContainerDestroyedError
+			);
 		});
 	});
 

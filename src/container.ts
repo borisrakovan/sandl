@@ -2,7 +2,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import {
 	CircularDependencyError,
 	ContainerDestroyedError,
-	DependencyAlreadyRegisteredError,
+	DependencyAlreadyInstantiatedError,
 	DependencyCreationError,
 	DependencyFinalizationError,
 	UnknownDependencyError,
@@ -57,14 +57,9 @@ export interface IContainer<in TReg extends AnyTag> {
 			| DependencyLifecycle<T, TReg>
 	): IContainer<TReg | T>;
 
-	override<T extends TReg>(
-		tag: T,
-		factoryOrLifecycle:
-			| Factory<TagType<T>, TReg>
-			| DependencyLifecycle<T, TReg>
-	): IContainer<TReg>;
-
 	has(tag: AnyTag): boolean;
+
+	exists(tag: TReg): boolean;
 
 	get<T extends TReg>(tag: T): Promise<TagType<T>>;
 
@@ -172,12 +167,16 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 * service instance (or a Promise of it). The container tracks the registration at
 	 * the type level, ensuring type safety for subsequent `.get()` calls.
 	 *
+	 * If a dependency is already registered, this method will override it unless the
+	 * dependency has already been instantiated, in which case it will throw an error.
+	 *
 	 * @template T - The dependency tag being registered
 	 * @param tag - The dependency tag (class or value tag)
 	 * @param factory - Function that creates the service instance, receives container for dependency injection
 	 * @param finalizer - Optional cleanup function called when container is destroyed
 	 * @returns A new container instance with the dependency registered
-	 * @throws {ContainerError} If the dependency is already registered
+	 * @throws {ContainerDestroyedError} If the container has been destroyed
+	 * @throws {Error} If the dependency has already been instantiated
 	 *
 	 * @example Registering a simple service
 	 * ```typescript
@@ -206,6 +205,13 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 *       await container.get(LoggerService)
 	 *     )
 	 *   );
+	 * ```
+	 *
+	 * @example Overriding a dependency
+	 * ```typescript
+	 * const c = container()
+	 *   .register(DatabaseService, () => new DatabaseService())
+	 *   .register(DatabaseService, () => new MockDatabaseService()); // Overrides the previous registration
 	 * ```
 	 *
 	 * @example Using value tags
@@ -248,69 +254,26 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 			);
 		}
 
-		if (this.has(tag)) {
-			throw new DependencyAlreadyRegisteredError(
-				`Dependency ${Tag.id(tag)} already registered in the container`
-			);
-		}
-
-		if (typeof factoryOrLifecycle === 'function') {
-			this.factories.set(tag, factoryOrLifecycle);
-		} else {
-			this.factories.set(tag, factoryOrLifecycle.factory);
-			this.finalizers.set(tag, factoryOrLifecycle.finalizer);
-		}
-
-		return this as Container<TReg | T>;
-	}
-
-	/**
-	 * Explicitly overrides a dependency that is already registered in this container.
-	 *
-	 * Unlike register(), this method allows replacing an existing factory function.
-	 *
-	 * Important: If the dependency has already been instantiated, this method will
-	 * throw an error. This is because the cached instance would still be used by
-	 * other dependencies, making the override ineffective. Overrides must happen
-	 * before any instantiation occurs.
-	 */
-	override<T extends TReg>(
-		tag: T,
-		factoryOrLifecycle:
-			| Factory<TagType<T>, TReg>
-			| DependencyLifecycle<T, TReg>
-	): this {
-		if (this.isDestroyed) {
-			throw new ContainerDestroyedError(
-				'Cannot override dependencies on a destroyed container'
-			);
-		}
-
-		// Ensure the dependency is already registered in this container
-		if (!this.has(tag)) {
-			throw new UnknownDependencyError(tag);
-		}
-
-		// Check if dependency has been instantiated
-		if (this.cache.has(tag)) {
-			throw new Error(
-				`Cannot override dependency ${Tag.id(tag)} - it has already been instantiated. ` +
-					`Overrides must happen before any instantiation occurs, as cached instances ` +
+		// Check if dependency has been instantiated (exists in cache)
+		if (this.has(tag) && this.exists(tag)) {
+			throw new DependencyAlreadyInstantiatedError(
+				`Cannot register dependency ${Tag.id(tag)} - it has already been instantiated. ` +
+					`Registration must happen before any instantiation occurs, as cached instances ` +
 					`would still be used by existing dependencies.`
 			);
 		}
 
-		// Replace the factory and finalizer
+		// Replace the factory and finalizer (implicit override)
 		if (typeof factoryOrLifecycle === 'function') {
 			this.factories.set(tag, factoryOrLifecycle);
-			// Remove any existing finalizer when overriding with just a factory
+			// Remove any existing finalizer when registering with just a factory
 			this.finalizers.delete(tag);
 		} else {
 			this.factories.set(tag, factoryOrLifecycle.factory);
 			this.finalizers.set(tag, factoryOrLifecycle.finalizer);
 		}
 
-		return this;
+		return this as Container<TReg | T>;
 	}
 
 	/**
@@ -328,8 +291,18 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 * console.log(c.has(DatabaseService)); // true
 	 * ```
 	 */
-	has(tag: AnyTag): boolean {
+	has(tag: AnyTag): tag is TReg {
 		return this.factories.has(tag);
+	}
+
+	/**
+	 * Checks if a dependency has been instantiated (cached) in the container.
+	 *
+	 * @param tag - The dependency tag to check
+	 * @returns true if the dependency has been instantiated, false otherwise
+	 */
+	exists(tag: TReg): boolean {
+		return this.cache.has(tag);
 	}
 
 	/**
@@ -556,27 +529,12 @@ export class ScopedContainer<TReg extends AnyTag> extends Container<TReg> {
 	}
 
 	/**
-	 * Overrides a dependency in the scoped container.
-	 *
-	 * Returns ScopedContainer type for proper method chaining support.
-	 */
-	override override<T extends TReg>(
-		tag: T,
-		factoryOrLifecycle:
-			| Factory<TagType<T>, TReg>
-			| DependencyLifecycle<T, TReg>
-	): this {
-		super.override(tag, factoryOrLifecycle);
-		return this;
-	}
-
-	/**
 	 * Checks if a dependency has been registered in this scope or any parent scope.
 	 *
 	 * This method checks the current scope first, then walks up the parent chain.
 	 * Returns true if the dependency has been registered somewhere in the scope hierarchy.
 	 */
-	override has(tag: AnyTag): boolean {
+	override has(tag: AnyTag): tag is TReg {
 		// Check current scope first
 		if (super.has(tag)) {
 			return true;
@@ -584,6 +542,22 @@ export class ScopedContainer<TReg extends AnyTag> extends Container<TReg> {
 
 		// Check parent scopes
 		return this.parent?.has(tag) ?? false;
+	}
+
+	/**
+	 * Checks if a dependency has been instantiated in this scope or any parent scope.
+	 *
+	 * This method checks the current scope first, then walks up the parent chain.
+	 * Returns true if the dependency has been instantiated somewhere in the scope hierarchy.
+	 */
+	override exists(tag: TReg): boolean {
+		// Check current scope first
+		if (super.exists(tag)) {
+			return true;
+		}
+
+		// Check parent scopes
+		return this.parent?.exists(tag) ?? false;
 	}
 
 	/**

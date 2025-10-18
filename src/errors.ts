@@ -84,12 +84,13 @@ export class BaseError extends Error {
 export class ContainerError extends BaseError {}
 
 /**
- * Error thrown when attempting to register a dependency that has already been registered.
+ * Error thrown when attempting to register a dependency that has already been instantiated.
  *
- * This error occurs when calling `container.register()` for a tag that has already been registered.
- * It indicates a programming error where the dependency is being registered multiple times.
+ * This error occurs when calling `container.register()` for a tag that has already been instantiated.
+ * Registration must happen before any instantiation occurs, as cached instances would still be used
+ * by existing dependencies.
  */
-export class DependencyAlreadyRegisteredError extends ContainerError {}
+export class DependencyAlreadyInstantiatedError extends ContainerError {}
 
 /**
  * Error thrown when attempting to use a container that has been destroyed.

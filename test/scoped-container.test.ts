@@ -1,7 +1,7 @@
 import { ScopedContainer, scopedContainer } from '@/container.js';
 import {
 	ContainerDestroyedError,
-	DependencyAlreadyRegisteredError,
+	DependencyAlreadyInstantiatedError,
 	DependencyCreationError,
 	DependencyFinalizationError,
 	UnknownDependencyError,
@@ -84,20 +84,43 @@ describe('ScopedContainer', () => {
 			expect(c.has(TestService)).toBe(true);
 		});
 
-		it('should throw error for duplicate registration in same scope', () => {
-			class TestService extends Tag.Class('TestService') {}
+		it('should allow overriding registration in same scope before instantiation', () => {
+			class TestService extends Tag.Class('TestService') {
+				constructor(public value: string) {
+					super();
+				}
+			}
 
-			const c = scopedContainer('test').register(
-				TestService,
-				() => new TestService()
-			);
+			const c = scopedContainer('test')
+				.register(TestService, () => new TestService('original'))
+				.register(TestService, () => new TestService('overridden'));
 
-			expect(() =>
-				c.register(TestService, () => new TestService())
-			).toThrow(DependencyAlreadyRegisteredError);
+			expect(c).toBeDefined();
 		});
 
-		it('should throw error when trying to register dependency that exists in parent scope', () => {
+		it('should allow registering dependency that exists in parent scope if not instantiated', () => {
+			class TestService extends Tag.Class('TestService') {
+				constructor(public value: string) {
+					super();
+				}
+			}
+
+			const parent = scopedContainer('parent').register(
+				TestService,
+				() => new TestService('parent')
+			);
+			const child = parent.child('child');
+
+			// Should be able to register (override) in child scope
+			const childWithOverride = child.register(
+				TestService,
+				() => new TestService('child')
+			);
+
+			expect(childWithOverride).toBeDefined();
+		});
+
+		it('should throw error when trying to register dependency that is instantiated in parent scope', async () => {
 			class TestService extends Tag.Class('TestService') {}
 
 			const parent = scopedContainer('parent').register(
@@ -106,9 +129,13 @@ describe('ScopedContainer', () => {
 			);
 			const child = parent.child('child');
 
+			// Instantiate in parent first
+			await parent.get(TestService);
+
+			// Now try to register in child - should throw
 			expect(() =>
 				child.register(TestService, () => new TestService())
-			).toThrow(DependencyAlreadyRegisteredError);
+			).toThrow(DependencyAlreadyInstantiatedError);
 		});
 	});
 
@@ -244,7 +271,7 @@ describe('ScopedContainer', () => {
 			expect(factory).toHaveBeenCalledTimes(1);
 		});
 
-		it('should throw error when child tries to register parent dependency', () => {
+		it('should allow child to override parent dependency before instantiation', async () => {
 			class TestService extends Tag.Class('TestService') {
 				constructor(public value: string) {
 					super();
@@ -255,12 +282,17 @@ describe('ScopedContainer', () => {
 				TestService,
 				() => new TestService('parent')
 			);
-			const child = parent.child('child');
+			const child = parent
+				.child('child')
+				.register(TestService, () => new TestService('child'));
 
-			// Child cannot register the same dependency as parent
-			expect(() =>
-				child.register(TestService, () => new TestService('child'))
-			).toThrow(DependencyAlreadyRegisteredError);
+			// Child should get its own instance, parent should get parent instance
+			const childInstance = await child.get(TestService);
+			const parentInstance = await parent.get(TestService);
+
+			expect(childInstance.value).toBe('child');
+			expect(parentInstance.value).toBe('parent');
+			expect(childInstance).not.toBe(parentInstance);
 		});
 
 		it('should throw UnknownDependencyError for unregistered dependency', async () => {
@@ -676,19 +708,23 @@ describe('ScopedContainer', () => {
 			expect(numberValue).toBe(42);
 		});
 
-		it('should throw error when child tries to register parent ValueTag', () => {
+		it('should allow child to override parent ValueTag before instantiation', async () => {
 			const ConfigTag = Tag.of('config')<{ env: string }>();
 
 			const parent = scopedContainer('parent').register(
 				ConfigTag,
 				() => ({ env: 'production' })
 			);
-			const child = parent.child('child');
+			const child = parent
+				.child('child')
+				.register(ConfigTag, () => ({ env: 'development' }));
 
-			// Child cannot register the same ValueTag as parent
-			expect(() =>
-				child.register(ConfigTag, () => ({ env: 'development' }))
-			).toThrow(DependencyAlreadyRegisteredError);
+			// Child should get its own config, parent should get parent config
+			const childConfig = await child.get(ConfigTag);
+			const parentConfig = await parent.get(ConfigTag);
+
+			expect(childConfig.env).toBe('development');
+			expect(parentConfig.env).toBe('production');
 		});
 	});
 });

@@ -209,10 +209,10 @@ const appServiceLayer = layer<
 >((container) =>
 	container.register(
 		AppService,
-		async () =>
+		async (ctx) =>
 			new AppService(
-				await container.get(UserService),
-				await container.get(NotificationService)
+				await ctx.get(UserService),
+				await ctx.get(NotificationService)
 			)
 	)
 );

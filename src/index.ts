@@ -3,7 +3,7 @@ export {
 	CircularDependencyError,
 	ContainerDestroyedError,
 	ContainerError,
-	DependencyAlreadyRegisteredError,
+	DependencyAlreadyInstantiatedError,
 	DependencyCreationError,
 	DependencyFinalizationError,
 	UnknownDependencyError,
