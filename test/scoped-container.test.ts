@@ -1,4 +1,3 @@
-import { ScopedContainer, scopedContainer } from '@/container.js';
 import {
 	ContainerDestroyedError,
 	DependencyAlreadyInstantiatedError,
@@ -6,6 +5,7 @@ import {
 	DependencyFinalizationError,
 	UnknownDependencyError,
 } from '@/errors.js';
+import { scopedContainer, ScopedContainer } from '@/scoped-container.js';
 import { Tag } from '@/tag.js';
 import { describe, expect, it, vi } from 'vitest';
 

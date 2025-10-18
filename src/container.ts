@@ -8,7 +8,7 @@ import {
 	UnknownDependencyError,
 } from './errors.js';
 import { AnyTag, Tag, TagType } from './tag.js';
-import { Factory, Finalizer, Scope } from './types.js';
+import { Factory, Finalizer } from './types.js';
 
 /**
  * AsyncLocalStorage instance used to track the dependency resolution chain.
@@ -16,33 +16,6 @@ import { Factory, Finalizer, Scope } from './types.js';
  * @internal
  */
 const resolutionChain = new AsyncLocalStorage<AnyTag[]>();
-
-/**
- * Shared logic for running finalizers and handling cleanup errors.
- * @internal
- */
-async function runFinalizers(
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	finalizers: Map<AnyTag, Finalizer<any>>,
-	cache: Map<AnyTag, Promise<unknown>>
-): Promise<void> {
-	const promises = Array.from(finalizers.entries())
-		// Only finalize dependencies that were actually created
-		.filter(([tag]) => cache.has(tag))
-		.map(async ([tag, finalizer]) => {
-			const dep = await cache.get(tag);
-			return finalizer(dep);
-		});
-
-	const results = await Promise.allSettled(promises);
-
-	const failures = results.filter((result) => result.status === 'rejected');
-	if (failures.length > 0) {
-		throw new DependencyFinalizationError(
-			failures.map((result) => result.reason as unknown)
-		);
-	}
-}
 
 export type DependencyLifecycle<T extends AnyTag, TReg extends AnyTag> = {
 	factory: Factory<TagType<T>, TReg>;
@@ -488,8 +461,24 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 			// 2. Add `destroySequential()` method as alternative
 			// 3. Support cleanup phases/groups
 			// For now, concurrent cleanup forces better service design and faster shutdown.
+			const promises = Array.from(this.finalizers.entries())
+				// Only finalize dependencies that were actually created
+				.filter(([tag]) => this.cache.has(tag))
+				.map(async ([tag, finalizer]) => {
+					const dep = await this.cache.get(tag);
+					return finalizer(dep);
+				});
 
-			await runFinalizers(this.finalizers, this.cache);
+			const results = await Promise.allSettled(promises);
+
+			const failures = results.filter(
+				(result) => result.status === 'rejected'
+			);
+			if (failures.length > 0) {
+				throw new DependencyFinalizationError(
+					failures.map((result) => result.reason as unknown)
+				);
+			}
 		} finally {
 			// Mark as destroyed and clear all state
 			this.isDestroyed = true;
@@ -497,165 +486,6 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 			// Note: We keep factories/finalizers for potential debugging,
 			// but the container is no longer usable
 		}
-	}
-}
-
-export class ScopedContainer<TReg extends AnyTag> extends Container<TReg> {
-	public readonly scope: Scope;
-
-	private parent: IContainer<TReg> | null;
-	private readonly children: WeakRef<ScopedContainer<TReg>>[] = [];
-
-	constructor(parent: IContainer<TReg> | null, scope: Scope) {
-		super();
-		this.parent = parent;
-		this.scope = scope;
-	}
-
-	/**
-	 * Registers a dependency in the scoped container.
-	 *
-	 * Overrides the base implementation to return ScopedContainer type
-	 * for proper method chaining support.
-	 */
-	override register<T extends AnyTag>(
-		tag: T,
-		factoryOrLifecycle:
-			| Factory<TagType<T>, TReg>
-			| DependencyLifecycle<T, TReg>
-	): ScopedContainer<TReg | T> {
-		super.register(tag, factoryOrLifecycle);
-		return this as ScopedContainer<TReg | T>;
-	}
-
-	/**
-	 * Checks if a dependency has been registered in this scope or any parent scope.
-	 *
-	 * This method checks the current scope first, then walks up the parent chain.
-	 * Returns true if the dependency has been registered somewhere in the scope hierarchy.
-	 */
-	override has(tag: AnyTag): tag is TReg {
-		// Check current scope first
-		if (super.has(tag)) {
-			return true;
-		}
-
-		// Check parent scopes
-		return this.parent?.has(tag) ?? false;
-	}
-
-	/**
-	 * Checks if a dependency has been instantiated in this scope or any parent scope.
-	 *
-	 * This method checks the current scope first, then walks up the parent chain.
-	 * Returns true if the dependency has been instantiated somewhere in the scope hierarchy.
-	 */
-	override exists(tag: TReg): boolean {
-		// Check current scope first
-		if (super.exists(tag)) {
-			return true;
-		}
-
-		// Check parent scopes
-		return this.parent?.exists(tag) ?? false;
-	}
-
-	/**
-	 * Retrieves a dependency instance, resolving from the current scope or parent scopes.
-	 *
-	 * Resolution strategy:
-	 * 1. Check cache in current scope
-	 * 2. Check if factory exists in current scope - if so, create instance here
-	 * 3. Otherwise, delegate to parent scope
-	 * 4. If no parent or parent doesn't have it, throw UnknownDependencyError
-	 */
-	override async get<T extends TReg>(tag: T): Promise<TagType<T>> {
-		// If this scope has a factory, resolve here (uses this scope's cache)
-		if (this.factories.has(tag)) {
-			return super.get(tag);
-		}
-
-		// Otherwise delegate to parent scope if available
-		if (this.parent !== null) {
-			return this.parent.get(tag);
-		}
-
-		// Not found in this scope or any parent
-		throw new UnknownDependencyError(tag);
-	}
-
-	/**
-	 * Destroys this scoped container and its children, preserving the container structure for reuse.
-	 *
-	 * This method ensures proper cleanup order while maintaining reusability:
-	 * 1. Destroys all child scopes first (they may depend on parent scope dependencies)
-	 * 2. Then calls finalizers for dependencies created in this scope
-	 * 3. Clears only instance caches - preserves factories, finalizers, and child structure
-	 *
-	 * Child destruction happens first to ensure dependencies don't get cleaned up
-	 * before their dependents.
-	 */
-	override async destroy(): Promise<void> {
-		if (this.isDestroyed) {
-			return; // Already destroyed, nothing to do
-		}
-
-		const allFailures: unknown[] = [];
-
-		try {
-			// Destroy all child scopes FIRST (they may depend on our dependencies)
-			const childDestroyPromises = this.children
-				.map((weakRef) => weakRef.deref())
-				.filter(
-					(child): child is ScopedContainer<TReg> =>
-						child !== undefined
-				)
-				.map((child) => child.destroy());
-
-			const childResults = await Promise.allSettled(childDestroyPromises);
-
-			const childFailures = childResults
-				.filter((result) => result.status === 'rejected')
-				.map((result) => result.reason as unknown);
-
-			allFailures.push(...childFailures);
-
-			// Then run our own finalizers
-			await runFinalizers(this.finalizers, this.cache);
-		} catch (error) {
-			// Catch our own finalizer failures
-			allFailures.push(error);
-		} finally {
-			// Mark as destroyed and break parent chain for GC
-			this.isDestroyed = true;
-			this.parent = null;
-			this.cache.clear();
-			// Note: We keep factories/finalizers for potential debugging,
-			// but the container is no longer usable
-		}
-
-		// Throw collected errors after cleanup is complete
-		if (allFailures.length > 0) {
-			throw new DependencyFinalizationError(allFailures);
-		}
-	}
-
-	/**
-	 * Creates a child scoped container.
-	 *
-	 * Child containers inherit access to parent dependencies but maintain
-	 * their own scope for new registrations and instance caching.
-	 */
-	child(scope: Scope): ScopedContainer<TReg> {
-		if (this.isDestroyed) {
-			throw new ContainerDestroyedError(
-				'Cannot create child containers from a destroyed container'
-			);
-		}
-
-		const child = new ScopedContainer(this, scope);
-		this.children.push(new WeakRef(child));
-		return child;
 	}
 }
 
@@ -686,34 +516,4 @@ export class ScopedContainer<TReg extends AnyTag> extends Container<TReg> {
  */
 export function container(): Container<never> {
 	return new Container();
-}
-
-/**
- * Creates a new scoped dependency injection container with the given scope name.
- *
- * Scoped containers allow hierarchical dependency management where child scopes
- * can inherit dependencies from parent scopes while maintaining their own
- * isolated registrations and instance caches.
- *
- * @param scope - A string identifier for this scope (used for debugging)
- * @returns A new empty ScopedContainer instance
- *
- * @example
- * ```typescript
- * import { scopedContainer, Tag } from 'sandl';
- *
- * const appContainer = scopedContainer('app');
- * const requestContainer = appContainer.child('request');
- *
- * // App-level services
- * appContainer.register(DatabaseService, () => new DatabaseService());
- *
- * // Request-level services that can access app services
- * requestScope.register(UserService, async (container) =>
- *   new UserService(await container.get(DatabaseService))
- * );
- * ```
- */
-export function scopedContainer(scope: Scope): ScopedContainer<never> {
-	return new ScopedContainer(null, scope);
 }
