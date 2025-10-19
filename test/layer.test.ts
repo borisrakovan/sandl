@@ -355,7 +355,7 @@ describe('Layer', () => {
 			expect(result).toBe(c); // Should be the same container
 		});
 
-		it('should merge multiple layers with Layer.merge', async () => {
+		it('should merge multiple layers with Layer.mergeAll', async () => {
 			class ServiceA extends Tag.Class('ServiceA') {}
 			class ServiceB extends Tag.Class('ServiceB') {}
 			class ServiceC extends Tag.Class('ServiceC') {}
@@ -372,7 +372,7 @@ describe('Layer', () => {
 				container.register(ServiceC, () => new ServiceC())
 			);
 
-			const mergedLayer = Layer.merge(layerA, layerB, layerC);
+			const mergedLayer = Layer.mergeAll(layerA, layerB, layerC);
 
 			const c = container();
 			const finalContainer = mergedLayer.register(c);
@@ -384,6 +384,30 @@ describe('Layer', () => {
 			expect(serviceA).toBeInstanceOf(ServiceA);
 			expect(serviceB).toBeInstanceOf(ServiceB);
 			expect(serviceC).toBeInstanceOf(ServiceC);
+		});
+
+		it('should merge two layers with Layer.merge', async () => {
+			class ServiceA extends Tag.Class('ServiceA') {}
+			class ServiceB extends Tag.Class('ServiceB') {}
+
+			const layerA = layer<never, typeof ServiceA>((container) =>
+				container.register(ServiceA, () => new ServiceA())
+			);
+
+			const layerB = layer<never, typeof ServiceB>((container) =>
+				container.register(ServiceB, () => new ServiceB())
+			);
+
+			const mergedLayer = Layer.merge(layerA, layerB);
+
+			const c = container();
+			const finalContainer = mergedLayer.register(c);
+
+			const serviceA = await finalContainer.get(ServiceA);
+			const serviceB = await finalContainer.get(ServiceB);
+
+			expect(serviceA).toBeInstanceOf(ServiceA);
+			expect(serviceB).toBeInstanceOf(ServiceB);
 		});
 	});
 

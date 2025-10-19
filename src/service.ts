@@ -124,7 +124,7 @@ export function service<T extends AnyTag>(
 		<TContainer extends AnyTag>(
 			container: IContainer<TContainer | ServiceDependencies<T>>
 		) => {
-			return container.register(serviceClass, (ctx) => factory(ctx));
+			return container.register(serviceClass, factory);
 		}
 	);
 

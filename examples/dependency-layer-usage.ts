@@ -220,13 +220,13 @@ const appServiceLayer = layer<
 // Demonstration of layer composition
 
 // Build infrastructure layers
-const infrastructure = Layer.merge(databaseLayer, cacheLayer, emailLayer);
+const infrastructure = Layer.mergeAll(databaseLayer, cacheLayer, emailLayer);
 
 // Add repository layer that depends on database
 const withRepositories = infrastructure.to(userRepositoryLayer);
 
 // Add service layers that depend on repositories and infrastructure
-const businessServices = Layer.merge(
+const businessServices = Layer.mergeAll(
 	userServiceLayer,
 	notificationServiceLayer
 );
@@ -237,17 +237,17 @@ const withServices = withRepositories.to(businessServices);
 const completeApplication = withServices.to(appServiceLayer);
 
 // Alternative: Build the entire application in one go using merge
-const completeApplicationOneGo = Layer.merge(
+const completeApplicationOneGo = Layer.mergeAll(
 	databaseLayer,
 	cacheLayer,
 	emailLayer
 )
 	.to(userRepositoryLayer)
-	.to(Layer.merge(userServiceLayer, notificationServiceLayer))
+	.to(Layer.mergeAll(userServiceLayer, notificationServiceLayer))
 	.to(appServiceLayer);
 
 // Working example - providing everything needed step by step
-export const workingExampleApp = Layer.merge(
+export const workingExampleApp = Layer.mergeAll(
 	databaseLayer,
 	cacheLayer,
 	emailLayer
@@ -257,7 +257,7 @@ export const workingExampleApp = Layer.merge(
 	.to(notificationServiceLayer) // Email -> NotificationService ✓
 	.to(appServiceLayer); // UserService + NotificationService -> AppService ✓
 
-const config = Layer.merge(
+const config = Layer.mergeAll(
 	value(ConnectionString, 'sqlite://memory'),
 	value(RedisConfig, { url: 'redis://localhost', password: 'password' }),
 	value(ApiKey, 'api-key')
@@ -319,7 +319,7 @@ export async function demonstrateOneGoLayerUsage() {
 // Alternative composition patterns
 
 // Example with many infrastructure layers
-export const bigInfrastructureLayer = Layer.merge(
+export const bigInfrastructureLayer = Layer.mergeAll(
 	databaseLayer,
 	cacheLayer,
 	emailLayer,
@@ -340,13 +340,13 @@ export const bigInfrastructureLayer = Layer.merge(
 );
 
 // Complete app using merge for business services too
-export const completeAppWithmerge = Layer.merge(
+export const completeAppWithmerge = Layer.mergeAll(
 	databaseLayer,
 	cacheLayer,
 	emailLayer
 )
 	.to(userRepositoryLayer)
-	.to(Layer.merge(userServiceLayer, notificationServiceLayer))
+	.to(Layer.mergeAll(userServiceLayer, notificationServiceLayer))
 	.to(appServiceLayer);
 
 // Partial applications for specific use cases

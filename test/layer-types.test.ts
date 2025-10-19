@@ -315,7 +315,7 @@ describe('Layer Type Safety', () => {
 			expectTypeOf(emptyLayer).toEqualTypeOf<Layer>();
 		});
 
-		it('should type Layer.merge() correctly', () => {
+		it('should type Layer.mergeAll() correctly', () => {
 			class ServiceA extends Tag.Class('ServiceA') {}
 			class ServiceB extends Tag.Class('ServiceB') {}
 			class ServiceC extends Tag.Class('ServiceC') {}
@@ -342,7 +342,7 @@ describe('Layer Type Safety', () => {
 					)
 			);
 
-			const mergedLayer = Layer.merge(layerA, layerB, layerC);
+			const mergedLayer = Layer.mergeAll(layerA, layerB, layerC);
 
 			expectTypeOf(mergedLayer).toEqualTypeOf<
 				Layer<

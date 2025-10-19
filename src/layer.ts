@@ -15,7 +15,7 @@ export type ResolutionContext<TReg extends AnyTag> = Pick<
  * - `AnyTag` for TProvides (covariant): Any layer providing specific services can be assigned
  *   to this since the general AnyTag type can represent any specific tag type
  *
- * Used internally for functions like Layer.merge() that need to accept arrays of layers
+ * Used internally for functions like Layer.mergeAll() that need to accept arrays of layers
  * with different requirement/provision types while preserving type safety through variance.
  */
 export type AnyLayer = Layer<never, AnyTag>;
@@ -328,7 +328,7 @@ function createMergedLayer<
 
 /**
  * Helper type that extracts the union of all requirements from an array of layers.
- * Used by Layer.merge() to compute the correct requirement type for the merged layer.
+ * Used by Layer.mergeAll() to compute the correct requirement type for the merged layer.
  *
  * Works with AnyLayer[] constraint which accepts any concrete layer through variance:
  * - Layer<never, X> → extracts `never` (no requirements)
@@ -342,7 +342,7 @@ type UnionOfRequires<T extends readonly AnyLayer[]> = {
 
 /**
  * Helper type that extracts the union of all provisions from an array of layers.
- * Used by Layer.merge() to compute the correct provision type for the merged layer.
+ * Used by Layer.mergeAll() to compute the correct provision type for the merged layer.
  *
  * Works with AnyLayer[] constraint which accepts any concrete layer through variance:
  * - Layer<X, never> → extracts `never` (no provisions)
@@ -415,14 +415,14 @@ export const Layer = {
 	 * const userLayer = layer<typeof DatabaseService, typeof UserService>(...); // requires DB
 	 * const configLayer = layer<never, typeof ConfigService>(...);        // no requirements
 	 *
-	 * const infraLayer = Layer.merge(dbLayer, userLayer, configLayer);
+	 * const infraLayer = Layer.mergeAll(dbLayer, userLayer, configLayer);
 	 * // Type: Layer<typeof DatabaseService, typeof DatabaseService | typeof UserService | typeof ConfigService>
 	 * ```
 	 *
 	 * @example Equivalent to chaining .and()
 	 * ```typescript
 	 * // These are equivalent:
-	 * const layer1 = Layer.merge(layerA, layerB, layerC);
+	 * const layer1 = Layer.mergeAll(layerA, layerB, layerC);
 	 * const layer2 = layerA.and(layerB).and(layerC);
 	 * ```
 	 *
@@ -433,7 +433,7 @@ export const Layer = {
 	 * const observabilityLayer = layer<never, typeof Logger | typeof Metrics>(...);
 	 *
 	 * // Merge all infrastructure concerns into one layer
-	 * const infraLayer = Layer.merge(
+	 * const infraLayer = Layer.mergeAll(
 	 *   persistenceLayer,
 	 *   messagingLayer,
 	 *   observabilityLayer
@@ -442,12 +442,47 @@ export const Layer = {
 	 * // Result type: Layer<never, DatabaseService | CacheService | MessageQueue | Logger | Metrics>
 	 * ```
 	 */
-	merge<T extends readonly [AnyLayer, AnyLayer, ...AnyLayer[]]>(
+	mergeAll<T extends readonly [AnyLayer, AnyLayer, ...AnyLayer[]]>(
 		...layers: T
 	): Layer<UnionOfRequires<T>, UnionOfProvides<T>> {
 		return layers.reduce((acc, layer) => acc.and(layer)) as Layer<
 			UnionOfRequires<T>,
 			UnionOfProvides<T>
 		>;
+	},
+
+	/**
+	 * Merges exactly two layers, combining their requirements and provisions.
+	 * This is similar to the `.and()` method but available as a static function.
+	 *
+	 * @template TRequires1 - What the first layer requires
+	 * @template TProvides1 - What the first layer provides
+	 * @template TRequires2 - What the second layer requires
+	 * @template TProvides2 - What the second layer provides
+	 * @param layer1 - The first layer to merge
+	 * @param layer2 - The second layer to merge
+	 * @returns A new merged layer requiring both layers' requirements and providing both layers' provisions
+	 *
+	 * @example Merging two layers
+	 * ```typescript
+	 * import { Layer } from 'sandl';
+	 *
+	 * const dbLayer = layer<never, typeof DatabaseService>(...);
+	 * const cacheLayer = layer<never, typeof CacheService>(...);
+	 *
+	 * const persistenceLayer = Layer.merge(dbLayer, cacheLayer);
+	 * // Type: Layer<never, typeof DatabaseService | typeof CacheService>
+	 * ```
+	 */
+	merge<
+		TRequires1 extends AnyTag,
+		TProvides1 extends AnyTag,
+		TRequires2 extends AnyTag,
+		TProvides2 extends AnyTag,
+	>(
+		layer1: Layer<TRequires1, TProvides1>,
+		layer2: Layer<TRequires2, TProvides2>
+	): Layer<TRequires1 | TRequires2, TProvides1 | TProvides2> {
+		return layer1.and(layer2);
 	},
 };
