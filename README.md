@@ -52,7 +52,7 @@ const userServiceLayer = layer<typeof DatabaseService, typeof UserService>(
 );
 
 // Compose layers
-const appLayer = databaseLayer().to(userServiceLayer());
+const appLayer = databaseLayer().provide(userServiceLayer());
 
 const app = appLayer.register(container());
 ```
@@ -131,7 +131,7 @@ const userService = service(
 );
 
 // Automatic dependency resolution
-const app = emailService().to(userService()).register(container());
+const app = emailService().provide(userService()).register(container());
 ```
 
 ### Value Tags for Configuration
@@ -187,7 +187,7 @@ const userServiceLayer = layer<
 );
 
 // Compose everything
-const fullApplication = Layer.merge(databaseLayer(), cacheLayer()).to(
+const fullApplication = Layer.merge(databaseLayer(), cacheLayer()).provide(
 	userServiceLayer()
 );
 

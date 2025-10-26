@@ -58,7 +58,7 @@ describe('Service', () => {
 			});
 
 			// Compose layers
-			const appLayer = dbService.to(userService);
+			const appLayer = dbService.provide(userService);
 
 			// Apply to container
 			const c = container();
@@ -73,7 +73,7 @@ describe('Service', () => {
 	});
 
 	describe('Service composition', () => {
-		it('should allow composing services with .to()', async () => {
+		it('should allow composing services with .provide()', async () => {
 			class ConfigService extends Tag.Class('ConfigService') {
 				getConfig() {
 					return { dbUrl: 'postgresql://localhost:5432' };
@@ -99,7 +99,7 @@ describe('Service', () => {
 			});
 
 			// Compose services
-			const infraLayer = configService.to(dbService);
+			const infraLayer = configService.provide(dbService);
 
 			const c = container();
 			const finalContainer = infraLayer.register(c);
@@ -110,7 +110,7 @@ describe('Service', () => {
 			);
 		});
 
-		it('should allow merging services with .and()', async () => {
+		it('should allow merging services with .merge()', async () => {
 			class LoggerService extends Tag.Class('LoggerService') {
 				log(message: string) {
 					return `Logged: ${message}`;
@@ -133,7 +133,7 @@ describe('Service', () => {
 			);
 
 			// Merge independent services
-			const utilsLayer = loggerService.and(cacheService);
+			const utilsLayer = loggerService.merge(cacheService);
 
 			const c = container();
 			const finalContainer = utilsLayer.register(c);
@@ -185,7 +185,7 @@ describe('Service', () => {
 			});
 
 			// Compose the services
-			const appLayer = dbUrlService.to(dbService);
+			const appLayer = dbUrlService.provide(dbService);
 
 			const c = container();
 			const finalContainer = appLayer.register(c);

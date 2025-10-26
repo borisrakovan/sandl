@@ -223,7 +223,7 @@ const appServiceLayer = layer<
 const infrastructure = Layer.mergeAll(databaseLayer, cacheLayer, emailLayer);
 
 // Add repository layer that depends on database
-const withRepositories = infrastructure.to(userRepositoryLayer);
+const withRepositories = infrastructure.provideMerge(userRepositoryLayer);
 
 // Add service layers that depend on repositories and infrastructure
 const businessServices = Layer.mergeAll(
@@ -231,10 +231,10 @@ const businessServices = Layer.mergeAll(
 	notificationServiceLayer
 );
 
-const withServices = withRepositories.to(businessServices);
+const withServices = withRepositories.provideMerge(businessServices);
 
 // Finally add application layer
-const completeApplication = withServices.to(appServiceLayer);
+const completeApplication = withServices.provideMerge(appServiceLayer);
 
 // Alternative: Build the entire application in one go using merge
 const completeApplicationOneGo = Layer.mergeAll(
@@ -242,9 +242,9 @@ const completeApplicationOneGo = Layer.mergeAll(
 	cacheLayer,
 	emailLayer
 )
-	.to(userRepositoryLayer)
-	.to(Layer.mergeAll(userServiceLayer, notificationServiceLayer))
-	.to(appServiceLayer);
+	.provideMerge(userRepositoryLayer)
+	.provideMerge(Layer.mergeAll(userServiceLayer, notificationServiceLayer))
+	.provide(appServiceLayer);
 
 // Working example - providing everything needed step by step
 export const workingExampleApp = Layer.mergeAll(
@@ -252,10 +252,10 @@ export const workingExampleApp = Layer.mergeAll(
 	cacheLayer,
 	emailLayer
 )
-	.to(userRepositoryLayer) // Database -> UserRepository ✓
-	.to(userServiceLayer) // UserRepository + Cache -> UserService ✓
-	.to(notificationServiceLayer) // Email -> NotificationService ✓
-	.to(appServiceLayer); // UserService + NotificationService -> AppService ✓
+	.provide(userRepositoryLayer) // Database -> UserRepository ✓
+	.provide(userServiceLayer) // UserRepository + Cache -> UserService ✓
+	.provide(notificationServiceLayer) // Email -> NotificationService ✓
+	.provide(appServiceLayer); // UserService + NotificationService -> AppService ✓
 
 const config = Layer.mergeAll(
 	value(ConnectionString, 'sqlite://memory'),
@@ -267,7 +267,7 @@ const config = Layer.mergeAll(
 export async function demonstrateLayerUsage() {
 	const appContainer = container();
 
-	const appWithConfig = config.to(completeApplication);
+	const appWithConfig = config.provideMerge(completeApplication);
 
 	const finalContainer = appWithConfig.register(appContainer);
 
@@ -291,18 +291,18 @@ export async function demonstrateLayerUsage() {
 	const fetchedUser = await app.getUser(1);
 	console.log('Fetched user:', fetchedUser);
 
-	// Clean up
-	await finalContainer.destroy();
-
 	const connectionString = await finalContainer.get(ConnectionString);
 	console.log('Connection string:', connectionString);
+
+	// Clean up
+	await finalContainer.destroy();
 }
 
 // Usage example with one-go composition
 export async function demonstrateOneGoLayerUsage() {
 	const appContainer = container();
 	const finalContainer = config
-		.to(completeApplicationOneGo)
+		.provide(completeApplicationOneGo)
 		.register(appContainer);
 
 	const app = await finalContainer.get(AppService);
@@ -345,14 +345,16 @@ export const completeAppWithmerge = Layer.mergeAll(
 	cacheLayer,
 	emailLayer
 )
-	.to(userRepositoryLayer)
-	.to(Layer.mergeAll(userServiceLayer, notificationServiceLayer))
-	.to(appServiceLayer);
+	.provide(userRepositoryLayer)
+	.provide(Layer.mergeAll(userServiceLayer, notificationServiceLayer))
+	.provide(appServiceLayer);
 
 // Partial applications for specific use cases
-export const n = infrastructure.to(userRepositoryLayer).to(userServiceLayer);
+export const n = infrastructure
+	.provide(userRepositoryLayer)
+	.provide(userServiceLayer);
 
-export const notificationsOnly = emailLayer.to(notificationServiceLayer);
+export const notificationsOnly = emailLayer.provide(notificationServiceLayer);
 
 // Type test - the complete application should require nothing external (never)
 // and provide all the services we defined
@@ -367,7 +369,7 @@ export async function testCompleteApplication() {
 
 	// This should work - completeApplication requires `never` (no external dependencies)
 	const finalContainer = config
-		.to(completeApplication)
+		.provideMerge(completeApplication)
 		.register(appContainer);
 
 	// Should be able to get all our services

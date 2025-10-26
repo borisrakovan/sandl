@@ -72,7 +72,7 @@ export type AnyLayer = Layer<never, AnyTag>;
  * );
  *
  * // Compose layers: database layer provides what user layer needs
- * const appLayer = databaseLayer.to(userLayer);
+ * const appLayer = databaseLayer.provide(userLayer);
  *
  * // Thanks to variance, Layer<never, typeof DatabaseService> automatically works
  * // where Layer<typeof DatabaseService, typeof UserService> requires DatabaseService
@@ -121,7 +121,7 @@ export interface Layer<
 	) => IContainer<TRequires | TContainer | TProvides>;
 
 	/**
-	 * Composes this layer with a target layer, creating a pipeline where this layer's
+	 * Provides this layer's services to a target layer, creating a pipeline where this layer's
 	 * provisions satisfy the target layer's requirements. This creates a dependency
 	 * flow from source → target.
 	 *
@@ -130,7 +130,7 @@ export interface Layer<
 	 *
 	 * @template TTargetRequires - What the target layer requires
 	 * @template TTargetProvides - What the target layer provides
-	 * @param target - The layer to compose with
+	 * @param target - The layer to provide services to
 	 * @returns A new composed layer
 	 *
 	 * @example Simple composition
@@ -139,18 +139,62 @@ export interface Layer<
 	 * const dbLayer = layer<typeof ConfigTag, typeof DatabaseService>(...);
 	 *
 	 * // Config provides what database needs
-	 * const infraLayer = configLayer.to(dbLayer);
+	 * const infraLayer = configLayer.provide(dbLayer);
 	 * ```
 	 *
 	 * @example Multi-level composition
 	 * ```typescript
 	 * const appLayer = configLayer
-	 *   .to(databaseLayer)
-	 *   .to(serviceLayer)
-	 *   .to(apiLayer);
+	 *   .provide(databaseLayer)
+	 *   .provide(serviceLayer)
+	 *   .provide(apiLayer);
 	 * ```
 	 */
-	to: <TTargetRequires extends AnyTag, TTargetProvides extends AnyTag>(
+	provide: <TTargetRequires extends AnyTag, TTargetProvides extends AnyTag>(
+		target: Layer<TTargetRequires, TTargetProvides>
+	) => Layer<
+		TRequires | Exclude<TTargetRequires, TProvides>,
+		TTargetProvides
+	>;
+
+	/**
+	 * Provides this layer's services to a target layer and merges the provisions.
+	 * Unlike `.provide()`, this method includes both this layer's provisions and the target layer's
+	 * provisions in the result type. This is useful when you want to expose services from both layers.
+	 *
+	 * Type-safe: The target layer's requirements must be satisfiable by this layer's
+	 * provisions and any remaining external requirements.
+	 *
+	 * @template TTargetRequires - What the target layer requires
+	 * @template TTargetProvides - What the target layer provides
+	 * @param target - The layer to provide services to
+	 * @returns A new composed layer that provides services from both layers
+	 *
+	 * @example Providing with merged provisions
+	 * ```typescript
+	 * const configLayer = layer<never, typeof ConfigTag>(...);
+	 * const dbLayer = layer<typeof ConfigTag, typeof DatabaseService>(...);
+	 *
+	 * // Config provides what database needs, and both services are available
+	 * const infraLayer = configLayer.provideMerge(dbLayer);
+	 * // Type: Layer<never, typeof ConfigTag | typeof DatabaseService>
+	 * ```
+	 *
+	 * @example Difference from .provide()
+	 * ```typescript
+	 * // .provide() only exposes target layer's provisions:
+	 * const withProvide = configLayer.provide(dbLayer);
+	 * // Type: Layer<never, typeof DatabaseService>
+	 *
+	 * // .provideMerge() exposes both layers' provisions:
+	 * const withProvideMerge = configLayer.provideMerge(dbLayer);
+	 * // Type: Layer<never, typeof ConfigTag | typeof DatabaseService>
+	 * ```
+	 */
+	provideMerge: <
+		TTargetRequires extends AnyTag,
+		TTargetProvides extends AnyTag,
+	>(
 		target: Layer<TTargetRequires, TTargetProvides>
 	) => Layer<
 		TRequires | Exclude<TTargetRequires, TProvides>,
@@ -173,17 +217,17 @@ export interface Layer<
 	 * const loggingLayer = layer<never, typeof LoggerService>(...);
 	 *
 	 * // Combine infrastructure layers
-	 * const infraLayer = persistenceLayer.and(loggingLayer);
+	 * const infraLayer = persistenceLayer.merge(loggingLayer);
 	 * ```
 	 *
 	 * @example Building complex layer combinations
 	 * ```typescript
 	 * const appInfraLayer = persistenceLayer
-	 *   .and(messagingLayer)
-	 *   .and(observabilityLayer);
+	 *   .merge(messagingLayer)
+	 *   .merge(observabilityLayer);
 	 * ```
 	 */
-	and: <TOtherRequires extends AnyTag, TOtherProvides extends AnyTag>(
+	merge: <TOtherRequires extends AnyTag, TOtherProvides extends AnyTag>(
 		other: Layer<TOtherRequires, TOtherProvides>
 	) => Layer<TRequires | TOtherRequires, TProvides | TOtherProvides>;
 }
@@ -240,7 +284,7 @@ export interface Layer<
  * );
  *
  * // Compose the complete application
- * const appLayer = configLayer.to(infraLayer).to(serviceLayer);
+ * const appLayer = configLayer.provide(infraLayer).provide(serviceLayer);
  * ```
  */
 export function layer<
@@ -255,10 +299,13 @@ export function layer<
 		register: <TContainer extends AnyTag>(
 			container: IContainer<TRequires | TContainer>
 		) => register(container),
-		to(target) {
+		provide(target) {
+			return createProvidedLayer(layerImpl, target);
+		},
+		provideMerge(target) {
 			return createComposedLayer(layerImpl, target);
 		},
-		and(other) {
+		merge(other) {
 			return createMergedLayer(layerImpl, other);
 		},
 	};
@@ -266,8 +313,40 @@ export function layer<
 }
 
 /**
+ * Internal function to create a provided layer from two layers.
+ * This implements the `.provide()` method logic - only exposes target layer's provisions.
+ *
+ * @internal
+ */
+function createProvidedLayer<
+	TRequires1 extends AnyTag,
+	TProvides1 extends AnyTag,
+	TRequires2 extends AnyTag,
+	TProvides2 extends AnyTag,
+>(
+	source: Layer<TRequires1, TProvides1>,
+	target: Layer<TRequires2, TProvides2>
+): Layer<TRequires1 | Exclude<TRequires2, TProvides1>, TProvides2> {
+	return layer(
+		<TContainer extends AnyTag>(
+			container: IContainer<TRequires1 | TContainer>
+		) => {
+			const containerWithSource = source.register(
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
+				container as any
+			);
+			const finalContainer = target.register(
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
+				containerWithSource as any
+			) as IContainer<TRequires1 | TContainer | TProvides2>;
+			return finalContainer;
+		}
+	);
+}
+
+/**
  * Internal function to create a composed layer from two layers.
- * This implements the `.to()` method logic.
+ * This implements the `.provideMerge()` method logic - exposes both layers' provisions.
  *
  * @internal
  */
@@ -302,7 +381,7 @@ function createComposedLayer<
 
 /**
  * Internal function to create a merged layer from two layers.
- * This implements the `.and()` method logic.
+ * This implements the `.merge()` method logic.
  *
  * @internal
  */
@@ -370,8 +449,8 @@ export const Layer = {
 	 *
 	 * const baseLayer = Layer.empty();
 	 * const appLayer = baseLayer
-	 *   .and(configLayer)
-	 *   .and(serviceLayer);
+	 *   .merge(configLayer)
+	 *   .merge(serviceLayer);
 	 * ```
 	 */
 	empty(): Layer {
@@ -383,7 +462,7 @@ export const Layer = {
 
 	/**
 	 * Merges multiple layers at once in a type-safe way.
-	 * This is equivalent to chaining `.and()` calls but more convenient for multiple layers.
+	 * This is equivalent to chaining `.merge()` calls but more convenient for multiple layers.
 	 *
 	 * ## Type Safety with Variance
 	 *
@@ -419,11 +498,11 @@ export const Layer = {
 	 * // Type: Layer<typeof DatabaseService, typeof DatabaseService | typeof UserService | typeof ConfigService>
 	 * ```
 	 *
-	 * @example Equivalent to chaining .and()
+	 * @example Equivalent to chaining .merge()
 	 * ```typescript
 	 * // These are equivalent:
 	 * const layer1 = Layer.mergeAll(layerA, layerB, layerC);
-	 * const layer2 = layerA.and(layerB).and(layerC);
+	 * const layer2 = layerA.merge(layerB).merge(layerC);
 	 * ```
 	 *
 	 * @example Building infrastructure layers
@@ -445,7 +524,7 @@ export const Layer = {
 	mergeAll<T extends readonly [AnyLayer, AnyLayer, ...AnyLayer[]]>(
 		...layers: T
 	): Layer<UnionOfRequires<T>, UnionOfProvides<T>> {
-		return layers.reduce((acc, layer) => acc.and(layer)) as Layer<
+		return layers.reduce((acc, layer) => acc.merge(layer)) as Layer<
 			UnionOfRequires<T>,
 			UnionOfProvides<T>
 		>;
@@ -453,7 +532,7 @@ export const Layer = {
 
 	/**
 	 * Merges exactly two layers, combining their requirements and provisions.
-	 * This is similar to the `.and()` method but available as a static function.
+	 * This is similar to the `.merge()` method but available as a static function.
 	 *
 	 * @template TRequires1 - What the first layer requires
 	 * @template TProvides1 - What the first layer provides
@@ -483,6 +562,6 @@ export const Layer = {
 		layer1: Layer<TRequires1, TProvides1>,
 		layer2: Layer<TRequires2, TProvides2>
 	): Layer<TRequires1 | TRequires2, TProvides1 | TProvides2> {
-		return layer1.and(layer2);
+		return layer1.merge(layer2);
 	},
 };

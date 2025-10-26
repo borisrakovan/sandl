@@ -131,8 +131,9 @@ export function service<T extends AnyTag>(
 	// Create the service object that implements the Service interface
 	const serviceImpl: Service<T> = {
 		register: serviceLayer.register,
-		to: serviceLayer.to,
-		and: serviceLayer.and,
+		provide: serviceLayer.provide,
+		provideMerge: serviceLayer.provideMerge,
+		merge: serviceLayer.merge,
 	};
 
 	return serviceImpl;

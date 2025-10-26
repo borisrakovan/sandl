@@ -19,8 +19,8 @@ describe('Layer', () => {
 			const layerInstance = testLayer;
 			expect(layerInstance).toBeDefined();
 			expect(layerInstance.register).toBeDefined();
-			expect(layerInstance.to).toBeDefined();
-			expect(layerInstance.and).toBeDefined();
+			expect(layerInstance.provide).toBeDefined();
+			expect(layerInstance.merge).toBeDefined();
 		});
 
 		it('should register services correctly', async () => {
@@ -43,7 +43,7 @@ describe('Layer', () => {
 		});
 	});
 
-	describe('layer composition with "to"', () => {
+	describe('layer composition with "provide"', () => {
 		it('should compose layers where source provides dependencies to target', async () => {
 			class DatabaseService extends Tag.Class('DatabaseService') {
 				query() {
@@ -78,7 +78,7 @@ describe('Layer', () => {
 					)
 			);
 
-			const composedLayer = databaseLayer.to(userLayer);
+			const composedLayer = databaseLayer.provide(userLayer);
 
 			const c = container();
 			const finalContainer = composedLayer.register(c);
@@ -139,7 +139,9 @@ describe('Layer', () => {
 					)
 			);
 
-			const finalLayer = configLayer.to(databaseLayer).to(userLayer);
+			const finalLayer = configLayer
+				.provide(databaseLayer)
+				.provide(userLayer);
 
 			const c = container();
 			const finalContainer = finalLayer.register(c);
@@ -188,7 +190,7 @@ describe('Layer', () => {
 				)
 			);
 
-			const composedLayer = databaseLayer.to(userLayer);
+			const composedLayer = databaseLayer.provide(userLayer);
 
 			// Pre-register the API key dependency
 			const c = container().register(ApiKeyTag, () => 'secret-key');
@@ -199,7 +201,109 @@ describe('Layer', () => {
 		});
 	});
 
-	describe('layer merging with "and"', () => {
+	describe('layer composition with "provideMerge"', () => {
+		it("should compose layers and expose both layers' provisions", async () => {
+			class ConfigService extends Tag.Class('ConfigService') {
+				getConfig() {
+					return 'config-value';
+				}
+			}
+
+			class DatabaseService extends Tag.Class('DatabaseService') {
+				constructor(private config: ConfigService) {
+					super();
+				}
+
+				connect() {
+					return `Connected with ${this.config.getConfig()}`;
+				}
+			}
+
+			const configLayer = layer<never, typeof ConfigService>(
+				(container) =>
+					container.register(ConfigService, () => new ConfigService())
+			);
+
+			const databaseLayer = layer<
+				typeof ConfigService,
+				typeof DatabaseService
+			>((container) =>
+				container.register(
+					DatabaseService,
+					async (ctx) =>
+						new DatabaseService(await ctx.get(ConfigService))
+				)
+			);
+
+			const infraLayer = configLayer.provideMerge(databaseLayer);
+
+			const c = container();
+			const finalContainer = infraLayer.register(c);
+
+			// Both services should be available
+			const config = await finalContainer.get(ConfigService);
+			const database = await finalContainer.get(DatabaseService);
+
+			expect(config.getConfig()).toBe('config-value');
+			expect(database.connect()).toBe('Connected with config-value');
+		});
+
+		it('should differ from .provide() by exposing source layer provisions', async () => {
+			class ConfigService extends Tag.Class('ConfigService') {
+				getValue() {
+					return 'config';
+				}
+			}
+
+			class DatabaseService extends Tag.Class('DatabaseService') {
+				constructor(private config: ConfigService) {
+					super();
+				}
+
+				getValue() {
+					return `db-${this.config.getValue()}`;
+				}
+			}
+
+			const configLayer = layer<never, typeof ConfigService>(
+				(container) =>
+					container.register(ConfigService, () => new ConfigService())
+			);
+
+			const databaseLayer = layer<
+				typeof ConfigService,
+				typeof DatabaseService
+			>((container) =>
+				container.register(
+					DatabaseService,
+					async (ctx) =>
+						new DatabaseService(await ctx.get(ConfigService))
+				)
+			);
+
+			// .provide() only exposes target layer's provisions
+			const withProvide = configLayer.provide(databaseLayer);
+			const provideContainer = withProvide.register(container());
+
+			// Should have DatabaseService but not ConfigService directly accessible
+			const db1 = await provideContainer.get(DatabaseService);
+			expect(db1.getValue()).toBe('db-config');
+
+			// .provideMerge() exposes both layers' provisions
+			const withProvideMerge = configLayer.provideMerge(databaseLayer);
+			const provideMergeContainer =
+				withProvideMerge.register(container());
+
+			// Should have both services accessible
+			const config = await provideMergeContainer.get(ConfigService);
+			const db2 = await provideMergeContainer.get(DatabaseService);
+
+			expect(config.getValue()).toBe('config');
+			expect(db2.getValue()).toBe('db-config');
+		});
+	});
+
+	describe('layer merging with "merge"', () => {
 		it('should merge two independent layers', async () => {
 			class ServiceA extends Tag.Class('ServiceA') {
 				getValue() {
@@ -221,7 +325,7 @@ describe('Layer', () => {
 				container.register(ServiceB, () => new ServiceB())
 			);
 
-			const mergedLayer = layerA.and(layerB);
+			const mergedLayer = layerA.merge(layerB);
 
 			const c = container();
 			const finalContainer = mergedLayer.register(c);
@@ -285,8 +389,8 @@ describe('Layer', () => {
 
 			// First register config, then merge the service layers
 			const baseLayer = configLayer;
-			const mergedServices = serviceLayerA.and(serviceLayerB);
-			const finalLayer = baseLayer.to(mergedServices);
+			const mergedServices = serviceLayerA.merge(serviceLayerB);
+			const finalLayer = baseLayer.provide(mergedServices);
 
 			const c = container();
 			const finalContainer = finalLayer.register(c);
@@ -327,8 +431,8 @@ describe('Layer', () => {
 			);
 
 			const infraLayer = persistenceLayer
-				.and(communicationLayer)
-				.and(observabilityLayer);
+				.merge(communicationLayer)
+				.merge(observabilityLayer);
 
 			const c = container();
 			const finalContainer = infraLayer.register(c);
@@ -465,7 +569,7 @@ describe('Layer', () => {
 				})
 			);
 
-			const composedLayer = layerA.to(layerB);
+			const composedLayer = layerA.provideMerge(layerB);
 
 			const c = container();
 			const finalContainer = composedLayer.register(c);
@@ -532,7 +636,7 @@ describe('Layer', () => {
 					)
 			);
 
-			const appLayer = configLayer.to(serviceLayer);
+			const appLayer = configLayer.provide(serviceLayer);
 
 			const c = container();
 			const finalContainer = appLayer.register(c);
@@ -588,7 +692,7 @@ describe('Layer', () => {
 					)
 			);
 
-			const circularLayer = layerA.and(layerB);
+			const circularLayer = layerA.merge(layerB);
 
 			const c = container();
 			// @ts-expect-error - circular dependency
@@ -681,7 +785,9 @@ describe('Layer', () => {
 			);
 
 			// Application layer
-			const appLayer = configLayer.to(infraLayer).to(serviceLayer);
+			const appLayer = configLayer
+				.provideMerge(infraLayer)
+				.provide(serviceLayer);
 
 			const c = container();
 			const finalContainer = appLayer.register(c);

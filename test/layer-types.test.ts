@@ -80,7 +80,7 @@ describe('Layer Type Safety', () => {
 		});
 	});
 
-	describe('layer composition with "to"', () => {
+	describe('layer composition with "provide"', () => {
 		it('should compose layers with correct type inference', () => {
 			class ServiceA extends Tag.Class('ServiceA') {}
 			class ServiceB extends Tag.Class('ServiceB') {}
@@ -97,12 +97,12 @@ describe('Layer Type Safety', () => {
 					)
 			);
 
-			const composedLayer = layerA.to(layerB);
+			const composedLayer = layerA.provide(layerB);
 
 			// ServiceA requirement is satisfied by layerA's provision
-			// Result should require nothing and provide both ServiceA and ServiceB
+			// Result should require nothing and provide only ServiceB (target layer's provisions)
 			expectTypeOf(composedLayer).toEqualTypeOf<
-				Layer<never, typeof ServiceA | typeof ServiceB>
+				Layer<never, typeof ServiceB>
 			>();
 		});
 
@@ -128,12 +128,12 @@ describe('Layer Type Safety', () => {
 					)
 			);
 
-			const composedLayer = layerA.to(layerB);
+			const composedLayer = layerA.provide(layerB);
 
 			// ExternalService is still required (not satisfied by layerA)
-			// Both ServiceA and ServiceB are provided
+			// Only ServiceB is provided (target layer's provisions)
 			expectTypeOf(composedLayer).toEqualTypeOf<
-				Layer<typeof ExternalService, typeof ServiceA | typeof ServiceB>
+				Layer<typeof ExternalService, typeof ServiceB>
 			>();
 		});
 
@@ -169,19 +169,17 @@ describe('Layer Type Safety', () => {
 				)
 			);
 
-			const composedLayer = providerLayer.to(consumerLayer);
+			const composedLayer = providerLayer.provide(consumerLayer);
 
 			// ServiceA and ServiceB satisfied, ServiceC still required
+			// Only ServiceD is provided (target layer's provisions)
 			expectTypeOf(composedLayer).toEqualTypeOf<
-				Layer<
-					typeof ServiceC,
-					typeof ServiceA | typeof ServiceB | typeof ServiceD
-				>
+				Layer<typeof ServiceC, typeof ServiceD>
 			>();
 		});
 	});
 
-	describe('layer merging with "and"', () => {
+	describe('layer merging with "merge"', () => {
 		it('should merge independent layers correctly', () => {
 			class ServiceA extends Tag.Class('ServiceA') {}
 			class ServiceB extends Tag.Class('ServiceB') {}
@@ -194,7 +192,7 @@ describe('Layer Type Safety', () => {
 				container.register(ServiceB, () => new ServiceB())
 			);
 
-			const mergedLayer = layerA.and(layerB);
+			const mergedLayer = layerA.merge(layerB);
 
 			expectTypeOf(mergedLayer).toEqualTypeOf<
 				Layer<never, typeof ServiceA | typeof ServiceB>
@@ -223,7 +221,7 @@ describe('Layer Type Safety', () => {
 					)
 			);
 
-			const mergedLayer = layerA.and(layerB);
+			const mergedLayer = layerA.merge(layerB);
 
 			expectTypeOf(mergedLayer).toEqualTypeOf<
 				Layer<
@@ -256,7 +254,7 @@ describe('Layer Type Safety', () => {
 					)
 			);
 
-			const mergedLayer = layerA.and(layerB);
+			const mergedLayer = layerA.merge(layerB);
 
 			// SharedExternal appears in both requirements, but union should deduplicate
 			expectTypeOf(mergedLayer).toEqualTypeOf<
@@ -300,10 +298,10 @@ describe('Layer Type Safety', () => {
 					)
 			);
 
-			const appLayer = configLayer.to(serviceLayer);
+			const appLayer = configLayer.provide(serviceLayer);
 
 			expectTypeOf(appLayer).toEqualTypeOf<
-				Layer<never, typeof ConfigTag | typeof ApiService>
+				Layer<never, typeof ApiService>
 			>();
 		});
 	});
@@ -313,6 +311,38 @@ describe('Layer Type Safety', () => {
 			const emptyLayer = Layer.empty();
 
 			expectTypeOf(emptyLayer).toEqualTypeOf<Layer>();
+		});
+
+		it('should type Layer.merge() correctly for two layers', () => {
+			class ServiceA extends Tag.Class('ServiceA') {}
+			class ServiceB extends Tag.Class('ServiceB') {}
+			class ExternalA extends Tag.Class('ExternalA') {}
+			class ExternalB extends Tag.Class('ExternalB') {}
+
+			const layerA = layer<typeof ExternalA, typeof ServiceA>(
+				(container) =>
+					container.register(
+						ServiceA,
+						async (ctx) => new ServiceA(await ctx.get(ExternalA))
+					)
+			);
+
+			const layerB = layer<typeof ExternalB, typeof ServiceB>(
+				(container) =>
+					container.register(
+						ServiceB,
+						async (ctx) => new ServiceB(await ctx.get(ExternalB))
+					)
+			);
+
+			const mergedLayer = Layer.merge(layerA, layerB);
+
+			expectTypeOf(mergedLayer).toEqualTypeOf<
+				Layer<
+					typeof ExternalA | typeof ExternalB,
+					typeof ServiceA | typeof ServiceB
+				>
+			>();
 		});
 
 		it('should type Layer.mergeAll() correctly', () => {
@@ -420,16 +450,13 @@ describe('Layer Type Safety', () => {
 					)
 			);
 
-			const finalLayer = layerA.to(layerB).to(layerC).to(layerD);
+			const finalLayer = layerA
+				.provide(layerB)
+				.provide(layerC)
+				.provide(layerD);
 
 			expectTypeOf(finalLayer).toEqualTypeOf<
-				Layer<
-					never,
-					| typeof ServiceA
-					| typeof ServiceB
-					| typeof ServiceC
-					| typeof ServiceD
-				>
+				Layer<never, typeof ServiceD>
 			>();
 		});
 
@@ -481,19 +508,12 @@ describe('Layer Type Safety', () => {
 
 			// Base provides to both branches, merge branches with independent, then compose
 			const finalLayer = baseLayer
-				.to(branchA.and(branchB))
-				.and(independentC)
-				.to(compositeLayer);
+				.provide(branchA.merge(branchB))
+				.merge(independentC)
+				.provide(compositeLayer);
 
 			expectTypeOf(finalLayer).toEqualTypeOf<
-				Layer<
-					never,
-					| typeof BaseService
-					| typeof ServiceA
-					| typeof ServiceB
-					| typeof ServiceC
-					| typeof CompositeService
-				>
+				Layer<never, typeof CompositeService>
 			>();
 		});
 	});
@@ -518,14 +538,260 @@ describe('Layer Type Safety', () => {
 			);
 
 			// This composition should work at type level but leave ServiceB unsatisfied
-			const composed = providerLayer.to(requiresB);
+			const composed = providerLayer.provide(requiresB);
 
 			// The result should still require ServiceB since providerLayer doesn't provide it
+			// Only UnrelatedService is provided (target layer's provisions)
 			expectTypeOf(composed).toEqualTypeOf<
+				Layer<typeof ServiceB, typeof UnrelatedService>
+			>();
+		});
+	});
+
+	describe('layer composition with "provideMerge"', () => {
+		it("should compose layers and expose both layers' provisions", () => {
+			class ServiceA extends Tag.Class('ServiceA') {}
+			class ServiceB extends Tag.Class('ServiceB') {}
+
+			const layerA = layer<never, typeof ServiceA>((container) =>
+				container.register(ServiceA, () => new ServiceA())
+			);
+
+			const layerB = layer<typeof ServiceA, typeof ServiceB>(
+				(container) =>
+					container.register(
+						ServiceB,
+						async (ctx) => new ServiceB(await ctx.get(ServiceA))
+					)
+			);
+
+			const composedLayer = layerA.provideMerge(layerB);
+
+			// ServiceA requirement is satisfied by layerA's provision
+			// Result should require nothing and provide both ServiceA and ServiceB
+			expectTypeOf(composedLayer).toEqualTypeOf<
+				Layer<never, typeof ServiceA | typeof ServiceB>
+			>();
+		});
+
+		it('should preserve external requirements and expose both provisions', () => {
+			class ExternalService extends Tag.Class('ExternalService') {}
+			class ServiceA extends Tag.Class('ServiceA') {}
+			class ServiceB extends Tag.Class('ServiceB') {}
+
+			const layerA = layer<typeof ExternalService, typeof ServiceA>(
+				(container) =>
+					container.register(
+						ServiceA,
+						async (ctx) =>
+							new ServiceA(await ctx.get(ExternalService))
+					)
+			);
+
+			const layerB = layer<typeof ServiceA, typeof ServiceB>(
+				(container) =>
+					container.register(
+						ServiceB,
+						async (ctx) => new ServiceB(await ctx.get(ServiceA))
+					)
+			);
+
+			const composedLayer = layerA.provideMerge(layerB);
+
+			// ExternalService is still required (not satisfied by layerA)
+			// Both ServiceA and ServiceB are provided
+			expectTypeOf(composedLayer).toEqualTypeOf<
+				Layer<typeof ExternalService, typeof ServiceA | typeof ServiceB>
+			>();
+		});
+
+		it('should handle partial requirement satisfaction with merged provisions', () => {
+			class ServiceA extends Tag.Class('ServiceA') {}
+			class ServiceB extends Tag.Class('ServiceB') {}
+			class ServiceC extends Tag.Class('ServiceC') {}
+			class ServiceD extends Tag.Class('ServiceD') {}
+
+			// Layer provides ServiceA and ServiceB
+			const providerLayer = layer<
+				never,
+				typeof ServiceA | typeof ServiceB
+			>((container) =>
+				container
+					.register(ServiceA, () => new ServiceA())
+					.register(ServiceB, () => new ServiceB())
+			);
+
+			// Layer requires ServiceA, ServiceB, and ServiceC; provides ServiceD
+			const consumerLayer = layer<
+				typeof ServiceA | typeof ServiceB | typeof ServiceC,
+				typeof ServiceD
+			>((container) =>
+				container.register(
+					ServiceD,
+					async (ctx) =>
+						new ServiceD(
+							await ctx.get(ServiceA),
+							await ctx.get(ServiceB),
+							await ctx.get(ServiceC)
+						)
+				)
+			);
+
+			const composedLayer = providerLayer.provideMerge(consumerLayer);
+
+			// ServiceA and ServiceB satisfied, ServiceC still required
+			// All provisions from both layers are exposed
+			expectTypeOf(composedLayer).toEqualTypeOf<
 				Layer<
-					typeof ServiceB,
-					typeof ServiceA | typeof UnrelatedService
+					typeof ServiceC,
+					typeof ServiceA | typeof ServiceB | typeof ServiceD
 				>
+			>();
+		});
+
+		it('should differ from .provide() in type signature', () => {
+			class ConfigService extends Tag.Class('ConfigService') {}
+			class DatabaseService extends Tag.Class('DatabaseService') {}
+
+			const configLayer = layer<never, typeof ConfigService>(
+				(container) =>
+					container.register(ConfigService, () => new ConfigService())
+			);
+
+			const databaseLayer = layer<
+				typeof ConfigService,
+				typeof DatabaseService
+			>((container) =>
+				container.register(
+					DatabaseService,
+					async (ctx) =>
+						new DatabaseService(await ctx.get(ConfigService))
+				)
+			);
+
+			// .provide() only exposes target layer's provisions
+			const withProvide = configLayer.provide(databaseLayer);
+			expectTypeOf(withProvide).toEqualTypeOf<
+				Layer<never, typeof DatabaseService>
+			>();
+
+			// .provideMerge() exposes both layers' provisions
+			const withProvideMerge = configLayer.provideMerge(databaseLayer);
+			expectTypeOf(withProvideMerge).toEqualTypeOf<
+				Layer<never, typeof ConfigService | typeof DatabaseService>
+			>();
+		});
+
+		it('should work with value tags', () => {
+			const ConfigTag = Tag.of('config')<{ apiKey: string }>();
+			class ApiService extends Tag.Class('ApiService') {}
+
+			const configLayer = layer<never, typeof ConfigTag>((container) =>
+				container.register(ConfigTag, () => ({ apiKey: 'secret' }))
+			);
+
+			const serviceLayer = layer<typeof ConfigTag, typeof ApiService>(
+				(container) =>
+					container.register(
+						ApiService,
+						async (ctx) => new ApiService(await ctx.get(ConfigTag))
+					)
+			);
+
+			const appLayer = configLayer.provideMerge(serviceLayer);
+
+			expectTypeOf(appLayer).toEqualTypeOf<
+				Layer<never, typeof ConfigTag | typeof ApiService>
+			>();
+		});
+
+		it('should handle deep composition chains with merged provisions', () => {
+			class ServiceA extends Tag.Class('ServiceA') {}
+			class ServiceB extends Tag.Class('ServiceB') {}
+			class ServiceC extends Tag.Class('ServiceC') {}
+			class ServiceD extends Tag.Class('ServiceD') {}
+
+			const layerA = layer<never, typeof ServiceA>((container) =>
+				container.register(ServiceA, () => new ServiceA())
+			);
+
+			const layerB = layer<typeof ServiceA, typeof ServiceB>(
+				(container) =>
+					container.register(
+						ServiceB,
+						async (ctx) => new ServiceB(await ctx.get(ServiceA))
+					)
+			);
+
+			const layerC = layer<typeof ServiceB, typeof ServiceC>(
+				(container) =>
+					container.register(
+						ServiceC,
+						async (ctx) => new ServiceC(await ctx.get(ServiceB))
+					)
+			);
+
+			const layerD = layer<typeof ServiceC, typeof ServiceD>(
+				(container) =>
+					container.register(
+						ServiceD,
+						async (ctx) => new ServiceD(await ctx.get(ServiceC))
+					)
+			);
+
+			const finalLayer = layerA
+				.provideMerge(layerB)
+				.provideMerge(layerC)
+				.provideMerge(layerD);
+
+			expectTypeOf(finalLayer).toEqualTypeOf<
+				Layer<
+					never,
+					| typeof ServiceA
+					| typeof ServiceB
+					| typeof ServiceC
+					| typeof ServiceD
+				>
+			>();
+		});
+
+		it('should handle mixed .provide() and .provideMerge() composition', () => {
+			class ConfigService extends Tag.Class('ConfigService') {}
+			class DatabaseService extends Tag.Class('DatabaseService') {}
+			class UserService extends Tag.Class('UserService') {}
+
+			const configLayer = layer<never, typeof ConfigService>(
+				(container) =>
+					container.register(ConfigService, () => new ConfigService())
+			);
+
+			const databaseLayer = layer<
+				typeof ConfigService,
+				typeof DatabaseService
+			>((container) =>
+				container.register(
+					DatabaseService,
+					async (ctx) =>
+						new DatabaseService(await ctx.get(ConfigService))
+				)
+			);
+
+			const userLayer = layer<typeof DatabaseService, typeof UserService>(
+				(container) =>
+					container.register(
+						UserService,
+						async (ctx) =>
+							new UserService(await ctx.get(DatabaseService))
+					)
+			);
+
+			// Use provideMerge to keep config available, then provide to hide intermediate services
+			const appLayer = configLayer
+				.provideMerge(databaseLayer)
+				.provide(userLayer);
+
+			expectTypeOf(appLayer).toEqualTypeOf<
+				Layer<never, typeof UserService>
 			>();
 		});
 	});

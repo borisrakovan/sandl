@@ -113,7 +113,7 @@ describe('Service Type Safety', () => {
 	});
 
 	describe('service composition', () => {
-		it('should compose services with .to() correctly', () => {
+		it('should compose services with .provide() correctly', () => {
 			class DatabaseService extends Tag.Class('DatabaseService') {}
 
 			class UserService extends Tag.Class('UserService') {
@@ -131,15 +131,16 @@ describe('Service Type Safety', () => {
 				return new UserService(db);
 			});
 
-			const composedService = dbService.to(userService);
+			const composedService = dbService.provide(userService);
 
 			// DatabaseService requirement should be satisfied by dbService
+			// Only UserService is provided (target layer's provisions)
 			expectTypeOf(composedService).toEqualTypeOf<
-				Layer<never, typeof DatabaseService | typeof UserService>
+				Layer<never, typeof UserService>
 			>();
 		});
 
-		it('should merge services with .and() correctly', () => {
+		it('should merge services with .merge() correctly', () => {
 			class LoggerService extends Tag.Class('LoggerService') {}
 			class CacheService extends Tag.Class('CacheService') {}
 
@@ -152,7 +153,7 @@ describe('Service Type Safety', () => {
 				() => new CacheService()
 			);
 
-			const mergedService = loggerService.and(cacheService);
+			const mergedService = loggerService.merge(cacheService);
 
 			expectTypeOf(mergedService).toEqualTypeOf<
 				Layer<never, typeof LoggerService | typeof CacheService>
@@ -188,15 +189,13 @@ describe('Service Type Safety', () => {
 				return new UserService(db, external);
 			});
 
-			const composedService = dbService.to(userService);
+			const composedService = dbService.provide(userService);
 
 			// ExternalService is still required (needed by both services)
 			// DatabaseService requirement is satisfied by dbService
+			// Only UserService is provided (target layer's provisions)
 			expectTypeOf(composedService).branded.toEqualTypeOf<
-				Layer<
-					typeof ExternalService,
-					typeof DatabaseService | typeof UserService
-				>
+				Layer<typeof ExternalService, typeof UserService>
 			>();
 		});
 	});
@@ -244,19 +243,13 @@ describe('Service Type Safety', () => {
 			});
 
 			const fullService = configService
-				.to(dbService)
-				.to(repoService)
-				.to(userService);
+				.provide(dbService)
+				.provide(repoService)
+				.provide(userService);
 
-			// All dependencies should be satisfied, all services provided
+			// All dependencies should be satisfied, only final service provided
 			expectTypeOf(fullService).toEqualTypeOf<
-				Layer<
-					never,
-					| typeof ConfigService
-					| typeof DatabaseService
-					| typeof UserRepository
-					| typeof UserService
-				>
+				Layer<never, typeof UserService>
 			>();
 		});
 
@@ -308,17 +301,13 @@ describe('Service Type Safety', () => {
 			});
 
 			// Build the diamond: Config -> (Database & Cache) -> User
-			const infraLayer = configService.to(dbService.and(cacheService));
-			const appLayer = infraLayer.to(userService);
+			const infraLayer = configService.provide(
+				dbService.merge(cacheService)
+			);
+			const appLayer = infraLayer.provide(userService);
 
 			expectTypeOf(appLayer).toEqualTypeOf<
-				Layer<
-					never,
-					| typeof ConfigService
-					| typeof DatabaseService
-					| typeof CacheService
-					| typeof UserService
-				>
+				Layer<never, typeof UserService>
 			>();
 		});
 	});
@@ -334,12 +323,16 @@ describe('Service Type Safety', () => {
 				Layer<never, typeof TestService>['register']
 			>();
 
-			expectTypeOf(testService.to).toEqualTypeOf<
-				Layer<never, typeof TestService>['to']
+			expectTypeOf(testService.provide).toEqualTypeOf<
+				Layer<never, typeof TestService>['provide']
 			>();
 
-			expectTypeOf(testService.and).toEqualTypeOf<
-				Layer<never, typeof TestService>['and']
+			expectTypeOf(testService.merge).toEqualTypeOf<
+				Layer<never, typeof TestService>['merge']
+			>();
+
+			expectTypeOf(testService.provideMerge).toEqualTypeOf<
+				Layer<never, typeof TestService>['provideMerge']
 			>();
 		});
 	});
@@ -363,20 +356,17 @@ describe('Service Type Safety', () => {
 				return new UserService(db);
 			});
 
-			const appService = dbService.to(userService);
+			const appService = dbService.provide(userService);
 
 			// Should be able to apply to a container
 			const c = container();
 			const finalContainer = appService.register(c);
 
 			expectTypeOf(finalContainer).toEqualTypeOf<
-				IContainer<typeof DatabaseService | typeof UserService>
+				IContainer<typeof UserService>
 			>();
 
 			// Should be able to resolve services from the container
-			expectTypeOf(finalContainer.get(DatabaseService)).toEqualTypeOf<
-				Promise<DatabaseService>
-			>();
 			expectTypeOf(finalContainer.get(UserService)).toEqualTypeOf<
 				Promise<UserService>
 			>();
@@ -400,11 +390,12 @@ describe('Service Type Safety', () => {
 			});
 
 			// This composition should be allowed at type level but leave ServiceB unsatisfied
-			const composed = serviceA.to(serviceC);
+			const composed = serviceA.provide(serviceC);
 
 			// ServiceB should still be required
+			// Only ServiceC is provided (target layer's provisions)
 			expectTypeOf(composed).branded.toEqualTypeOf<
-				Layer<typeof ServiceB, typeof ServiceA | typeof ServiceC>
+				Layer<typeof ServiceB, typeof ServiceC>
 			>();
 		});
 	});
@@ -449,11 +440,12 @@ describe('Service Type Safety', () => {
 				return new DatabaseService(url);
 			});
 
-			const composedService = dbUrlService.to(dbService);
+			const composedService = dbUrlService.provide(dbService);
 
 			// No external dependencies required since dbUrlService provides what dbService needs
+			// Only DatabaseService is provided (target layer's provisions)
 			expectTypeOf(composedService).toEqualTypeOf<
-				Layer<never, typeof DatabaseUrlTag | typeof DatabaseService>
+				Layer<never, typeof DatabaseService>
 			>();
 		});
 
@@ -491,13 +483,261 @@ describe('Service Type Safety', () => {
 			});
 
 			// Build complete layer
-			const appLayer = configService.and(loggerService).to(dbService);
+			const appLayer = configService
+				.merge(loggerService)
+				.provide(dbService);
 
 			expectTypeOf(appLayer).toEqualTypeOf<
+				Layer<never, typeof DatabaseService>
+			>();
+		});
+	});
+
+	describe('service composition with "provideMerge"', () => {
+		it("should compose services and expose both layers' provisions", () => {
+			class DatabaseService extends Tag.Class('DatabaseService') {}
+			class UserService extends Tag.Class('UserService') {
+				constructor(private _db: DatabaseService) {
+					super();
+				}
+			}
+
+			const dbService = service(
+				DatabaseService,
+				() => new DatabaseService()
+			);
+			const userService = service(UserService, async (ctx) => {
+				const db = await ctx.get(DatabaseService);
+				return new UserService(db);
+			});
+
+			const composedService = dbService.provideMerge(userService);
+
+			// DatabaseService requirement should be satisfied by dbService
+			// Both DatabaseService and UserService should be provided
+			expectTypeOf(composedService).toEqualTypeOf<
+				Layer<never, typeof DatabaseService | typeof UserService>
+			>();
+		});
+
+		it('should preserve external requirements and expose both provisions', () => {
+			class ExternalService extends Tag.Class('ExternalService') {}
+			class DatabaseService extends Tag.Class('DatabaseService') {
+				constructor(private _external: ExternalService) {
+					super();
+				}
+			}
+			class UserService extends Tag.Class('UserService') {
+				constructor(
+					private _db: DatabaseService,
+					private _external: ExternalService
+				) {
+					super();
+				}
+			}
+
+			const dbService = service(DatabaseService, async (ctx) => {
+				const external = await ctx.get(ExternalService);
+				return new DatabaseService(external);
+			});
+
+			const userService = service(UserService, async (ctx) => {
+				const [db, external] = await Promise.all([
+					ctx.get(DatabaseService),
+					ctx.get(ExternalService),
+				]);
+				return new UserService(db, external);
+			});
+
+			const composedService = dbService.provideMerge(userService);
+
+			// ExternalService is still required (needed by both services)
+			// Both DatabaseService and UserService should be provided
+			expectTypeOf(composedService).branded.toEqualTypeOf<
+				Layer<
+					typeof ExternalService,
+					typeof DatabaseService | typeof UserService
+				>
+			>();
+		});
+
+		it('should differ from .provide() in type signature', () => {
+			class ConfigService extends Tag.Class('ConfigService') {}
+			class DatabaseService extends Tag.Class('DatabaseService') {
+				constructor(private _config: ConfigService) {
+					super();
+				}
+			}
+
+			const configService = service(
+				ConfigService,
+				() => new ConfigService()
+			);
+			const dbService = service(DatabaseService, async (ctx) => {
+				const config = await ctx.get(ConfigService);
+				return new DatabaseService(config);
+			});
+
+			// .provide() only exposes target layer's provisions
+			const withProvide = configService.provide(dbService);
+			expectTypeOf(withProvide).toEqualTypeOf<
+				Layer<never, typeof DatabaseService>
+			>();
+
+			// .provideMerge() exposes both layers' provisions
+			const withProvideMerge = configService.provideMerge(dbService);
+			expectTypeOf(withProvideMerge).toEqualTypeOf<
+				Layer<never, typeof ConfigService | typeof DatabaseService>
+			>();
+		});
+
+		it('should handle deep service dependency chains with merged provisions', () => {
+			class ConfigService extends Tag.Class('ConfigService') {}
+			class DatabaseService extends Tag.Class('DatabaseService') {
+				constructor(private _config: ConfigService) {
+					super();
+				}
+			}
+			class UserRepository extends Tag.Class('UserRepository') {
+				constructor(private _db: DatabaseService) {
+					super();
+				}
+			}
+			class UserService extends Tag.Class('UserService') {
+				constructor(private _repo: UserRepository) {
+					super();
+				}
+			}
+
+			const configService = service(
+				ConfigService,
+				() => new ConfigService()
+			);
+			const dbService = service(DatabaseService, async (ctx) => {
+				const config = await ctx.get(ConfigService);
+				return new DatabaseService(config);
+			});
+			const repoService = service(UserRepository, async (ctx) => {
+				const db = await ctx.get(DatabaseService);
+				return new UserRepository(db);
+			});
+			const userService = service(UserService, async (ctx) => {
+				const repo = await ctx.get(UserRepository);
+				return new UserService(repo);
+			});
+
+			const fullService = configService
+				.provideMerge(dbService)
+				.provideMerge(repoService)
+				.provideMerge(userService);
+
+			// All dependencies should be satisfied, all services provided
+			expectTypeOf(fullService).toEqualTypeOf<
 				Layer<
 					never,
-					typeof ConfigTag | typeof LoggerTag | typeof DatabaseService
+					| typeof ConfigService
+					| typeof DatabaseService
+					| typeof UserRepository
+					| typeof UserService
 				>
+			>();
+		});
+
+		it('should work with ValueTag services', () => {
+			const DatabaseUrlTag = Tag.of('dbUrl')<string>();
+			class DatabaseService extends Tag.Class('DatabaseService') {
+				constructor(private _url: Inject<typeof DatabaseUrlTag>) {
+					super();
+				}
+			}
+
+			const dbUrlService = service(
+				DatabaseUrlTag,
+				() => 'postgresql://localhost:5432'
+			);
+			const dbService = service(DatabaseService, async (ctx) => {
+				const url = await ctx.get(DatabaseUrlTag);
+				return new DatabaseService(url);
+			});
+
+			const composedService = dbUrlService.provideMerge(dbService);
+
+			// Both ValueTag and ClassTag services should be provided
+			expectTypeOf(composedService).toEqualTypeOf<
+				Layer<never, typeof DatabaseUrlTag | typeof DatabaseService>
+			>();
+		});
+
+		it('should handle mixed .provide() and .provideMerge() composition', () => {
+			class ConfigService extends Tag.Class('ConfigService') {}
+			class DatabaseService extends Tag.Class('DatabaseService') {
+				constructor(private _config: ConfigService) {
+					super();
+				}
+			}
+			class UserService extends Tag.Class('UserService') {
+				constructor(private _db: DatabaseService) {
+					super();
+				}
+			}
+
+			const configService = service(
+				ConfigService,
+				() => new ConfigService()
+			);
+			const dbService = service(DatabaseService, async (ctx) => {
+				const config = await ctx.get(ConfigService);
+				return new DatabaseService(config);
+			});
+			const userService = service(UserService, async (ctx) => {
+				const db = await ctx.get(DatabaseService);
+				return new UserService(db);
+			});
+
+			// Use provideMerge to keep config available, then provide to hide intermediate services
+			const appService = configService
+				.provideMerge(dbService)
+				.provide(userService);
+
+			expectTypeOf(appService).toEqualTypeOf<
+				Layer<never, typeof UserService>
+			>();
+		});
+
+		it('should integrate with container correctly for merged provisions', () => {
+			class DatabaseService extends Tag.Class('DatabaseService') {}
+			class UserService extends Tag.Class('UserService') {
+				constructor(private _db: DatabaseService) {
+					super();
+				}
+			}
+
+			const dbService = service(
+				DatabaseService,
+				() => new DatabaseService()
+			);
+			const userService = service(UserService, async (ctx) => {
+				const db = await ctx.get(DatabaseService);
+				return new UserService(db);
+			});
+
+			const appService = dbService.provideMerge(userService);
+
+			// Should be able to apply to a container
+			const c = container();
+			const finalContainer = appService.register(c);
+
+			// Both services should be available in the final container
+			expectTypeOf(finalContainer).toEqualTypeOf<
+				IContainer<typeof DatabaseService | typeof UserService>
+			>();
+
+			// Should be able to resolve both services from the container
+			expectTypeOf(finalContainer.get(DatabaseService)).toEqualTypeOf<
+				Promise<DatabaseService>
+			>();
+			expectTypeOf(finalContainer.get(UserService)).toEqualTypeOf<
+				Promise<UserService>
 			>();
 		});
 	});
