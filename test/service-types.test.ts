@@ -131,7 +131,7 @@ describe('Service Type Safety', () => {
 				return new UserService(db);
 			});
 
-			const composedService = dbService.provide(userService);
+			const composedService = userService.provide(dbService);
 
 			// DatabaseService requirement should be satisfied by dbService
 			// Only UserService is provided (target layer's provisions)
@@ -242,10 +242,10 @@ describe('Service Type Safety', () => {
 				return new UserService(repo);
 			});
 
-			const fullService = configService
-				.provide(dbService)
+			const fullService = userService
 				.provide(repoService)
-				.provide(userService);
+				.provide(dbService)
+				.provide(configService);
 
 			// All dependencies should be satisfied, only final service provided
 			expectTypeOf(fullService).toEqualTypeOf<
@@ -301,10 +301,10 @@ describe('Service Type Safety', () => {
 			});
 
 			// Build the diamond: Config -> (Database & Cache) -> User
-			const infraLayer = configService.provide(
-				dbService.merge(cacheService)
-			);
-			const appLayer = infraLayer.provide(userService);
+			const infraLayer = dbService
+				.merge(cacheService)
+				.provide(configService);
+			const appLayer = userService.provide(infraLayer);
 
 			expectTypeOf(appLayer).toEqualTypeOf<
 				Layer<never, typeof UserService>
@@ -356,7 +356,7 @@ describe('Service Type Safety', () => {
 				return new UserService(db);
 			});
 
-			const appService = dbService.provide(userService);
+			const appService = userService.provide(dbService);
 
 			// Should be able to apply to a container
 			const c = container();
@@ -440,7 +440,7 @@ describe('Service Type Safety', () => {
 				return new DatabaseService(url);
 			});
 
-			const composedService = dbUrlService.provide(dbService);
+			const composedService = dbService.provide(dbUrlService);
 
 			// No external dependencies required since dbUrlService provides what dbService needs
 			// Only DatabaseService is provided (target layer's provisions)
@@ -483,9 +483,9 @@ describe('Service Type Safety', () => {
 			});
 
 			// Build complete layer
-			const appLayer = configService
-				.merge(loggerService)
-				.provide(dbService);
+			const appLayer = dbService.provide(
+				configService.merge(loggerService)
+			);
 
 			expectTypeOf(appLayer).toEqualTypeOf<
 				Layer<never, typeof DatabaseService>
@@ -511,7 +511,7 @@ describe('Service Type Safety', () => {
 				return new UserService(db);
 			});
 
-			const composedService = dbService.provideMerge(userService);
+			const composedService = userService.provideMerge(dbService);
 
 			// DatabaseService requirement should be satisfied by dbService
 			// Both DatabaseService and UserService should be provided
@@ -549,7 +549,7 @@ describe('Service Type Safety', () => {
 				return new UserService(db, external);
 			});
 
-			const composedService = dbService.provideMerge(userService);
+			const composedService = userService.provideMerge(dbService);
 
 			// ExternalService is still required (needed by both services)
 			// Both DatabaseService and UserService should be provided
@@ -579,13 +579,13 @@ describe('Service Type Safety', () => {
 			});
 
 			// .provide() only exposes target layer's provisions
-			const withProvide = configService.provide(dbService);
+			const withProvide = dbService.provide(configService);
 			expectTypeOf(withProvide).toEqualTypeOf<
 				Layer<never, typeof DatabaseService>
 			>();
 
 			// .provideMerge() exposes both layers' provisions
-			const withProvideMerge = configService.provideMerge(dbService);
+			const withProvideMerge = dbService.provideMerge(configService);
 			expectTypeOf(withProvideMerge).toEqualTypeOf<
 				Layer<never, typeof ConfigService | typeof DatabaseService>
 			>();
@@ -626,11 +626,9 @@ describe('Service Type Safety', () => {
 				return new UserService(repo);
 			});
 
-			const fullService = configService
-				.provideMerge(dbService)
-				.provideMerge(repoService)
-				.provideMerge(userService);
-
+			const fullService = userService.provideMerge(
+				repoService.provideMerge(dbService).provideMerge(configService)
+			);
 			// All dependencies should be satisfied, all services provided
 			expectTypeOf(fullService).toEqualTypeOf<
 				Layer<
@@ -660,7 +658,7 @@ describe('Service Type Safety', () => {
 				return new DatabaseService(url);
 			});
 
-			const composedService = dbUrlService.provideMerge(dbService);
+			const composedService = dbService.provideMerge(dbUrlService);
 
 			// Both ValueTag and ClassTag services should be provided
 			expectTypeOf(composedService).toEqualTypeOf<
@@ -695,9 +693,9 @@ describe('Service Type Safety', () => {
 			});
 
 			// Use provideMerge to keep config available, then provide to hide intermediate services
-			const appService = configService
-				.provideMerge(dbService)
-				.provide(userService);
+			const appService = userService.provide(
+				dbService.provide(configService)
+			);
 
 			expectTypeOf(appService).toEqualTypeOf<
 				Layer<never, typeof UserService>
@@ -721,7 +719,7 @@ describe('Service Type Safety', () => {
 				return new UserService(db);
 			});
 
-			const appService = dbService.provideMerge(userService);
+			const appService = userService.provideMerge(dbService);
 
 			// Should be able to apply to a container
 			const c = container();

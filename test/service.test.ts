@@ -58,7 +58,7 @@ describe('Service', () => {
 			});
 
 			// Compose layers
-			const appLayer = dbService.provide(userService);
+			const appLayer = userService.provide(dbService);
 
 			// Apply to container
 			const c = container();
@@ -99,7 +99,7 @@ describe('Service', () => {
 			});
 
 			// Compose services
-			const infraLayer = configService.provide(dbService);
+			const infraLayer = dbService.provide(configService);
 
 			const c = container();
 			const finalContainer = infraLayer.register(c);
@@ -185,7 +185,7 @@ describe('Service', () => {
 			});
 
 			// Compose the services
-			const appLayer = dbUrlService.provide(dbService);
+			const appLayer = dbService.provide(dbUrlService);
 
 			const c = container();
 			const finalContainer = appLayer.register(c);

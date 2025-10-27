@@ -71,8 +71,8 @@ export type AnyLayer = Layer<never, AnyTag>;
  *   )
  * );
  *
- * // Compose layers: database layer provides what user layer needs
- * const appLayer = databaseLayer.provide(userLayer);
+ * // Compose layers: provide database layer to user layer
+ * const appLayer = userLayer.provide(databaseLayer);
  *
  * // Thanks to variance, Layer<never, typeof DatabaseService> automatically works
  * // where Layer<typeof DatabaseService, typeof UserService> requires DatabaseService
@@ -121,53 +121,49 @@ export interface Layer<
 	) => IContainer<TRequires | TContainer | TProvides>;
 
 	/**
-	 * Provides this layer's services to a target layer, creating a pipeline where this layer's
-	 * provisions satisfy the target layer's requirements. This creates a dependency
-	 * flow from source → target.
+	 * Provides a dependency layer to this layer, creating a pipeline where the dependency layer's
+	 * provisions satisfy this layer's requirements. This creates a dependency flow from dependency → this.
 	 *
-	 * Type-safe: The target layer's requirements must be satisfiable by this layer's
+	 * Type-safe: This layer's requirements must be satisfiable by the dependency layer's
 	 * provisions and any remaining external requirements.
 	 *
-	 * @template TTargetRequires - What the target layer requires
-	 * @template TTargetProvides - What the target layer provides
-	 * @param target - The layer to provide services to
-	 * @returns A new composed layer
+	 * @template TDepRequires - What the dependency layer requires
+	 * @template TDepProvides - What the dependency layer provides
+	 * @param dependency - The layer to provide as a dependency
+	 * @returns A new composed layer that only exposes this layer's provisions
 	 *
 	 * @example Simple composition
 	 * ```typescript
 	 * const configLayer = layer<never, typeof ConfigTag>(...);
 	 * const dbLayer = layer<typeof ConfigTag, typeof DatabaseService>(...);
 	 *
-	 * // Config provides what database needs
-	 * const infraLayer = configLayer.provide(dbLayer);
+	 * // Provide config to database layer
+	 * const infraLayer = dbLayer.provide(configLayer);
 	 * ```
 	 *
-	 * @example Multi-level composition
+	 * @example Multi-level composition (reads naturally left-to-right)
 	 * ```typescript
-	 * const appLayer = configLayer
-	 *   .provide(databaseLayer)
+	 * const appLayer = apiLayer
 	 *   .provide(serviceLayer)
-	 *   .provide(apiLayer);
+	 *   .provide(databaseLayer)
+	 *   .provide(configLayer);
 	 * ```
 	 */
-	provide: <TTargetRequires extends AnyTag, TTargetProvides extends AnyTag>(
-		target: Layer<TTargetRequires, TTargetProvides>
-	) => Layer<
-		TRequires | Exclude<TTargetRequires, TProvides>,
-		TTargetProvides
-	>;
+	provide: <TDepRequires extends AnyTag, TDepProvides extends AnyTag>(
+		dependency: Layer<TDepRequires, TDepProvides>
+	) => Layer<TDepRequires | Exclude<TRequires, TDepProvides>, TProvides>;
 
 	/**
-	 * Provides this layer's services to a target layer and merges the provisions.
-	 * Unlike `.provide()`, this method includes both this layer's provisions and the target layer's
+	 * Provides a dependency layer to this layer and merges the provisions.
+	 * Unlike `.provide()`, this method includes both this layer's provisions and the dependency layer's
 	 * provisions in the result type. This is useful when you want to expose services from both layers.
 	 *
-	 * Type-safe: The target layer's requirements must be satisfiable by this layer's
+	 * Type-safe: This layer's requirements must be satisfiable by the dependency layer's
 	 * provisions and any remaining external requirements.
 	 *
-	 * @template TTargetRequires - What the target layer requires
-	 * @template TTargetProvides - What the target layer provides
-	 * @param target - The layer to provide services to
+	 * @template TDepRequires - What the dependency layer requires
+	 * @template TDepProvides - What the dependency layer provides
+	 * @param dependency - The layer to provide as a dependency
 	 * @returns A new composed layer that provides services from both layers
 	 *
 	 * @example Providing with merged provisions
@@ -175,30 +171,27 @@ export interface Layer<
 	 * const configLayer = layer<never, typeof ConfigTag>(...);
 	 * const dbLayer = layer<typeof ConfigTag, typeof DatabaseService>(...);
 	 *
-	 * // Config provides what database needs, and both services are available
-	 * const infraLayer = configLayer.provideMerge(dbLayer);
+	 * // Provide config to database layer, and both services are available
+	 * const infraLayer = dbLayer.provideMerge(configLayer);
 	 * // Type: Layer<never, typeof ConfigTag | typeof DatabaseService>
 	 * ```
 	 *
 	 * @example Difference from .provide()
 	 * ```typescript
-	 * // .provide() only exposes target layer's provisions:
-	 * const withProvide = configLayer.provide(dbLayer);
+	 * // .provide() only exposes this layer's provisions:
+	 * const withProvide = dbLayer.provide(configLayer);
 	 * // Type: Layer<never, typeof DatabaseService>
 	 *
 	 * // .provideMerge() exposes both layers' provisions:
-	 * const withProvideMerge = configLayer.provideMerge(dbLayer);
+	 * const withProvideMerge = dbLayer.provideMerge(configLayer);
 	 * // Type: Layer<never, typeof ConfigTag | typeof DatabaseService>
 	 * ```
 	 */
-	provideMerge: <
-		TTargetRequires extends AnyTag,
-		TTargetProvides extends AnyTag,
-	>(
-		target: Layer<TTargetRequires, TTargetProvides>
+	provideMerge: <TDepRequires extends AnyTag, TDepProvides extends AnyTag>(
+		dependency: Layer<TDepRequires, TDepProvides>
 	) => Layer<
-		TRequires | Exclude<TTargetRequires, TProvides>,
-		TProvides | TTargetProvides
+		TDepRequires | Exclude<TRequires, TDepProvides>,
+		TProvides | TDepProvides
 	>;
 
 	/**
@@ -284,7 +277,7 @@ export interface Layer<
  * );
  *
  * // Compose the complete application
- * const appLayer = configLayer.provide(infraLayer).provide(serviceLayer);
+ * const appLayer = serviceLayer.provide(infraLayer).provide(configLayer);
  * ```
  */
 export function layer<
@@ -299,11 +292,11 @@ export function layer<
 		register: <TContainer extends AnyTag>(
 			container: IContainer<TRequires | TContainer>
 		) => register(container),
-		provide(target) {
-			return createProvidedLayer(layerImpl, target);
+		provide(dependency) {
+			return createProvidedLayer(dependency, layerImpl);
 		},
-		provideMerge(target) {
-			return createComposedLayer(layerImpl, target);
+		provideMerge(dependency) {
+			return createComposedLayer(dependency, layerImpl);
 		},
 		merge(other) {
 			return createMergedLayer(layerImpl, other);
@@ -324,24 +317,14 @@ function createProvidedLayer<
 	TRequires2 extends AnyTag,
 	TProvides2 extends AnyTag,
 >(
-	source: Layer<TRequires1, TProvides1>,
+	dependency: Layer<TRequires1, TProvides1>,
 	target: Layer<TRequires2, TProvides2>
 ): Layer<TRequires1 | Exclude<TRequires2, TProvides1>, TProvides2> {
-	return layer(
-		<TContainer extends AnyTag>(
-			container: IContainer<TRequires1 | TContainer>
-		) => {
-			const containerWithSource = source.register(
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
-				container as any
-			);
-			const finalContainer = target.register(
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
-				containerWithSource as any
-			) as IContainer<TRequires1 | TContainer | TProvides2>;
-			return finalContainer;
-		}
-	);
+	// The implementationo of provide is the same as provideMerge, we only need to narrow the return type
+	return createComposedLayer(dependency, target) as Layer<
+		TRequires1 | Exclude<TRequires2, TProvides1>,
+		TProvides2
+	>;
 }
 
 /**
@@ -356,7 +339,7 @@ function createComposedLayer<
 	TRequires2 extends AnyTag,
 	TProvides2 extends AnyTag,
 >(
-	source: Layer<TRequires1, TProvides1>,
+	dependency: Layer<TRequires1, TProvides1>,
 	target: Layer<TRequires2, TProvides2>
 ): Layer<
 	TRequires1 | Exclude<TRequires2, TProvides1>,
@@ -364,17 +347,18 @@ function createComposedLayer<
 > {
 	return layer(
 		<TContainer extends AnyTag>(
-			container: IContainer<TRequires1 | TContainer>
+			container: IContainer<
+				TRequires1 | Exclude<TRequires2, TProvides1> | TContainer
+			>
 		) => {
-			const containerWithSource = source.register(
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
-				container as any
-			);
-			const finalContainer = target.register(
-				// eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
-				containerWithSource as any
-			) as IContainer<TRequires1 | TContainer | TProvides1 | TProvides2>;
-			return finalContainer;
+			const containerWithDependency = dependency.register(
+				container
+				// The type
+				// IContainer<TRequires1 | TProvides1 | Exclude<TRequires2, TProvides1> | TContainer>
+				// can be simplified to
+				// IContainer<TRequires1 | TRequires2 | TProvides1 | TContainer>
+			) as IContainer<TRequires1 | TRequires2 | TProvides1 | TContainer>;
+			return target.register(containerWithDependency);
 		}
 	);
 }

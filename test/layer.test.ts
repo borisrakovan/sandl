@@ -78,7 +78,7 @@ describe('Layer', () => {
 					)
 			);
 
-			const composedLayer = databaseLayer.provide(userLayer);
+			const composedLayer = userLayer.provide(databaseLayer);
 
 			const c = container();
 			const finalContainer = composedLayer.register(c);
@@ -139,9 +139,9 @@ describe('Layer', () => {
 					)
 			);
 
-			const finalLayer = configLayer
+			const finalLayer = userLayer
 				.provide(databaseLayer)
-				.provide(userLayer);
+				.provide(configLayer);
 
 			const c = container();
 			const finalContainer = finalLayer.register(c);
@@ -190,7 +190,7 @@ describe('Layer', () => {
 				)
 			);
 
-			const composedLayer = databaseLayer.provide(userLayer);
+			const composedLayer = userLayer.provide(databaseLayer);
 
 			// Pre-register the API key dependency
 			const c = container().register(ApiKeyTag, () => 'secret-key');
@@ -235,7 +235,7 @@ describe('Layer', () => {
 				)
 			);
 
-			const infraLayer = configLayer.provideMerge(databaseLayer);
+			const infraLayer = databaseLayer.provideMerge(configLayer);
 
 			const c = container();
 			const finalContainer = infraLayer.register(c);
@@ -282,7 +282,7 @@ describe('Layer', () => {
 			);
 
 			// .provide() only exposes target layer's provisions
-			const withProvide = configLayer.provide(databaseLayer);
+			const withProvide = databaseLayer.provide(configLayer);
 			const provideContainer = withProvide.register(container());
 
 			// Should have DatabaseService but not ConfigService directly accessible
@@ -290,7 +290,7 @@ describe('Layer', () => {
 			expect(db1.getValue()).toBe('db-config');
 
 			// .provideMerge() exposes both layers' provisions
-			const withProvideMerge = configLayer.provideMerge(databaseLayer);
+			const withProvideMerge = databaseLayer.provideMerge(configLayer);
 			const provideMergeContainer =
 				withProvideMerge.register(container());
 
@@ -390,7 +390,7 @@ describe('Layer', () => {
 			// First register config, then merge the service layers
 			const baseLayer = configLayer;
 			const mergedServices = serviceLayerA.merge(serviceLayerB);
-			const finalLayer = baseLayer.provide(mergedServices);
+			const finalLayer = mergedServices.provide(baseLayer);
 
 			const c = container();
 			const finalContainer = finalLayer.register(c);
@@ -636,7 +636,7 @@ describe('Layer', () => {
 					)
 			);
 
-			const appLayer = configLayer.provide(serviceLayer);
+			const appLayer = serviceLayer.provide(configLayer);
 
 			const c = container();
 			const finalContainer = appLayer.register(c);
@@ -785,9 +785,9 @@ describe('Layer', () => {
 			);
 
 			// Application layer
-			const appLayer = configLayer
-				.provideMerge(infraLayer)
-				.provide(serviceLayer);
+			const appLayer = serviceLayer
+				.provide(infraLayer)
+				.provide(configLayer);
 
 			const c = container();
 			const finalContainer = appLayer.register(c);

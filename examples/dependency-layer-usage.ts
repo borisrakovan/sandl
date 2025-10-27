@@ -223,7 +223,7 @@ const appServiceLayer = layer<
 const infrastructure = Layer.mergeAll(databaseLayer, cacheLayer, emailLayer);
 
 // Add repository layer that depends on database
-const withRepositories = infrastructure.provideMerge(userRepositoryLayer);
+const withRepositories = userRepositoryLayer.provideMerge(infrastructure);
 
 // Add service layers that depend on repositories and infrastructure
 const businessServices = Layer.mergeAll(
@@ -231,31 +231,16 @@ const businessServices = Layer.mergeAll(
 	notificationServiceLayer
 );
 
-const withServices = withRepositories.provideMerge(businessServices);
+const withServices = businessServices.provideMerge(withRepositories);
 
 // Finally add application layer
-const completeApplication = withServices.provideMerge(appServiceLayer);
+const completeApplication = appServiceLayer.provideMerge(withServices);
 
 // Alternative: Build the entire application in one go using merge
-const completeApplicationOneGo = Layer.mergeAll(
-	databaseLayer,
-	cacheLayer,
-	emailLayer
-)
-	.provideMerge(userRepositoryLayer)
+const _completeApplicationOneGo = appServiceLayer
 	.provideMerge(Layer.mergeAll(userServiceLayer, notificationServiceLayer))
-	.provide(appServiceLayer);
-
-// Working example - providing everything needed step by step
-export const workingExampleApp = Layer.mergeAll(
-	databaseLayer,
-	cacheLayer,
-	emailLayer
-)
-	.provide(userRepositoryLayer) // Database -> UserRepository ✓
-	.provide(userServiceLayer) // UserRepository + Cache -> UserService ✓
-	.provide(notificationServiceLayer) // Email -> NotificationService ✓
-	.provide(appServiceLayer); // UserService + NotificationService -> AppService ✓
+	.provideMerge(userRepositoryLayer)
+	.provideMerge(Layer.mergeAll(databaseLayer, cacheLayer, emailLayer));
 
 const config = Layer.mergeAll(
 	value(ConnectionString, 'sqlite://memory'),
@@ -267,7 +252,7 @@ const config = Layer.mergeAll(
 export async function demonstrateLayerUsage() {
 	const appContainer = container();
 
-	const appWithConfig = config.provideMerge(completeApplication);
+	const appWithConfig = completeApplication.provideMerge(config);
 
 	const finalContainer = appWithConfig.register(appContainer);
 
@@ -298,26 +283,6 @@ export async function demonstrateLayerUsage() {
 	await finalContainer.destroy();
 }
 
-// Usage example with one-go composition
-export async function demonstrateOneGoLayerUsage() {
-	const appContainer = container();
-	const finalContainer = config
-		.provide(completeApplicationOneGo)
-		.register(appContainer);
-
-	const app = await finalContainer.get(AppService);
-
-	const user = await app.registerUser({
-		name: 'Jane Smith',
-		email: 'jane@example.com',
-	});
-
-	console.log('User registered via one-go composition:', user);
-	await finalContainer.destroy();
-}
-
-// Alternative composition patterns
-
 // Example with many infrastructure layers
 export const bigInfrastructureLayer = Layer.mergeAll(
 	databaseLayer,
@@ -338,23 +303,6 @@ export const bigInfrastructureLayer = Layer.mergeAll(
 		})
 	)
 );
-
-// Complete app using merge for business services too
-export const completeAppWithmerge = Layer.mergeAll(
-	databaseLayer,
-	cacheLayer,
-	emailLayer
-)
-	.provide(userRepositoryLayer)
-	.provide(Layer.mergeAll(userServiceLayer, notificationServiceLayer))
-	.provide(appServiceLayer);
-
-// Partial applications for specific use cases
-export const n = infrastructure
-	.provide(userRepositoryLayer)
-	.provide(userServiceLayer);
-
-export const notificationsOnly = emailLayer.provide(notificationServiceLayer);
 
 // Type test - the complete application should require nothing external (never)
 // and provide all the services we defined

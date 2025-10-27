@@ -97,7 +97,7 @@ describe('Layer Type Safety', () => {
 					)
 			);
 
-			const composedLayer = layerA.provide(layerB);
+			const composedLayer = layerB.provide(layerA);
 
 			// ServiceA requirement is satisfied by layerA's provision
 			// Result should require nothing and provide only ServiceB (target layer's provisions)
@@ -128,7 +128,7 @@ describe('Layer Type Safety', () => {
 					)
 			);
 
-			const composedLayer = layerA.provide(layerB);
+			const composedLayer = layerB.provide(layerA);
 
 			// ExternalService is still required (not satisfied by layerA)
 			// Only ServiceB is provided (target layer's provisions)
@@ -169,7 +169,7 @@ describe('Layer Type Safety', () => {
 				)
 			);
 
-			const composedLayer = providerLayer.provide(consumerLayer);
+			const composedLayer = consumerLayer.provide(providerLayer);
 
 			// ServiceA and ServiceB satisfied, ServiceC still required
 			// Only ServiceD is provided (target layer's provisions)
@@ -192,7 +192,7 @@ describe('Layer Type Safety', () => {
 				container.register(ServiceB, () => new ServiceB())
 			);
 
-			const mergedLayer = layerA.merge(layerB);
+			const mergedLayer = layerB.merge(layerA);
 
 			expectTypeOf(mergedLayer).toEqualTypeOf<
 				Layer<never, typeof ServiceA | typeof ServiceB>
@@ -221,7 +221,7 @@ describe('Layer Type Safety', () => {
 					)
 			);
 
-			const mergedLayer = layerA.merge(layerB);
+			const mergedLayer = layerB.merge(layerA);
 
 			expectTypeOf(mergedLayer).toEqualTypeOf<
 				Layer<
@@ -298,7 +298,7 @@ describe('Layer Type Safety', () => {
 					)
 			);
 
-			const appLayer = configLayer.provide(serviceLayer);
+			const appLayer = serviceLayer.provide(configLayer);
 
 			expectTypeOf(appLayer).toEqualTypeOf<
 				Layer<never, typeof ApiService>
@@ -450,10 +450,10 @@ describe('Layer Type Safety', () => {
 					)
 			);
 
-			const finalLayer = layerA
-				.provide(layerB)
+			const finalLayer = layerD
 				.provide(layerC)
-				.provide(layerD);
+				.provide(layerB)
+				.provide(layerA);
 
 			expectTypeOf(finalLayer).toEqualTypeOf<
 				Layer<never, typeof ServiceD>
@@ -507,10 +507,9 @@ describe('Layer Type Safety', () => {
 			);
 
 			// Base provides to both branches, merge branches with independent, then compose
-			const finalLayer = baseLayer
+			const finalLayer = compositeLayer
 				.provide(branchA.merge(branchB))
-				.merge(independentC)
-				.provide(compositeLayer);
+				.provide(baseLayer.merge(independentC));
 
 			expectTypeOf(finalLayer).toEqualTypeOf<
 				Layer<never, typeof CompositeService>
@@ -538,7 +537,7 @@ describe('Layer Type Safety', () => {
 			);
 
 			// This composition should work at type level but leave ServiceB unsatisfied
-			const composed = providerLayer.provide(requiresB);
+			const composed = requiresB.provide(providerLayer);
 
 			// The result should still require ServiceB since providerLayer doesn't provide it
 			// Only UnrelatedService is provided (target layer's provisions)
@@ -565,7 +564,7 @@ describe('Layer Type Safety', () => {
 					)
 			);
 
-			const composedLayer = layerA.provideMerge(layerB);
+			const composedLayer = layerB.provideMerge(layerA);
 
 			// ServiceA requirement is satisfied by layerA's provision
 			// Result should require nothing and provide both ServiceA and ServiceB
@@ -596,7 +595,7 @@ describe('Layer Type Safety', () => {
 					)
 			);
 
-			const composedLayer = layerA.provideMerge(layerB);
+			const composedLayer = layerB.provideMerge(layerA);
 
 			// ExternalService is still required (not satisfied by layerA)
 			// Both ServiceA and ServiceB are provided
@@ -637,7 +636,7 @@ describe('Layer Type Safety', () => {
 				)
 			);
 
-			const composedLayer = providerLayer.provideMerge(consumerLayer);
+			const composedLayer = consumerLayer.provideMerge(providerLayer);
 
 			// ServiceA and ServiceB satisfied, ServiceC still required
 			// All provisions from both layers are exposed
@@ -670,13 +669,13 @@ describe('Layer Type Safety', () => {
 			);
 
 			// .provide() only exposes target layer's provisions
-			const withProvide = configLayer.provide(databaseLayer);
+			const withProvide = databaseLayer.provide(configLayer);
 			expectTypeOf(withProvide).toEqualTypeOf<
 				Layer<never, typeof DatabaseService>
 			>();
 
 			// .provideMerge() exposes both layers' provisions
-			const withProvideMerge = configLayer.provideMerge(databaseLayer);
+			const withProvideMerge = databaseLayer.provideMerge(configLayer);
 			expectTypeOf(withProvideMerge).toEqualTypeOf<
 				Layer<never, typeof ConfigService | typeof DatabaseService>
 			>();
@@ -698,7 +697,7 @@ describe('Layer Type Safety', () => {
 					)
 			);
 
-			const appLayer = configLayer.provideMerge(serviceLayer);
+			const appLayer = serviceLayer.provideMerge(configLayer);
 
 			expectTypeOf(appLayer).toEqualTypeOf<
 				Layer<never, typeof ConfigTag | typeof ApiService>
@@ -739,10 +738,10 @@ describe('Layer Type Safety', () => {
 					)
 			);
 
-			const finalLayer = layerA
-				.provideMerge(layerB)
+			const finalLayer = layerD
 				.provideMerge(layerC)
-				.provideMerge(layerD);
+				.provideMerge(layerB)
+				.provideMerge(layerA);
 
 			expectTypeOf(finalLayer).toEqualTypeOf<
 				Layer<
@@ -786,9 +785,9 @@ describe('Layer Type Safety', () => {
 			);
 
 			// Use provideMerge to keep config available, then provide to hide intermediate services
-			const appLayer = configLayer
-				.provideMerge(databaseLayer)
-				.provide(userLayer);
+			const appLayer = userLayer
+				.provide(databaseLayer)
+				.provide(configLayer);
 
 			expectTypeOf(appLayer).toEqualTypeOf<
 				Layer<never, typeof UserService>
