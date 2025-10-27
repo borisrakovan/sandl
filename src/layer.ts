@@ -1,11 +1,6 @@
 import { IContainer } from './container.js';
 import { AnyTag } from './tag.js';
 
-export type ResolutionContext<TReg extends AnyTag> = Pick<
-	IContainer<TReg>,
-	'get'
->;
-
 /**
  * The most generic layer type that works with variance - accepts any concrete layer.
  *

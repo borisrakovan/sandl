@@ -7,7 +7,9 @@ import {
 import { AnyTag, TagType } from './tag.js';
 import { Factory, Scope } from './types.js';
 
-export class ScopedContainer<TReg extends AnyTag> extends Container<TReg> {
+export class ScopedContainer<
+	in TReg extends AnyTag = never,
+> extends Container<TReg> {
 	public readonly scope: Scope;
 
 	private parent: IContainer<TReg> | null;
@@ -41,7 +43,7 @@ export class ScopedContainer<TReg extends AnyTag> extends Container<TReg> {
 	 * This method checks the current scope first, then walks up the parent chain.
 	 * Returns true if the dependency has been registered somewhere in the scope hierarchy.
 	 */
-	override has(tag: AnyTag): tag is TReg {
+	override has(tag: AnyTag): boolean {
 		// Check current scope first
 		if (super.has(tag)) {
 			return true;
@@ -57,7 +59,7 @@ export class ScopedContainer<TReg extends AnyTag> extends Container<TReg> {
 	 * This method checks the current scope first, then walks up the parent chain.
 	 * Returns true if the dependency has been instantiated somewhere in the scope hierarchy.
 	 */
-	override exists(tag: TReg): boolean {
+	override exists(tag: AnyTag): boolean {
 		// Check current scope first
 		if (super.exists(tag)) {
 			return true;
@@ -143,6 +145,37 @@ export class ScopedContainer<TReg extends AnyTag> extends Container<TReg> {
 	}
 
 	/**
+	 * Creates a new scoped container by merging this container's registrations with another container.
+	 *
+	 * This method overrides the base Container.merge to return a ScopedContainer instead of a regular Container.
+	 * The resulting scoped container contains all registrations from both containers and becomes a root scope
+	 * (no parent) with the scope name from this container.
+	 *
+	 * @param other - The container to merge with
+	 * @returns A new ScopedContainer with combined registrations
+	 * @throws {ContainerDestroyedError} If this container has been destroyed
+	 */
+	override merge<TTarget extends AnyTag>(
+		other: Container<TTarget>
+	): ScopedContainer<TReg | TTarget> {
+		if (this.isDestroyed) {
+			throw new ContainerDestroyedError(
+				'Cannot merge from a destroyed container'
+			);
+		}
+
+		// Preserve this container's scope
+		const merged = new ScopedContainer<never>(null, this.scope);
+
+		// Copy from other first
+		other.copyTo(merged);
+		// Then copy from this (will override conflicts)
+		this.copyTo(merged);
+
+		return merged as ScopedContainer<TReg | TTarget>;
+	}
+
+	/**
 	 * Creates a child scoped container.
 	 *
 	 * Child containers inherit access to parent dependencies but maintain
@@ -162,31 +195,56 @@ export class ScopedContainer<TReg extends AnyTag> extends Container<TReg> {
 }
 
 /**
- * Creates a new scoped dependency injection container with the given scope name.
+ * Converts a regular container into a scoped container, copying all registrations.
  *
- * Scoped containers allow hierarchical dependency management where child scopes
- * can inherit dependencies from parent scopes while maintaining their own
- * isolated registrations and instance caches.
+ * This function creates a new ScopedContainer instance and copies all factory functions
+ * and finalizers from the source container. The resulting scoped container becomes a root
+ * scope (no parent) with all the same dependency registrations.
  *
- * @param scope - A string identifier for this scope (used for debugging)
- * @returns A new empty ScopedContainer instance
+ * **Important**: Only the registrations are copied, not any cached instances.
+ * The new scoped container starts with an empty instance cache.
  *
- * @example
+ * @param container - The container to convert to a scoped container
+ * @param scope - A string or symbol identifier for this scope (used for debugging)
+ * @returns A new ScopedContainer instance with all registrations copied from the source container
+ * @throws {ContainerDestroyedError} If the source container has been destroyed
+ *
+ * @example Converting a regular container to scoped
  * ```typescript
- * import { scopedContainer, Tag } from 'sandl';
+ * import { container, scoped } from 'sandl';
  *
- * const appContainer = scopedContainer('app');
- * const requestContainer = appContainer.child('request');
+ * const appContainer = container()
+ *   .register(DatabaseService, () => new DatabaseService())
+ *   .register(ConfigService, () => new ConfigService());
  *
- * // App-level services
- * appContainer.register(DatabaseService, () => new DatabaseService());
+ * const scopedAppContainer = scoped(appContainer, 'app');
  *
- * // Request-level services that can access app services
- * requestContainer.register(UserService, async (ctx) =>
- *   new UserService(await ctx.get(DatabaseService))
- * );
+ * // Create child scopes
+ * const requestContainer = scopedAppContainer.child('request');
+ * ```
+ *
+ * @example Copying complex registrations
+ * ```typescript
+ * const baseContainer = container()
+ *   .register(DatabaseService, () => new DatabaseService())
+ *   .register(UserService, {
+ *     factory: async (ctx) => new UserService(await ctx.get(DatabaseService)),
+ *     finalizer: (service) => service.cleanup()
+ *   });
+ *
+ * const scopedContainer = scoped(baseContainer, 'app');
+ * // scopedContainer now has all the same registrations with finalizers preserved
  * ```
  */
-export function scopedContainer(scope: Scope): ScopedContainer<never> {
-	return new ScopedContainer(null, scope);
+export function scoped<TReg extends AnyTag>(
+	container: Container<TReg>,
+	scope: Scope
+): ScopedContainer<TReg> {
+	// Create new scoped container (no parent, it becomes the root)
+	const emptyScoped = new ScopedContainer<never>(null, scope);
+
+	// Merge all registrations using the scoped container's merge method
+	const result = emptyScoped.merge(container);
+
+	return result;
 }

@@ -1,4 +1,4 @@
-import { Container, container } from '@/container.js';
+import { Container, container, IContainer } from '@/container.js';
 import { Tag } from '@/tag.js';
 import { ResolutionContext } from '@/types.js';
 import { describe, expectTypeOf, it } from 'vitest';
@@ -380,6 +380,197 @@ describe('DependencyContainer Type Safety', () => {
 					| typeof AppService
 				>
 			>();
+		});
+	});
+
+	describe('merge method types', () => {
+		it('should preserve type union when merging containers', () => {
+			class ServiceA extends Tag.Class('ServiceA') {}
+			class ServiceB extends Tag.Class('ServiceB') {}
+			const ApiKeyTag = Tag.of('apiKey')<string>();
+
+			const source = container()
+				.register(ServiceA, () => new ServiceA())
+				.register(ServiceB, () => new ServiceB())
+				.register(ApiKeyTag, () => 'secret');
+
+			const target = container();
+			const result = source.merge(target);
+
+			// Should return a new container with combined types
+			expectTypeOf(result).toEqualTypeOf<
+				Container<typeof ServiceA | typeof ServiceB | typeof ApiKeyTag>
+			>();
+		});
+
+		it('should combine types when merging containers with existing registrations', () => {
+			class ServiceA extends Tag.Class('ServiceA') {}
+			class ServiceB extends Tag.Class('ServiceB') {}
+			class ServiceC extends Tag.Class('ServiceC') {}
+
+			const source = container()
+				.register(ServiceA, () => new ServiceA())
+				.register(ServiceB, () => new ServiceB());
+
+			const target = container().register(ServiceC, () => new ServiceC());
+
+			const result = source.merge(target);
+
+			expectTypeOf(result).toEqualTypeOf<
+				Container<typeof ServiceA | typeof ServiceB | typeof ServiceC>
+			>();
+		});
+
+		it('should work with ValueTag types', () => {
+			const StringTag = Tag.of('string')<string>();
+			const NumberTag = Tag.of('number')<number>();
+			class ServiceA extends Tag.Class('ServiceA') {}
+
+			const source = container()
+				.register(StringTag, () => 'hello')
+				.register(NumberTag, () => 42);
+
+			const target = container().register(ServiceA, () => new ServiceA());
+
+			const result = source.merge(target);
+
+			expectTypeOf(result).toEqualTypeOf<
+				Container<typeof StringTag | typeof NumberTag | typeof ServiceA>
+			>();
+		});
+
+		it('should work with empty source container', () => {
+			class ServiceA extends Tag.Class('ServiceA') {}
+
+			const source = container();
+			const target = container().register(ServiceA, () => new ServiceA());
+
+			const result = source.merge(target);
+
+			expectTypeOf(result).toEqualTypeOf<Container<typeof ServiceA>>();
+		});
+
+		it('should work with empty target container', () => {
+			class ServiceA extends Tag.Class('ServiceA') {}
+			class ServiceB extends Tag.Class('ServiceB') {}
+
+			const source = container()
+				.register(ServiceA, () => new ServiceA())
+				.register(ServiceB, () => new ServiceB());
+
+			const target = container();
+			const result = source.merge(target);
+
+			expectTypeOf(result).toEqualTypeOf<
+				Container<typeof ServiceA | typeof ServiceB>
+			>();
+		});
+	});
+
+	describe('container variance', () => {
+		it('should support contravariance for both IContainer and Container', () => {
+			class ServiceA extends Tag.Class('ServiceA') {}
+			class ServiceB extends Tag.Class('ServiceB') {}
+
+			// Create containers with specific types
+			const containerA = container().register(
+				ServiceA,
+				() => new ServiceA()
+			);
+			const containerAB = container()
+				.register(ServiceA, () => new ServiceA())
+				.register(ServiceB, () => new ServiceB());
+
+			// CONTRAVARIANCE TESTS: These should work
+			// A container with more dependencies can be used where fewer are expected
+
+			// IContainer contravariance
+			const iContainerContravariant: IContainer<typeof ServiceA> =
+				containerAB;
+			expectTypeOf(iContainerContravariant).toEqualTypeOf<
+				IContainer<typeof ServiceA>
+			>();
+
+			// Container contravariance (should work now with 'in TReg')
+			const containerContravariant: Container<typeof ServiceA> =
+				containerAB;
+			expectTypeOf(containerContravariant).toEqualTypeOf<
+				Container<typeof ServiceA>
+			>();
+
+			// COVARIANCE TESTS: These should fail with contravariance
+			// A container with fewer dependencies should NOT be usable where more are expected
+
+			// @ts-expect-error - Should fail: ServiceA container cannot be used as ServiceA | ServiceB interface
+			const _iContainerCovariant: IContainer<
+				typeof ServiceA | typeof ServiceB
+			> = containerA;
+
+			// @ts-expect-error - Should fail: ServiceA container cannot be used as ServiceA | ServiceB container
+			const _containerCovariant: Container<
+				typeof ServiceA | typeof ServiceB
+			> = containerA;
+
+			// Type assertions for the original containers
+			expectTypeOf(containerA).toEqualTypeOf<
+				Container<typeof ServiceA>
+			>();
+			expectTypeOf(containerAB).toEqualTypeOf<
+				Container<typeof ServiceA | typeof ServiceB>
+			>();
+
+			// Verify that contravariant assignments preserve the expected interface
+			expectTypeOf(iContainerContravariant).toEqualTypeOf<
+				IContainer<typeof ServiceA>
+			>();
+			expectTypeOf(containerContravariant).toEqualTypeOf<
+				Container<typeof ServiceA>
+			>();
+		});
+
+		it('should demonstrate practical contravariance usage', () => {
+			class ConfigService extends Tag.Class('ConfigService') {}
+			class DatabaseService extends Tag.Class('DatabaseService') {}
+			class LoggerService extends Tag.Class('LoggerService') {}
+
+			// Full application container with all services
+			const appContainer = container()
+				.register(ConfigService, () => new ConfigService())
+				.register(DatabaseService, () => new DatabaseService())
+				.register(LoggerService, () => new LoggerService());
+
+			// Function that only needs config - contravariance allows passing the full container
+			function useConfigOnly(container: Container<typeof ConfigService>) {
+				expectTypeOf(container).toEqualTypeOf<
+					Container<typeof ConfigService>
+				>();
+				// This function can only access ConfigService
+			}
+
+			// Function that needs config and database
+			function useConfigAndDb(
+				container: Container<
+					typeof ConfigService | typeof DatabaseService
+				>
+			) {
+				expectTypeOf(container).toEqualTypeOf<
+					Container<typeof ConfigService | typeof DatabaseService>
+				>();
+				// This function can access both ConfigService and DatabaseService
+			}
+
+			// Contravariance in action: we can pass the full app container to functions expecting subsets
+			useConfigOnly(appContainer); // Works! appContainer has ConfigService (and more)
+			useConfigAndDb(appContainer); // Works! appContainer has both ConfigService and DatabaseService (and more)
+
+			// This should fail - we can't pass a container with fewer services
+			const configOnlyContainer = container().register(
+				ConfigService,
+				() => new ConfigService()
+			);
+
+			// @ts-expect-error - Cannot pass container with only ConfigService to function expecting ConfigService | DatabaseService
+			useConfigAndDb(configOnlyContainer);
 		});
 	});
 });

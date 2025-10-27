@@ -841,4 +841,210 @@ describe('DependencyContainer', () => {
 			);
 		});
 	});
+
+	describe('merge method', () => {
+		it('should merge registrations from two containers', async () => {
+			class ServiceA extends Tag.Class('ServiceA') {
+				getValue() {
+					return 'A';
+				}
+			}
+			class ServiceB extends Tag.Class('ServiceB') {
+				getValue() {
+					return 'B';
+				}
+			}
+
+			const source = container()
+				.register(ServiceA, () => new ServiceA())
+				.register(ServiceB, () => new ServiceB());
+
+			const target = container();
+			const result = source.merge(target);
+
+			// Should be able to get services from merged container
+			const serviceA = await result.get(ServiceA);
+			const serviceB = await result.get(ServiceB);
+
+			expect(serviceA.getValue()).toBe('A');
+			expect(serviceB.getValue()).toBe('B');
+		});
+
+		it('should preserve finalizers when merging', async () => {
+			class TestService extends Tag.Class('TestService') {
+				cleanup = vi.fn();
+			}
+
+			const finalizer = vi.fn((instance: TestService) => {
+				instance.cleanup();
+			});
+
+			const source = container().register(TestService, {
+				factory: () => new TestService(),
+				finalizer,
+			});
+
+			const target = container();
+			const result = source.merge(target);
+
+			const instance = await result.get(TestService);
+			await result.destroy();
+
+			expect(finalizer).toHaveBeenCalledWith(instance);
+			expect(instance.cleanup).toHaveBeenCalled();
+		});
+
+		it('should work with ValueTag dependencies', async () => {
+			const StringTag = Tag.of('string')<string>();
+			const NumberTag = Tag.of('number')<number>();
+			const ConfigTag = Tag.for<{ apiKey: string }>();
+
+			const source = container()
+				.register(StringTag, () => 'hello')
+				.register(NumberTag, () => 42)
+				.register(ConfigTag, () => ({ apiKey: 'secret' }));
+
+			const target = container();
+			const result = source.merge(target);
+
+			const stringValue = await result.get(StringTag);
+			const numberValue = await result.get(NumberTag);
+			const configValue = await result.get(ConfigTag);
+
+			expect(stringValue).toBe('hello');
+			expect(numberValue).toBe(42);
+			expect(configValue.apiKey).toBe('secret');
+		});
+
+		it('should combine registrations from both containers', async () => {
+			class ServiceA extends Tag.Class('ServiceA') {}
+			class ServiceB extends Tag.Class('ServiceB') {}
+			class ServiceC extends Tag.Class('ServiceC') {}
+
+			const source = container()
+				.register(ServiceA, () => new ServiceA())
+				.register(ServiceB, () => new ServiceB());
+
+			const target = container()
+				.register(ServiceC, () => new ServiceC());
+
+			const result = source.merge(target);
+
+			// Should have all three services
+			const serviceA = await result.get(ServiceA);
+			const serviceB = await result.get(ServiceB);
+			const serviceC = await result.get(ServiceC);
+
+			expect(serviceA).toBeInstanceOf(ServiceA);
+			expect(serviceB).toBeInstanceOf(ServiceB);
+			expect(serviceC).toBeInstanceOf(ServiceC);
+		});
+
+		it('should let source override target registrations', async () => {
+			class TestService extends Tag.Class('TestService') {
+				constructor(public value: string) {
+					super();
+				}
+			}
+
+			const source = container().register(
+				TestService,
+				() => new TestService('from-source')
+			);
+
+			const target = container().register(
+				TestService,
+				() => new TestService('from-target')
+			);
+
+			const result = source.merge(target);
+
+			const instance = await result.get(TestService);
+			expect(instance.value).toBe('from-source');
+		});
+
+		it('should create new container with separate instance cache', async () => {
+			class TestService extends Tag.Class('TestService') {
+				constructor(public id: string = Math.random().toString()) {
+					super();
+				}
+			}
+
+			const source = container().register(TestService, () => new TestService());
+
+			// Get instance from source first
+			const sourceInstance = await source.get(TestService);
+
+			const target = container();
+			const result = source.merge(target);
+
+			// Get instance from merged container
+			const resultInstance = await result.get(TestService);
+
+			// Should be different instances (different caches)
+			expect(sourceInstance).not.toBe(resultInstance);
+			expect(sourceInstance.id).not.toBe(resultInstance.id);
+		});
+
+		it('should work with empty source container', () => {
+			class TestService extends Tag.Class('TestService') {}
+
+			const source = container();
+			const target = container().register(TestService, () => new TestService());
+
+			const result = source.merge(target);
+			expect(result.has(TestService)).toBe(true);
+		});
+
+		it('should work with empty target container', () => {
+			class TestService extends Tag.Class('TestService') {}
+
+			const source = container().register(TestService, () => new TestService());
+			const target = container();
+
+			const result = source.merge(target);
+			expect(result.has(TestService)).toBe(true);
+		});
+
+		it('should throw error when merging from destroyed container', async () => {
+			class TestService extends Tag.Class('TestService') {}
+
+			const source = container().register(TestService, () => new TestService());
+			await source.destroy();
+
+			const target = container();
+
+			expect(() => source.merge(target)).toThrow(ContainerDestroyedError);
+		});
+
+		it('should work with complex dependency graphs', async () => {
+			class ConfigService extends Tag.Class('ConfigService') {
+				getDbUrl() {
+					return 'db://localhost';
+				}
+			}
+
+			class DatabaseService extends Tag.Class('DatabaseService') {
+				constructor(private config: ConfigService) {
+					super();
+				}
+
+				connect() {
+					return `Connected to ${this.config.getDbUrl()}`;
+				}
+			}
+
+			const source = container()
+				.register(ConfigService, () => new ConfigService())
+				.register(DatabaseService, async (ctx) => 
+					new DatabaseService(await ctx.get(ConfigService))
+				);
+
+			const target = container();
+			const result = source.merge(target);
+
+			const dbService = await result.get(DatabaseService);
+			expect(dbService.connect()).toBe('Connected to db://localhost');
+		});
+	});
 });

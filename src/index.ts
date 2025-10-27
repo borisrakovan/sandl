@@ -9,7 +9,7 @@ export {
 	UnknownDependencyError,
 } from './errors.js';
 export { Layer, layer } from './layer.js';
-export { scopedContainer } from './scoped-container.js';
+export { scoped } from './scoped-container.js';
 export { service } from './service.js';
 export type { Service } from './service.js';
 export { Tag, type TagType, type TaggedClass, type ValueTag } from './tag.js';
