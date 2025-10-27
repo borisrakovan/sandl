@@ -1,8 +1,7 @@
-import { container, IContainer } from '@/container.js';
+import { container, IContainer, ResolutionContext } from '@/container.js';
 import { Layer } from '@/layer.js';
 import { service, Service } from '@/service.js';
-import { Tag } from '@/tag.js';
-import { Inject, ResolutionContext } from '@/types.js';
+import { Inject, Tag } from '@/tag.js';
 import { describe, expectTypeOf, it } from 'vitest';
 
 describe('Service Type Safety', () => {

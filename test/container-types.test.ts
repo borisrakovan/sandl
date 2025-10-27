@@ -1,6 +1,10 @@
-import { Container, container, IContainer } from '@/container.js';
+import {
+	Container,
+	container,
+	IContainer,
+	ResolutionContext,
+} from '@/container.js';
 import { Tag } from '@/tag.js';
-import { ResolutionContext } from '@/types.js';
 import { describe, expectTypeOf, it } from 'vitest';
 
 describe('DependencyContainer Type Safety', () => {
@@ -8,7 +12,7 @@ describe('DependencyContainer Type Safety', () => {
 		it('should start with never type for empty container', () => {
 			const c = container();
 
-			expectTypeOf(c).toEqualTypeOf<Container<never>>();
+			expectTypeOf(c).toEqualTypeOf<Container>();
 		});
 
 		it('should add tag to union type when registering', () => {

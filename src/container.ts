@@ -8,7 +8,7 @@ import {
 	UnknownDependencyError,
 } from './errors.js';
 import { AnyTag, Tag, TagType } from './tag.js';
-import { Factory, Finalizer } from './types.js';
+import { PromiseOrValue } from './types.js';
 
 /**
  * AsyncLocalStorage instance used to track the dependency resolution chain.
@@ -17,10 +17,123 @@ import { Factory, Finalizer } from './types.js';
  */
 const resolutionChain = new AsyncLocalStorage<AnyTag[]>();
 
+/**
+ * Type representing a factory function used to create dependency instances.
+ *
+ * Factory functions are the core mechanism for dependency creation in the DI system.
+ * They receive a dependency container and can use it to resolve other dependencies
+ * that the service being created needs.
+ *
+ * The factory can be either synchronous (returning T directly) or asynchronous
+ * (returning Promise<T>). The container handles both cases transparently.
+ *
+ * @template T - The type of the service instance being created
+ * @template TReg - Union type of all dependencies available in the container
+ *
+ * @example Synchronous factory
+ * ```typescript
+ * const factory: Factory<DatabaseService, never> = (ctx) => {
+ *   return new DatabaseService('sqlite://memory');
+ * };
+ * ```
+ *
+ * @example Asynchronous factory with dependencies
+ * ```typescript
+ * const factory: Factory<UserService, typeof ConfigTag | typeof DatabaseService> = async (ctx) => {
+ *   const [config, db] = await Promise.all([
+ *     ctx.get(ConfigTag),
+ *     ctx.get(DatabaseService)
+ *   ]);
+ *   return new UserService(config, db);
+ * };
+ * ```
+ */
+export type Factory<T, TReg extends AnyTag> = (
+	ctx: ResolutionContext<TReg>
+) => PromiseOrValue<T>;
+
+/**
+ * Type representing a finalizer function used to clean up dependency instances.
+ *
+ * Finalizers are optional cleanup functions that are called when the container
+ * is destroyed via `container.destroy()`. They receive the created instance
+ * and should perform any necessary cleanup (closing connections, releasing resources, etc.).
+ *
+ * Like factories, finalizers can be either synchronous or asynchronous.
+ * All finalizers are called concurrently during container destruction.
+ *
+ * @template T - The type of the service instance being finalized
+ *
+ * @example Synchronous finalizer
+ * ```typescript
+ * const finalizer: Finalizer<FileHandle> = (fileHandle) => {
+ *   fileHandle.close();
+ * };
+ * ```
+ *
+ * @example Asynchronous finalizer
+ * ```typescript
+ * const finalizer: Finalizer<DatabaseConnection> = async (connection) => {
+ *   await connection.disconnect();
+ * };
+ * ```
+ *
+ * @example Resilient finalizer
+ * ```typescript
+ * const finalizer: Finalizer<HttpServer> = async (server) => {
+ *   try {
+ *     await server.close();
+ *   } catch (error) {
+ *     if (!error.message.includes('already closed')) {
+ *       throw error; // Re-throw unexpected errors
+ *     }
+ *     // Ignore "already closed" errors
+ *   }
+ * };
+ * ```
+ */
+export type Finalizer<T> = (instance: T) => PromiseOrValue<void>;
+
+/**
+ * Type representing a complete dependency lifecycle with both factory and finalizer.
+ *
+ * This type is used when registering dependencies that need cleanup. Instead of
+ * passing separate factory and finalizer parameters, you can pass an object
+ * containing both.
+ *
+ * @template T - The dependency tag type
+ * @template TReg - Union type of all dependencies available in the container
+ *
+ * @example Using DependencyLifecycle for registration
+ * ```typescript
+ * class DatabaseConnection extends Tag.Class('DatabaseConnection') {
+ *   async connect() { return; }
+ *   async disconnect() { return; }
+ * }
+ *
+ * const lifecycle: DependencyLifecycle<typeof DatabaseConnection, never> = {
+ *   factory: async () => {
+ *     const conn = new DatabaseConnection();
+ *     await conn.connect();
+ *     return conn;
+ *   },
+ *   finalizer: async (conn) => {
+ *     await conn.disconnect();
+ *   }
+ * };
+ *
+ * container().register(DatabaseConnection, lifecycle);
+ * ```
+ */
 export type DependencyLifecycle<T extends AnyTag, TReg extends AnyTag> = {
 	factory: Factory<TagType<T>, TReg>;
 	finalizer: Finalizer<TagType<T>>;
 };
+
+export type ResolutionContext<TReg extends AnyTag> = Pick<
+	IContainer<TReg>,
+	'get'
+>;
 
 export interface IContainer<in TReg extends AnyTag> {
 	register<T extends AnyTag>(
@@ -385,7 +498,7 @@ export class Container<in TReg extends AnyTag = never>
 
 	/**
 	 * Copies all registrations from this container to a target container.
-	 * 
+	 *
 	 * @internal
 	 * @param target - The container to copy registrations to
 	 * @throws {ContainerDestroyedError} If this container has been destroyed

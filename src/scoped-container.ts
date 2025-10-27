@@ -1,11 +1,17 @@
-import { Container, DependencyLifecycle, IContainer } from './container.js';
+import {
+	Container,
+	DependencyLifecycle,
+	Factory,
+	IContainer,
+} from './container.js';
 import {
 	ContainerDestroyedError,
 	DependencyFinalizationError,
 	UnknownDependencyError,
 } from './errors.js';
 import { AnyTag, TagType } from './tag.js';
-import { Factory, Scope } from './types.js';
+
+export type Scope = string | symbol;
 
 export class ScopedContainer<
 	in TReg extends AnyTag = never,

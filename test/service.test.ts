@@ -1,7 +1,6 @@
 import { container } from '@/container.js';
 import { service } from '@/service.js';
-import { Tag } from '@/tag.js';
-import { Inject } from '@/types.js';
+import { Inject, Tag } from '@/tag.js';
 import { describe, expect, it } from 'vitest';
 
 describe('Service', () => {

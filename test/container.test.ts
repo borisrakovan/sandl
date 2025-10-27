@@ -925,8 +925,7 @@ describe('DependencyContainer', () => {
 				.register(ServiceA, () => new ServiceA())
 				.register(ServiceB, () => new ServiceB());
 
-			const target = container()
-				.register(ServiceC, () => new ServiceC());
+			const target = container().register(ServiceC, () => new ServiceC());
 
 			const result = source.merge(target);
 
@@ -970,7 +969,10 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			const source = container().register(TestService, () => new TestService());
+			const source = container().register(
+				TestService,
+				() => new TestService()
+			);
 
 			// Get instance from source first
 			const sourceInstance = await source.get(TestService);
@@ -990,7 +992,10 @@ describe('DependencyContainer', () => {
 			class TestService extends Tag.Class('TestService') {}
 
 			const source = container();
-			const target = container().register(TestService, () => new TestService());
+			const target = container().register(
+				TestService,
+				() => new TestService()
+			);
 
 			const result = source.merge(target);
 			expect(result.has(TestService)).toBe(true);
@@ -999,7 +1004,10 @@ describe('DependencyContainer', () => {
 		it('should work with empty target container', () => {
 			class TestService extends Tag.Class('TestService') {}
 
-			const source = container().register(TestService, () => new TestService());
+			const source = container().register(
+				TestService,
+				() => new TestService()
+			);
 			const target = container();
 
 			const result = source.merge(target);
@@ -1009,7 +1017,10 @@ describe('DependencyContainer', () => {
 		it('should throw error when merging from destroyed container', async () => {
 			class TestService extends Tag.Class('TestService') {}
 
-			const source = container().register(TestService, () => new TestService());
+			const source = container().register(
+				TestService,
+				() => new TestService()
+			);
 			await source.destroy();
 
 			const target = container();
@@ -1036,8 +1047,10 @@ describe('DependencyContainer', () => {
 
 			const source = container()
 				.register(ConfigService, () => new ConfigService())
-				.register(DatabaseService, async (ctx) => 
-					new DatabaseService(await ctx.get(ConfigService))
+				.register(
+					DatabaseService,
+					async (ctx) =>
+						new DatabaseService(await ctx.get(ConfigService))
 				);
 
 			const target = container();

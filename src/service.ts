@@ -1,14 +1,20 @@
-import { PromiseOrValue, ResolutionContext } from '@/types.js';
-import { IContainer } from './container.js';
+import { PromiseOrValue } from '@/types.js';
+import { IContainer, ResolutionContext } from './container.js';
 import { Layer, layer } from './layer.js';
-import { AnyTag, ClassTag, TaggedClass, TagId, TagType } from './tag.js';
-import { ExtractInjectTag } from './types.js';
+import {
+	AnyTag,
+	ClassTag,
+	ExtractInjectTag,
+	TaggedClass,
+	TagId,
+	TagType,
+} from './tag.js';
 
 /**
  * Extracts constructor parameter types from a TaggedClass.
  * Only parameters that extend AnyTag are considered as dependencies.
  */
-export type ConstructorParams<T extends ClassTag<unknown>> = T extends new (
+type ConstructorParams<T extends ClassTag<unknown>> = T extends new (
 	...args: infer A
 ) => unknown
 	? A
@@ -18,7 +24,7 @@ export type ConstructorParams<T extends ClassTag<unknown>> = T extends new (
  * Helper to convert a tagged instance type back to its constructor type.
  * This uses the fact that tagged classes have a specific structure with TagId property.
  */
-export type InstanceToConstructorType<T> = T extends {
+type InstanceToConstructorType<T> = T extends {
 	readonly [TagId]: infer Id;
 }
 	? Id extends string | symbol
@@ -31,7 +37,7 @@ export type InstanceToConstructorType<T> = T extends {
  * Converts instance types to their corresponding constructor types.
  * Handles both ClassTag dependencies (automatic) and ValueTag dependencies (via Inject helper).
  */
-export type FilterTags<T extends readonly unknown[]> = T extends readonly []
+type FilterTags<T extends readonly unknown[]> = T extends readonly []
 	? never
 	: {
 			[K in keyof T]: T[K] extends {

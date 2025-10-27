@@ -1,4 +1,50 @@
 /**
+ * Unique symbol used to store the original ValueTag in Inject<T> types.
+ * This prevents property name collisions while allowing type-level extraction.
+ */
+const InjectSource = Symbol('InjectSource');
+
+/**
+ * Helper type for injecting ValueTag dependencies in constructor parameters.
+ * This allows clean specification of ValueTag dependencies while preserving
+ * the original tag information for dependency inference.
+ *
+ * The phantom property is optional to allow normal runtime values to be assignable.
+ *
+ * @template T - A ValueTag type
+ * @returns The value type with optional phantom tag metadata for dependency inference
+ *
+ * @example
+ * ```typescript
+ * const ApiKeyTag = Tag.of('apiKey')<string>();
+ *
+ * class UserService extends Tag.Class('UserService') {
+ *   constructor(
+ *     private db: DatabaseService,        // ClassTag - works automatically
+ *     private apiKey: Inject<typeof ApiKeyTag>  // ValueTag - type is string, tag preserved
+ *   ) {
+ *     super();
+ *   }
+ * }
+ * ```
+ */
+export type Inject<T extends ValueTag<unknown, string | symbol>> =
+	T extends ValueTag<infer V, string | symbol>
+		? V & { readonly [InjectSource]?: T }
+		: never;
+
+/**
+ * Helper type to extract the original ValueTag from an Inject<T> type.
+ * Since InjectSource is optional, we need to check for both presence and absence.
+ * @internal
+ */
+export type ExtractInjectTag<T> = T extends {
+	readonly [InjectSource]?: infer U;
+}
+	? U
+	: never;
+
+/**
  * Internal symbol used to identify tagged types within the dependency injection system.
  * This symbol is used as a property key to attach metadata to both value tags and class tags.
  * @internal
@@ -70,6 +116,51 @@ export type TaggedClass<T, Id extends string | symbol> = {
  * @internal - Users should use Tag.Class() instead of working with this type directly
  */
 export type ClassTag<T> = TaggedClass<T, string | symbol>;
+
+/**
+ * Utility type that extracts the service type from any dependency tag.
+ *
+ * This type is essential for type inference throughout the DI system, allowing
+ * the container and layers to automatically determine what type of service
+ * a given tag represents without manual type annotations.
+ *
+ * @template T - Any dependency tag (ValueTag or TaggedClass)
+ * @returns The service type that the tag represents
+ *
+ * @example With value tags
+ * ```typescript
+ * const StringTag = Tag.of('myString')<string>();
+ * const ConfigTag = Tag.of('config')<{ apiKey: string }>();
+ *
+ * type StringService = TagType<typeof StringTag>; // string
+ * type ConfigService = TagType<typeof ConfigTag>; // { apiKey: string }
+ * ```
+ *
+ * @example With class tags
+ * ```typescript
+ * class UserService extends Tag.Class('UserService') {
+ *   getUsers() { return []; }
+ * }
+ *
+ * type UserServiceType = TagType<typeof UserService>; // UserService
+ * ```
+ *
+ * @example Used in container methods
+ * ```typescript
+ * // The container uses TagType internally for type inference
+ * container.register(StringTag, () => 'hello'); // Factory must return string
+ * container.register(UserService, () => new UserService()); // Factory must return UserService
+ *
+ * const str: string = await container.get(StringTag); // Automatically typed as string
+ * const user: UserService = await container.get(UserService); // Automatically typed as UserService
+ * ```
+ */
+export type TagType<T> =
+	T extends ValueTag<infer S, string | symbol>
+		? S
+		: T extends ClassTag<infer S>
+			? S
+			: never;
 
 /**
  * Union type representing any valid dependency tag in the system.
@@ -306,48 +397,3 @@ export const Tag = {
 		return typeof id === 'symbol' ? id.toString() : String(id);
 	},
 };
-
-/**
- * Utility type that extracts the service type from any dependency tag.
- *
- * This type is essential for type inference throughout the DI system, allowing
- * the container and layers to automatically determine what type of service
- * a given tag represents without manual type annotations.
- *
- * @template T - Any dependency tag (ValueTag or TaggedClass)
- * @returns The service type that the tag represents
- *
- * @example With value tags
- * ```typescript
- * const StringTag = Tag.of('myString')<string>();
- * const ConfigTag = Tag.of('config')<{ apiKey: string }>();
- *
- * type StringService = TagType<typeof StringTag>; // string
- * type ConfigService = TagType<typeof ConfigTag>; // { apiKey: string }
- * ```
- *
- * @example With class tags
- * ```typescript
- * class UserService extends Tag.Class('UserService') {
- *   getUsers() { return []; }
- * }
- *
- * type UserServiceType = TagType<typeof UserService>; // UserService
- * ```
- *
- * @example Used in container methods
- * ```typescript
- * // The container uses TagType internally for type inference
- * container.register(StringTag, () => 'hello'); // Factory must return string
- * container.register(UserService, () => new UserService()); // Factory must return UserService
- *
- * const str: string = await container.get(StringTag); // Automatically typed as string
- * const user: UserService = await container.get(UserService); // Automatically typed as UserService
- * ```
- */
-export type TagType<T> =
-	T extends ValueTag<infer S, string | symbol>
-		? S
-		: T extends ClassTag<infer S>
-			? S
-			: never;
