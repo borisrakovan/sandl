@@ -125,10 +125,42 @@ export type Finalizer<T> = (instance: T) => PromiseOrValue<void>;
  * container().register(DatabaseConnection, lifecycle);
  * ```
  */
-export type DependencyLifecycle<T extends AnyTag, TReg extends AnyTag> = {
-	factory: Factory<TagType<T>, TReg>;
-	finalizer: Finalizer<TagType<T>>;
+export type DependencyLifecycle<T, TReg extends AnyTag> = {
+	factory: Factory<T, TReg>;
+	finalizer: Finalizer<T>;
 };
+
+/**
+ * Union type representing all valid dependency registration specifications.
+ *
+ * A dependency can be registered either as:
+ * - A simple factory function that creates the dependency
+ * - A complete lifecycle object with both factory and finalizer
+ *
+ * @template T - The dependency tag type
+ * @template TReg - Union type of all dependencies available in the container
+ *
+ * @example Simple factory registration
+ * ```typescript
+ * const spec: DependencySpec<typeof UserService, never> = 
+ *   () => new UserService();
+ * 
+ * container().register(UserService, spec);
+ * ```
+ *
+ * @example Lifecycle registration
+ * ```typescript
+ * const spec: DependencySpec<typeof DatabaseConnection, never> = {
+ *   factory: () => new DatabaseConnection(),
+ *   finalizer: (conn) => conn.close()
+ * };
+ * 
+ * container().register(DatabaseConnection, spec);
+ * ```
+ */
+export type DependencySpec<T extends AnyTag, TReg extends AnyTag> =
+	| Factory<TagType<T>, TReg>
+	| DependencyLifecycle<TagType<T>, TReg>;
 
 export type ResolutionContext<TReg extends AnyTag> = Pick<
 	IContainer<TReg>,
@@ -138,9 +170,7 @@ export type ResolutionContext<TReg extends AnyTag> = Pick<
 export interface IContainer<in TReg extends AnyTag> {
 	register<T extends AnyTag>(
 		tag: T,
-		factoryOrLifecycle:
-			| Factory<TagType<T>, TReg>
-			| DependencyLifecycle<T, TReg>
+		spec: DependencySpec<T, TReg>
 	): IContainer<TReg | T>;
 
 	has(tag: AnyTag): boolean;
@@ -336,9 +366,7 @@ export class Container<in TReg extends AnyTag = never>
 	 */
 	register<T extends AnyTag>(
 		tag: T,
-		factoryOrLifecycle:
-			| Factory<TagType<T>, TReg>
-			| DependencyLifecycle<T, TReg>
+		spec: DependencySpec<T, TReg>
 	): Container<TReg | T> {
 		if (this.isDestroyed) {
 			throw new ContainerDestroyedError(
@@ -356,13 +384,13 @@ export class Container<in TReg extends AnyTag = never>
 		}
 
 		// Replace the factory and finalizer (implicit override)
-		if (typeof factoryOrLifecycle === 'function') {
-			this.factories.set(tag, factoryOrLifecycle);
+		if (typeof spec === 'function') {
+			this.factories.set(tag, spec);
 			// Remove any existing finalizer when registering with just a factory
 			this.finalizers.delete(tag);
 		} else {
-			this.factories.set(tag, factoryOrLifecycle.factory);
-			this.finalizers.set(tag, factoryOrLifecycle.finalizer);
+			this.factories.set(tag, spec.factory);
+			this.finalizers.set(tag, spec.finalizer);
 		}
 
 		return this as Container<TReg | T>;

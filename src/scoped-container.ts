@@ -1,9 +1,4 @@
-import {
-	Container,
-	DependencyLifecycle,
-	Factory,
-	IContainer,
-} from './container.js';
+import { Container, DependencySpec, IContainer } from './container.js';
 import {
 	ContainerDestroyedError,
 	DependencyFinalizationError,
@@ -35,11 +30,9 @@ export class ScopedContainer<
 	 */
 	override register<T extends AnyTag>(
 		tag: T,
-		factoryOrLifecycle:
-			| Factory<TagType<T>, TReg>
-			| DependencyLifecycle<T, TReg>
+		spec: DependencySpec<T, TReg>
 	): ScopedContainer<TReg | T> {
-		super.register(tag, factoryOrLifecycle);
+		super.register(tag, spec);
 		return this as ScopedContainer<TReg | T>;
 	}
 
