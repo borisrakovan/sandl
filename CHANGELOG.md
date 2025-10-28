@@ -1,5 +1,11 @@
 # lambdaverse
 
+## 0.1.0
+
+### Minor Changes
+
+- fed04b7: Initial working release of the library
+
 ## 0.0.2
 
 ### Patch Changes
