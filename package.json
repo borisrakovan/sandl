@@ -1,9 +1,9 @@
 {
-	"name": "sandl",
+	"name": "sandly",
 	"version": "0.0.2",
 	"keywords": [
 		"typescript",
-		"sandl",
+		"sandly",
 		"dependency-injection",
 		"dependency-inversion",
 		"injection",
@@ -17,14 +17,14 @@
 		"lambda",
 		"aws-lambda"
 	],
-	"homepage": "https://github.com/borisrakovan/sandl",
+	"homepage": "https://github.com/borisrakovan/sandly",
 	"bugs": {
-		"url": "https://github.com/borisrakovan/sandl/issues"
+		"url": "https://github.com/borisrakovan/sandly/issues"
 	},
 	"author": "Boris Rakovan <b.rakovan@gmail.com> (https://github.com/borisrakovan)",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/borisrakovan/sandl.git"
+		"url": "git+https://github.com/borisrakovan/sandly.git"
 	},
 	"license": "MIT",
 	"files": [

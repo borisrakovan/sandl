@@ -210,7 +210,7 @@ export class ScopedContainer<
  *
  * @example Converting a regular container to scoped
  * ```typescript
- * import { container, scoped } from 'sandl';
+ * import { container, scoped } from 'sandly';
  *
  * const appContainer = container()
  *   .register(DatabaseService, () => new DatabaseService())

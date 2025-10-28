@@ -39,7 +39,7 @@ export type AnyLayer = Layer<never, AnyTag>;
  *
  * @example Basic layer usage
  * ```typescript
- * import { layer, Tag, container } from 'sandl';
+ * import { layer, Tag, container } from 'sandly';
  *
  * class DatabaseService extends Tag.Class('DatabaseService') {
  *   query() { return 'data'; }
@@ -232,7 +232,7 @@ export interface Layer<
  *
  * @example Simple layer
  * ```typescript
- * import { layer, Tag } from 'sandl';
+ * import { layer, Tag } from 'sandly';
  *
  * class DatabaseService extends Tag.Class('DatabaseService') {
  *   constructor(private url: string = 'sqlite://memory') {}
@@ -424,7 +424,7 @@ export const Layer = {
 	 *
 	 * @example
 	 * ```typescript
-	 * import { Layer } from 'sandl';
+	 * import { Layer } from 'sandly';
 	 *
 	 * const baseLayer = Layer.empty();
 	 * const appLayer = baseLayer
@@ -466,7 +466,7 @@ export const Layer = {
 	 *
 	 * @example Basic usage with different layer types
 	 * ```typescript
-	 * import { Layer } from 'sandl';
+	 * import { Layer } from 'sandly';
 	 *
 	 * // These all have different types but work thanks to variance:
 	 * const dbLayer = layer<never, typeof DatabaseService>(...);           // no requirements
@@ -523,7 +523,7 @@ export const Layer = {
 	 *
 	 * @example Merging two layers
 	 * ```typescript
-	 * import { Layer } from 'sandl';
+	 * import { Layer } from 'sandly';
 	 *
 	 * const dbLayer = layer<never, typeof DatabaseService>(...);
 	 * const cacheLayer = layer<never, typeof CacheService>(...);

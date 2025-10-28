@@ -212,7 +212,7 @@ export interface IContainer<in TReg extends AnyTag> {
  *
  * @example Basic usage with class tags
  * ```typescript
- * import { container, Tag } from 'sandl';
+ * import { container, Tag } from 'sandly';
  *
  * class DatabaseService extends Tag.Class('DatabaseService') {
  *   query() { return 'data'; }
@@ -731,7 +731,7 @@ export class Container<in TReg extends AnyTag = never>
  *
  * @example
  * ```typescript
- * import { container, Tag } from 'sandl';
+ * import { container, Tag } from 'sandly';
  *
  * class DatabaseService extends Tag.Class('DatabaseService') {}
  * class UserService extends Tag.Class('UserService') {}
