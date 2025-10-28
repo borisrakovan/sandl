@@ -51,13 +51,6 @@ export type ServiceDependencies<T extends AnyTag> =
 		: never;
 
 /**
- * Represents a service layer that can be created from any tag type.
- * For ClassTag services, dependencies are automatically inferred from constructor parameters.
- * For ValueTag services, there are no dependencies since they don't have constructors.
- */
-export type Service<T extends AnyTag> = Layer<ServiceDependencies<T>, T>;
-
-/**
  * Creates a service layer from any tag type (ClassTag or ValueTag) with optional parameters.
  *
  * For ClassTag services:
