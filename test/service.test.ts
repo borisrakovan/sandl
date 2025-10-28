@@ -195,4 +195,171 @@ describe('Service', () => {
 			);
 		});
 	});
+
+	describe('Service with finalizers', () => {
+		it('should create a service layer with a finalizer using DependencyLifecycle', async () => {
+			const cleanupCalls: string[] = [];
+
+			class DatabaseConnection extends Tag.Class('DatabaseConnection') {
+				constructor(private url: string) {
+					super();
+				}
+
+				connect() {
+					return `Connected to ${this.url}`;
+				}
+
+				disconnect() {
+					cleanupCalls.push('DatabaseConnection.disconnect');
+				}
+			}
+
+			// Use DependencyLifecycle object with factory and finalizer
+			const dbService = service(DatabaseConnection, {
+				factory: () =>
+					new DatabaseConnection('postgresql://localhost:5432'),
+				finalizer: (conn) => conn.disconnect(),
+			});
+
+			const c = container();
+			const finalContainer = dbService.register(c);
+
+			// Use the service
+			const db = await finalContainer.get(DatabaseConnection);
+			expect(db.connect()).toBe(
+				'Connected to postgresql://localhost:5432'
+			);
+
+			// Destroy the container to trigger finalizers
+			await finalContainer.destroy();
+
+			// Verify finalizer was called
+			expect(cleanupCalls).toEqual(['DatabaseConnection.disconnect']);
+		});
+
+		it('should work with async finalizers', async () => {
+			const cleanupCalls: string[] = [];
+
+			class AsyncResource extends Tag.Class('AsyncResource') {
+				initialize() {
+					return 'initialized';
+				}
+
+				async cleanup() {
+					cleanupCalls.push('AsyncResource.cleanup');
+					await new Promise((resolve) => setTimeout(resolve, 1)); // Simulate async cleanup
+				}
+			}
+
+			const resourceService = service(AsyncResource, {
+				factory: () => {
+					const resource = new AsyncResource();
+					resource.initialize();
+					return resource;
+				},
+				finalizer: async (resource) => {
+					await resource.cleanup();
+				},
+			});
+
+			const c = container();
+			const finalContainer = resourceService.register(c);
+
+			// Use the service
+			const resource = await finalContainer.get(AsyncResource);
+			expect(resource.initialize()).toBe('initialized');
+
+			// Destroy the container to trigger finalizers
+			await finalContainer.destroy();
+
+			// Verify async finalizer was called
+			expect(cleanupCalls).toEqual(['AsyncResource.cleanup']);
+		});
+
+		it('should support finalizers with service dependencies', async () => {
+			const cleanupCalls: string[] = [];
+
+			class Logger extends Tag.Class('Logger') {
+				log(message: string) {
+					cleanupCalls.push(`Logger: ${message}`);
+				}
+			}
+
+			class DatabaseService extends Tag.Class('DatabaseService') {
+				constructor(private logger: Logger) {
+					super();
+				}
+
+				query(sql: string) {
+					this.logger.log(`Executing: ${sql}`);
+					return [`Result for: ${sql}`];
+				}
+
+				close() {
+					this.logger.log('Database connection closed');
+				}
+			}
+
+			const loggerService = service(Logger, () => new Logger());
+
+			const dbService = service(DatabaseService, {
+				factory: async (ctx) => {
+					const logger = await ctx.get(Logger);
+					return new DatabaseService(logger);
+				},
+				finalizer: (db) => {
+					db.close();
+				},
+			});
+
+			// Compose services
+			const appLayer = dbService.provide(loggerService);
+
+			const c = container();
+			const finalContainer = appLayer.register(c);
+
+			// Use the services
+			const db = await finalContainer.get(DatabaseService);
+			db.query('SELECT * FROM users');
+
+			// Destroy the container
+			await finalContainer.destroy();
+
+			expect(cleanupCalls).toEqual([
+				'Logger: Executing: SELECT * FROM users',
+				'Logger: Database connection closed',
+			]);
+		});
+
+		it('should support ValueTag services with finalizers', async () => {
+			const cleanupCalls: string[] = [];
+
+			const FileHandleTag = Tag.of('fileHandle')<{
+				read: () => string;
+				close: () => void;
+			}>();
+
+			const fileService = service(FileHandleTag, {
+				factory: () => ({
+					read: () => 'file content',
+					close: () => cleanupCalls.push('File closed'),
+				}),
+				finalizer: (handle) => {
+					handle.close();
+				},
+			});
+
+			const c = container();
+			const finalContainer = fileService.register(c);
+
+			// Use the service
+			const fileHandle = await finalContainer.get(FileHandleTag);
+			expect(fileHandle.read()).toBe('file content');
+
+			// Destroy the container
+			await finalContainer.destroy();
+
+			expect(cleanupCalls).toEqual(['File closed']);
+		});
+	});
 });

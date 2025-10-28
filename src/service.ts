@@ -1,6 +1,6 @@
-import { Factory, IContainer } from './container.js';
+import { DependencySpec, IContainer } from './container.js';
 import { Layer, layer } from './layer.js';
-import { AnyTag, ClassTag, ExtractInjectTag, TagId, TagType } from './tag.js';
+import { AnyTag, ClassTag, ExtractInjectTag, TagId } from './tag.js';
 
 /**
  * Extracts constructor parameter types from a ClassTag.
@@ -95,13 +95,13 @@ export type ServiceDependencies<T extends AnyTag> =
  */
 export function service<T extends AnyTag>(
 	serviceClass: T,
-	factory: Factory<TagType<T>, ServiceDependencies<T>>
+	spec: DependencySpec<T, ServiceDependencies<T>>
 ): Layer<ServiceDependencies<T>, T> {
 	return layer<ServiceDependencies<T>, T>(
 		<TContainer extends AnyTag>(
 			container: IContainer<TContainer | ServiceDependencies<T>>
 		) => {
-			return container.register(serviceClass, factory);
+			return container.register(serviceClass, spec);
 		}
 	);
 }

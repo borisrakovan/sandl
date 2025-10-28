@@ -162,11 +162,24 @@ export type DependencySpec<T extends AnyTag, TReg extends AnyTag> =
 	| Factory<TagType<T>, TReg>
 	| DependencyLifecycle<TagType<T>, TReg>;
 
+/**
+ * Type representing the context available to factory functions during dependency resolution.
+ *
+ * This type contains only the `get` method from the container, which is used to retrieve
+ * other dependencies during the creation of a service.
+ *
+ * @template TReg - Union type of all dependencies available in the container
+ */
 export type ResolutionContext<TReg extends AnyTag> = Pick<
 	IContainer<TReg>,
 	'get'
 >;
 
+/**
+ * Interface representing a container that can register and retrieve dependencies.
+ *
+ * @template TReg - Union type of all dependencies available in the container
+ */
 export interface IContainer<in TReg extends AnyTag> {
 	register<T extends AnyTag>(
 		tag: T,

@@ -738,4 +738,146 @@ describe('Service Type Safety', () => {
 			>();
 		});
 	});
+
+	describe('service with DependencySpec support', () => {
+		it('should accept simple factory functions', () => {
+			class DatabaseService extends Tag.Class('DatabaseService') {}
+
+			const dbService = service(
+				DatabaseService,
+				() => new DatabaseService()
+			);
+
+			expectTypeOf(dbService).toEqualTypeOf<
+				Layer<never, typeof DatabaseService>
+			>();
+		});
+
+		it('should accept DependencyLifecycle objects with factory and finalizer', () => {
+			class DatabaseConnection extends Tag.Class('DatabaseConnection') {
+				disconnect() {
+					return;
+				}
+			}
+
+			const dbService = service(DatabaseConnection, {
+				factory: () => new DatabaseConnection(),
+				finalizer: (conn) => {
+					conn.disconnect();
+				},
+			});
+
+			expectTypeOf(dbService).toEqualTypeOf<
+				Layer<never, typeof DatabaseConnection>
+			>();
+		});
+
+		it('should support async factories and finalizers', () => {
+			class AsyncResource extends Tag.Class('AsyncResource') {
+				cleanup() {
+					return Promise.resolve();
+				}
+			}
+
+			const resourceService = service(AsyncResource, {
+				factory: () => Promise.resolve(new AsyncResource()),
+				finalizer: async (resource) => {
+					await resource.cleanup();
+				},
+			});
+
+			expectTypeOf(resourceService).toEqualTypeOf<
+				Layer<never, typeof AsyncResource>
+			>();
+		});
+
+		it('should work with services that have dependencies', () => {
+			class Logger extends Tag.Class('Logger') {}
+			class DatabaseService extends Tag.Class('DatabaseService') {
+				constructor(private logger: Logger) {
+					super();
+				}
+				close() {
+					return;
+				}
+				getLogger() {
+					return this.logger;
+				}
+			}
+
+			const dbService = service(DatabaseService, {
+				factory: async (ctx) => {
+					const logger = await ctx.get(Logger);
+					expectTypeOf(logger).toEqualTypeOf<Logger>();
+					return new DatabaseService(logger);
+				},
+				finalizer: (db) => {
+					db.close();
+					db.getLogger(); // Use the logger to avoid unused warning
+				},
+			});
+
+			expectTypeOf(dbService).branded.toEqualTypeOf<
+				Layer<typeof Logger, typeof DatabaseService>
+			>();
+		});
+
+		it('should work with ValueTag services and finalizers', () => {
+			const FileHandleTag = Tag.of('fileHandle')<{
+				read: () => string;
+				close: () => void;
+			}>();
+
+			const fileService = service(FileHandleTag, {
+				factory: () => ({
+					read: () => 'content',
+					close: () => {
+						return;
+					},
+				}),
+				finalizer: (handle) => {
+					handle.close();
+				},
+			});
+
+			expectTypeOf(fileService).toEqualTypeOf<
+				Layer<never, typeof FileHandleTag>
+			>();
+		});
+
+		it('should maintain type safety in factory and finalizer parameters', () => {
+			class CustomService extends Tag.Class('CustomService') {
+				private value = 'test';
+				getValue() {
+					return this.value;
+				}
+				cleanup() {
+					return;
+				}
+			}
+
+			const customService = service(CustomService, {
+				factory: () => {
+					const instance = new CustomService();
+					expectTypeOf(instance).toEqualTypeOf<CustomService>();
+					expectTypeOf(instance.getValue).toEqualTypeOf<
+						() => string
+					>();
+					return instance;
+				},
+				finalizer: (instance) => {
+					expectTypeOf(instance).toEqualTypeOf<CustomService>();
+					expectTypeOf(instance.getValue).toEqualTypeOf<
+						() => string
+					>();
+					expectTypeOf(instance.cleanup).toEqualTypeOf<() => void>();
+					instance.cleanup();
+				},
+			});
+
+			expectTypeOf(customService).toEqualTypeOf<
+				Layer<never, typeof CustomService>
+			>();
+		});
+	});
 });
