@@ -99,23 +99,11 @@ export interface ValueTag<T, Id extends string | symbol> {
  *
  * @internal - Users should use Tag.Class() instead of working with this type directly
  */
-export type TaggedClass<T, Id extends string | symbol> = {
+export interface ClassTag<T, Id extends string | symbol> {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	new (...args: any[]): T & { readonly [TagId]: Id };
 	readonly [TagId]: Id;
-};
-
-/**
- * Type representing a class-based dependency tag.
- *
- * This type is a shortcut for TaggedClass<T, string | symbol>.
- *
- * @template T - The type of instances created by this tagged class
- * @returns A tagged class with a string or symbol identifier
- *
- * @internal - Users should use Tag.Class() instead of working with this type directly
- */
-export type ClassTag<T> = TaggedClass<T, string | symbol>;
+}
 
 /**
  * Utility type that extracts the service type from any dependency tag.
@@ -124,7 +112,7 @@ export type ClassTag<T> = TaggedClass<T, string | symbol>;
  * the container and layers to automatically determine what type of service
  * a given tag represents without manual type annotations.
  *
- * @template T - Any dependency tag (ValueTag or TaggedClass)
+ * @template T - Any dependency tag (ValueTag or ClassTag)
  * @returns The service type that the tag represents
  *
  * @example With value tags
@@ -156,10 +144,10 @@ export type ClassTag<T> = TaggedClass<T, string | symbol>;
  * ```
  */
 export type TagType<T> =
-	T extends ValueTag<infer S, string | symbol>
-		? S
-		: T extends ClassTag<infer S>
-			? S
+	T extends ValueTag<infer V, string | symbol>
+		? V
+		: T extends ClassTag<infer V, string | symbol>
+			? V
 			: never;
 
 /**
@@ -185,7 +173,7 @@ export type AnyTag =
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	| ValueTag<any, string | symbol>
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	| TaggedClass<any, string | symbol>;
+	| ClassTag<any, string | symbol>;
 
 /**
  * Utility object containing factory functions for creating dependency tags.
@@ -356,7 +344,7 @@ export const Tag = {
 			static readonly [TagId]: Id = id;
 			readonly [TagId]: Id = id;
 		}
-		return Tagged as TaggedClass<Tagged, Id>;
+		return Tagged as ClassTag<Tagged, Id>;
 	},
 
 	/**
@@ -383,7 +371,7 @@ export const Tag = {
 	 * @internal - Primarily for internal use in error messages and debugging
 	 */
 	id: (tag: AnyTag): string => {
-		// For class constructors (TaggedClass), get the TagId from the static property
+		// For class constructors (ClassTag), get the TagId from the static property
 		if (typeof tag === 'function') {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
 			const id = (tag as any)[TagId];

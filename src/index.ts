@@ -26,7 +26,6 @@ export {
 	type ClassTag,
 	type Inject,
 	type TagType,
-	type TaggedClass,
 	type ValueTag,
 } from './tag.js';
 export type { PromiseOrValue } from './types.js';
