@@ -1,6 +1,6 @@
 import { container, IContainer, ResolutionContext } from '@/container.js';
 import { Layer } from '@/layer.js';
-import { service, Service } from '@/service.js';
+import { service } from '@/service.js';
 import { Inject, Tag } from '@/tag.js';
 import { describe, expectTypeOf, it } from 'vitest';
 
@@ -19,7 +19,7 @@ describe('Service Type Safety', () => {
 			);
 
 			expectTypeOf(loggerService).toEqualTypeOf<
-				Service<typeof LoggerService>
+				Layer<never, typeof LoggerService>
 			>();
 
 			// Service should extend Layer with correct types
@@ -54,8 +54,8 @@ describe('Service Type Safety', () => {
 			});
 
 			// Service should require DatabaseService and provide UserService
-			expectTypeOf(userService).toEqualTypeOf<
-				Service<typeof UserService>
+			expectTypeOf(userService).branded.toEqualTypeOf<
+				Layer<typeof DatabaseService, typeof UserService>
 			>();
 			expectTypeOf(userService).toExtend<
 				Layer<typeof DatabaseService, typeof UserService>
@@ -406,7 +406,7 @@ describe('Service Type Safety', () => {
 			const apiKeyService = service(ApiKeyTag, () => 'test-key');
 
 			expectTypeOf(apiKeyService).toEqualTypeOf<
-				Service<typeof ApiKeyTag>
+				Layer<never, typeof ApiKeyTag>
 			>();
 
 			// ValueTag service should extend Layer with no requirements (never)

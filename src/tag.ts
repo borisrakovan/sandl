@@ -355,8 +355,6 @@ export const Tag = {
 		class Tagged {
 			static readonly [TagId]: Id = id;
 			readonly [TagId]: Id = id;
-			/** @internal */
-			readonly __type: unknown;
 		}
 		return Tagged as TaggedClass<Tagged, Id>;
 	},

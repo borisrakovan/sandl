@@ -142,9 +142,9 @@ export type DependencyLifecycle<T, TReg extends AnyTag> = {
  *
  * @example Simple factory registration
  * ```typescript
- * const spec: DependencySpec<typeof UserService, never> = 
+ * const spec: DependencySpec<typeof UserService, never> =
  *   () => new UserService();
- * 
+ *
  * container().register(UserService, spec);
  * ```
  *
@@ -154,7 +154,7 @@ export type DependencyLifecycle<T, TReg extends AnyTag> = {
  *   factory: () => new DatabaseConnection(),
  *   finalizer: (conn) => conn.close()
  * };
- * 
+ *
  * container().register(DatabaseConnection, spec);
  * ```
  */

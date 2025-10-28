@@ -20,7 +20,6 @@ export type { AnyLayer } from './layer.js';
 export { ScopedContainer, scoped } from './scoped-container.js';
 export type { Scope } from './scoped-container.js';
 export { service } from './service.js';
-export type { Service } from './service.js';
 export {
 	Tag,
 	type AnyTag,
@@ -30,10 +29,5 @@ export {
 	type TaggedClass,
 	type ValueTag,
 } from './tag.js';
-export type {
-	ClassConstructor,
-	JsonObject,
-	JsonValue,
-	PromiseOrValue,
-} from './types.js';
+export type { PromiseOrValue } from './types.js';
 export { value } from './value.js';

@@ -1,5 +1,4 @@
-import { PromiseOrValue } from '@/types.js';
-import { IContainer, ResolutionContext } from './container.js';
+import { Factory, IContainer } from './container.js';
 import { Layer, layer } from './layer.js';
 import {
 	AnyTag,
@@ -14,7 +13,7 @@ import {
  * Extracts constructor parameter types from a TaggedClass.
  * Only parameters that extend AnyTag are considered as dependencies.
  */
-type ConstructorParams<T extends ClassTag<unknown>> = T extends new (
+export type ConstructorParams<T extends ClassTag<unknown>> = T extends new (
 	...args: infer A
 ) => unknown
 	? A
@@ -24,7 +23,7 @@ type ConstructorParams<T extends ClassTag<unknown>> = T extends new (
  * Helper to convert a tagged instance type back to its constructor type.
  * This uses the fact that tagged classes have a specific structure with TagId property.
  */
-type InstanceToConstructorType<T> = T extends {
+export type InstanceToConstructorType<T> = T extends {
 	readonly [TagId]: infer Id;
 }
 	? Id extends string | symbol
@@ -37,7 +36,7 @@ type InstanceToConstructorType<T> = T extends {
  * Converts instance types to their corresponding constructor types.
  * Handles both ClassTag dependencies (automatic) and ValueTag dependencies (via Inject helper).
  */
-type FilterTags<T extends readonly unknown[]> = T extends readonly []
+export type FilterTags<T extends readonly unknown[]> = T extends readonly []
 	? never
 	: {
 			[K in keyof T]: T[K] extends {
@@ -122,25 +121,13 @@ export type Service<T extends AnyTag> = Layer<ServiceDependencies<T>, T>;
  */
 export function service<T extends AnyTag>(
 	serviceClass: T,
-	factory: <TContainer extends AnyTag>(
-		ctx: ResolutionContext<TContainer | ServiceDependencies<T>>
-	) => PromiseOrValue<TagType<T>>
-): Service<T> {
-	const serviceLayer = layer<ServiceDependencies<T>, T>(
+	factory: Factory<TagType<T>, ServiceDependencies<T>>
+): Layer<ServiceDependencies<T>, T> {
+	return layer<ServiceDependencies<T>, T>(
 		<TContainer extends AnyTag>(
 			container: IContainer<TContainer | ServiceDependencies<T>>
 		) => {
 			return container.register(serviceClass, factory);
 		}
 	);
-
-	// Create the service object that implements the Service interface
-	const serviceImpl: Service<T> = {
-		register: serviceLayer.register,
-		provide: serviceLayer.provide,
-		provideMerge: serviceLayer.provideMerge,
-		merge: serviceLayer.merge,
-	};
-
-	return serviceImpl;
 }
