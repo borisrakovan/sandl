@@ -1,4 +1,4 @@
-import { container, IContainer, ResolutionContext } from '@/container.js';
+import { Container, IContainer, ResolutionContext } from '@/container.js';
 import { Layer } from '@/layer.js';
 import { service } from '@/service.js';
 import { Tag } from '@/tag.js';
@@ -358,7 +358,7 @@ describe('Service Type Safety', () => {
 			const appService = userService.provide(dbService);
 
 			// Should be able to apply to a container
-			const c = container();
+			const c = Container.empty();
 			const finalContainer = appService.register(c);
 
 			expectTypeOf(finalContainer).toEqualTypeOf<
@@ -603,7 +603,7 @@ describe('Service Type Safety', () => {
 			const appService = userService.provideMerge(dbService);
 
 			// Should be able to apply to a container
-			const c = container();
+			const c = Container.empty();
 			const finalContainer = appService.register(c);
 
 			// Both services should be available in the final container

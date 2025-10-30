@@ -1,4 +1,4 @@
-import { container } from '@/container.js';
+import { Container } from '@/container.js';
 import { layer, Layer } from '@/layer.js';
 import { Tag } from '@/tag.js';
 import { describe, expect, it, vi } from 'vitest';
@@ -34,7 +34,7 @@ describe('Layer', () => {
 				container.register(TestService, () => new TestService())
 			);
 
-			const c = container();
+			const c = Container.empty();
 			const updatedContainer = testLayer.register(c);
 
 			const instance = await updatedContainer.get(TestService);
@@ -80,7 +80,7 @@ describe('Layer', () => {
 
 			const composedLayer = userLayer.provide(databaseLayer);
 
-			const c = container();
+			const c = Container.empty();
 			const finalContainer = composedLayer.register(c);
 
 			const userService = await finalContainer.get(UserService);
@@ -143,7 +143,7 @@ describe('Layer', () => {
 				.provide(databaseLayer)
 				.provide(configLayer);
 
-			const c = container();
+			const c = Container.empty();
 			const finalContainer = finalLayer.register(c);
 
 			const userService = await finalContainer.get(UserService);
@@ -193,7 +193,7 @@ describe('Layer', () => {
 			const composedLayer = userLayer.provide(databaseLayer);
 
 			// Pre-register the API key dependency
-			const c = container().register(ApiKeyTag, () => 'secret-key');
+			const c = Container.empty().register(ApiKeyTag, () => 'secret-key');
 			const finalContainer = composedLayer.register(c);
 
 			const userService = await finalContainer.get(UserService);
@@ -237,7 +237,7 @@ describe('Layer', () => {
 
 			const infraLayer = databaseLayer.provideMerge(configLayer);
 
-			const c = container();
+			const c = Container.empty();
 			const finalContainer = infraLayer.register(c);
 
 			// Both services should be available
@@ -283,7 +283,7 @@ describe('Layer', () => {
 
 			// .provide() only exposes target layer's provisions
 			const withProvide = databaseLayer.provide(configLayer);
-			const provideContainer = withProvide.register(container());
+			const provideContainer = withProvide.register(Container.empty());
 
 			// Should have DatabaseService but not ConfigService directly accessible
 			const db1 = await provideContainer.get(DatabaseService);
@@ -291,8 +291,9 @@ describe('Layer', () => {
 
 			// .provideMerge() exposes both layers' provisions
 			const withProvideMerge = databaseLayer.provideMerge(configLayer);
-			const provideMergeContainer =
-				withProvideMerge.register(container());
+			const provideMergeContainer = withProvideMerge.register(
+				Container.empty()
+			);
 
 			// Should have both services accessible
 			const config = await provideMergeContainer.get(ConfigService);
@@ -327,7 +328,7 @@ describe('Layer', () => {
 
 			const mergedLayer = layerA.merge(layerB);
 
-			const c = container();
+			const c = Container.empty();
 			const finalContainer = mergedLayer.register(c);
 
 			const serviceA = await finalContainer.get(ServiceA);
@@ -392,7 +393,7 @@ describe('Layer', () => {
 			const mergedServices = serviceLayerA.merge(serviceLayerB);
 			const finalLayer = mergedServices.provide(baseLayer);
 
-			const c = container();
+			const c = Container.empty();
 			const finalContainer = finalLayer.register(c);
 
 			const serviceA = await finalContainer.get(ServiceA);
@@ -434,7 +435,7 @@ describe('Layer', () => {
 				.merge(communicationLayer)
 				.merge(observabilityLayer);
 
-			const c = container();
+			const c = Container.empty();
 			const finalContainer = infraLayer.register(c);
 
 			const db = await finalContainer.get(DatabaseService);
@@ -453,7 +454,7 @@ describe('Layer', () => {
 		it('should create empty layer', () => {
 			const emptyLayer = Layer.empty();
 
-			const c = container();
+			const c = Container.empty();
 			const result = emptyLayer.register(c);
 
 			expect(result).toBe(c); // Should be the same container
@@ -478,7 +479,7 @@ describe('Layer', () => {
 
 			const mergedLayer = Layer.mergeAll(layerA, layerB, layerC);
 
-			const c = container();
+			const c = Container.empty();
 			const finalContainer = mergedLayer.register(c);
 
 			const serviceA = await finalContainer.get(ServiceA);
@@ -504,7 +505,7 @@ describe('Layer', () => {
 
 			const mergedLayer = Layer.merge(layerA, layerB);
 
-			const c = container();
+			const c = Container.empty();
 			const finalContainer = mergedLayer.register(c);
 
 			const serviceA = await finalContainer.get(ServiceA);
@@ -531,7 +532,7 @@ describe('Layer', () => {
 					})
 			);
 
-			const c = container();
+			const c = Container.empty();
 			const finalContainer = layerWithFinalizer.register(c);
 
 			const service = await finalContainer.get(ServiceWithCleanup);
@@ -571,7 +572,7 @@ describe('Layer', () => {
 
 			const composedLayer = layerA.provideMerge(layerB);
 
-			const c = container();
+			const c = Container.empty();
 			const finalContainer = composedLayer.register(c);
 
 			const serviceA = await finalContainer.get(ServiceA);
@@ -601,7 +602,7 @@ describe('Layer', () => {
 					.register(ApiKeyTag, () => 'secret-key')
 			);
 
-			const c = container();
+			const c = Container.empty();
 			const finalContainer = configLayer.register(c);
 
 			const dbUrl = await finalContainer.get(DatabaseUrlTag);
@@ -638,7 +639,7 @@ describe('Layer', () => {
 
 			const appLayer = serviceLayer.provide(configLayer);
 
-			const c = container();
+			const c = Container.empty();
 			const finalContainer = appLayer.register(c);
 
 			const apiService = await finalContainer.get(ApiService);
@@ -657,7 +658,7 @@ describe('Layer', () => {
 					})
 			);
 
-			const c = container();
+			const c = Container.empty();
 			const finalContainer = failingLayer.register(c);
 
 			await expect(finalContainer.get(FailingService)).rejects.toThrow();
@@ -694,7 +695,7 @@ describe('Layer', () => {
 
 			const circularLayer = layerA.merge(layerB);
 
-			const c = container();
+			const c = Container.empty();
 			// @ts-expect-error - circular dependency
 			const finalContainer = circularLayer.register(c);
 
@@ -789,7 +790,7 @@ describe('Layer', () => {
 				.provide(infraLayer)
 				.provide(configLayer);
 
-			const c = container();
+			const c = Container.empty();
 			const finalContainer = appLayer.register(c);
 
 			const userService = await finalContainer.get(UserService);

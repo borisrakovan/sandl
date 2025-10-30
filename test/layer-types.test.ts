@@ -1,4 +1,4 @@
-import { container } from '@/container.js';
+import { Container } from '@/container.js';
 import { Layer, layer } from '@/layer.js';
 import { Tag } from '@/tag.js';
 import { describe, expectTypeOf, it } from 'vitest';
@@ -403,7 +403,7 @@ describe('Layer Type Safety', () => {
 			);
 
 			// Test that the layer can only be applied to containers that provide ExternalService
-			const baseContainer = container().register(
+			const baseContainer = Container.empty().register(
 				ExternalService,
 				() => new ExternalService()
 			);

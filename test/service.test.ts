@@ -1,4 +1,4 @@
-import { container } from '@/container.js';
+import { Container } from '@/container.js';
 import { service } from '@/service.js';
 import { Tag } from '@/tag.js';
 import { describe, expect, it } from 'vitest';
@@ -18,7 +18,7 @@ describe('Service', () => {
 			);
 
 			// Apply the service to a container
-			const c = container();
+			const c = Container.empty();
 			const finalContainer = loggerService.register(c);
 
 			// Get the service instance
@@ -60,7 +60,7 @@ describe('Service', () => {
 			const appLayer = userService.provide(dbService);
 
 			// Apply to container
-			const c = container();
+			const c = Container.empty();
 			const finalContainer = appLayer.register(c);
 
 			// Test the composed services
@@ -100,7 +100,7 @@ describe('Service', () => {
 			// Compose services
 			const infraLayer = dbService.provide(configService);
 
-			const c = container();
+			const c = Container.empty();
 			const finalContainer = infraLayer.register(c);
 
 			const db = await finalContainer.get(DatabaseService);
@@ -134,7 +134,7 @@ describe('Service', () => {
 			// Merge independent services
 			const utilsLayer = loggerService.merge(cacheService);
 
-			const c = container();
+			const c = Container.empty();
 			const finalContainer = utilsLayer.register(c);
 
 			const logger = await finalContainer.get(LoggerService);
@@ -172,7 +172,7 @@ describe('Service', () => {
 				},
 			});
 
-			const c = container();
+			const c = Container.empty();
 			const finalContainer = dbService.register(c);
 
 			// Use the service
@@ -213,7 +213,7 @@ describe('Service', () => {
 				},
 			});
 
-			const c = container();
+			const c = Container.empty();
 			const finalContainer = resourceService.register(c);
 
 			// Use the service
@@ -266,7 +266,7 @@ describe('Service', () => {
 			// Compose services
 			const appLayer = dbService.provide(loggerService);
 
-			const c = container();
+			const c = Container.empty();
 			const finalContainer = appLayer.register(c);
 
 			// Use the services

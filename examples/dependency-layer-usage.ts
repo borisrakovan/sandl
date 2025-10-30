@@ -1,4 +1,4 @@
-import { container } from '@/container.js';
+import { Container } from '@/container.js';
 import { layer, Layer } from '@/layer.js';
 import { Tag } from '@/tag.js';
 import { value } from '@/value.js';
@@ -250,7 +250,7 @@ const config = Layer.mergeAll(
 
 // Usage example with step-by-step composition
 export async function demonstrateLayerUsage() {
-	const appContainer = container();
+	const appContainer = Container.empty();
 
 	const appWithConfig = completeApplication.provideMerge(config);
 
@@ -307,7 +307,7 @@ export const bigInfrastructureLayer = Layer.mergeAll(
 // Type test - the complete application should require nothing external (never)
 // and provide all the services we defined
 export async function testCompleteApplication() {
-	const appContainer = container()
+	const appContainer = Container.empty()
 		.register(ConnectionString, () => 'sqlite://memory')
 		.register(RedisConfig, () => ({
 			url: 'redis://localhost',

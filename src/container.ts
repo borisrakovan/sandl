@@ -122,7 +122,7 @@ export type Finalizer<T> = (instance: T) => PromiseOrValue<void>;
  *   }
  * };
  *
- * container().register(DatabaseConnection, lifecycle);
+ * Container.empty().register(DatabaseConnection, lifecycle);
  * ```
  */
 export type DependencyLifecycle<T, TReg extends AnyTag> = {
@@ -145,7 +145,7 @@ export type DependencyLifecycle<T, TReg extends AnyTag> = {
  * const spec: DependencySpec<typeof UserService, never> =
  *   () => new UserService();
  *
- * container().register(UserService, spec);
+ * Container.empty().register(UserService, spec);
  * ```
  *
  * @example Lifecycle registration
@@ -155,7 +155,7 @@ export type DependencyLifecycle<T, TReg extends AnyTag> = {
  *   finalizer: (conn) => conn.close()
  * };
  *
- * container().register(DatabaseConnection, spec);
+ * Container.empty().register(DatabaseConnection, spec);
  * ```
  */
 export type DependencySpec<T extends AnyTag, TReg extends AnyTag> =
@@ -231,7 +231,7 @@ export interface IContainer<TReg extends AnyTag = never> {
  *   getUser() { return this.db.query(); }
  * }
  *
- * const c = container()
+ * const c = Container.empty()
  *   .register(DatabaseService, () => new DatabaseService())
  *   .register(UserService, async (ctx) =>
  *     new UserService(await ctx.get(DatabaseService))
@@ -245,7 +245,7 @@ export interface IContainer<TReg extends AnyTag = never> {
  * const ApiKeyTag = Tag.of('apiKey')<string>();
  * const ConfigTag = Tag.of('config')<{ dbUrl: string }>();
  *
- * const c = container()
+ * const c = Container.empty()
  *   .register(ApiKeyTag, () => process.env.API_KEY!)
  *   .register(ConfigTag, () => ({ dbUrl: 'postgresql://localhost:5432' }));
  *
@@ -260,7 +260,7 @@ export interface IContainer<TReg extends AnyTag = never> {
  *   async disconnect() { return; }
  * }
  *
- * const c = container().register(
+ * const c = Container.empty().register(
  *   DatabaseConnection,
  *   async () => {
  *     const conn = new DatabaseConnection();
@@ -274,9 +274,7 @@ export interface IContainer<TReg extends AnyTag = never> {
  * await c.destroy(); // Calls all finalizers
  * ```
  */
-export class Container<TReg extends AnyTag = never>
-	implements IContainer<TReg>
-{
+export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	readonly [ContainerTypeId]!: {
 		readonly _TReg: Contravariant<TReg>;
 	};
@@ -307,6 +305,10 @@ export class Container<TReg extends AnyTag = never>
 	 */
 	protected isDestroyed = false;
 
+	static empty(): Container<never> {
+		return new Container();
+	}
+
 	/**
 	 * Registers a dependency in the container with a factory function and optional finalizer.
 	 *
@@ -331,7 +333,7 @@ export class Container<TReg extends AnyTag = never>
 	 *   log(message: string) { console.log(message); }
 	 * }
 	 *
-	 * const c = container().register(
+	 * const c = Container.empty().register(
 	 *   LoggerService,
 	 *   () => new LoggerService()
 	 * );
@@ -343,7 +345,7 @@ export class Container<TReg extends AnyTag = never>
 	 *   constructor(private db: DatabaseService, private logger: LoggerService) {}
 	 * }
 	 *
-	 * const c = container()
+	 * const c = Container.empty()
 	 *   .register(DatabaseService, () => new DatabaseService())
 	 *   .register(LoggerService, () => new LoggerService())
 	 *   .register(UserService, async (ctx) =>
@@ -356,7 +358,7 @@ export class Container<TReg extends AnyTag = never>
 	 *
 	 * @example Overriding a dependency
 	 * ```typescript
-	 * const c = container()
+	 * const c = Container.empty()
 	 *   .register(DatabaseService, () => new DatabaseService())
 	 *   .register(DatabaseService, () => new MockDatabaseService()); // Overrides the previous registration
 	 * ```
@@ -365,7 +367,7 @@ export class Container<TReg extends AnyTag = never>
 	 * ```typescript
 	 * const ConfigTag = Tag.of('config')<{ apiUrl: string }>();
 	 *
-	 * const c = container().register(
+	 * const c = Container.empty().register(
 	 *   ConfigTag,
 	 *   () => ({ apiUrl: 'https://api.example.com' })
 	 * );
@@ -378,7 +380,7 @@ export class Container<TReg extends AnyTag = never>
 	 *   async close() { return; }
 	 * }
 	 *
-	 * const c = container().register(
+	 * const c = Container.empty().register(
 	 *   DatabaseConnection,
 	 *   async () => {
 	 *     const conn = new DatabaseConnection();
@@ -432,7 +434,7 @@ export class Container<TReg extends AnyTag = never>
 	 *
 	 * @example
 	 * ```typescript
-	 * const c = container().register(DatabaseService, () => new DatabaseService());
+	 * const c = Container.empty().register(DatabaseService, () => new DatabaseService());
 	 * console.log(c.has(DatabaseService)); // true
 	 * ```
 	 */
@@ -469,7 +471,7 @@ export class Container<TReg extends AnyTag = never>
 	 *
 	 * @example Basic usage
 	 * ```typescript
-	 * const c = container()
+	 * const c = Container.empty()
 	 *   .register(DatabaseService, () => new DatabaseService());
 	 *
 	 * const db = await c.get(DatabaseService);
@@ -490,7 +492,7 @@ export class Container<TReg extends AnyTag = never>
 	 *
 	 * @example Dependency injection in factories
 	 * ```typescript
-	 * const c = container()
+	 * const c = Container.empty()
 	 *   .register(DatabaseService, () => new DatabaseService())
 	 *   .register(UserService, async (ctx) => {
 	 *     const db = await ctx.get(DatabaseService);
@@ -590,10 +592,10 @@ export class Container<TReg extends AnyTag = never>
 	 *
 	 * @example Merging containers
 	 * ```typescript
-	 * const container1 = container()
+	 * const container1 = Container.empty()
 	 *   .register(DatabaseService, () => new DatabaseService());
 	 *
-	 * const container2 = container()
+	 * const container2 = Container.empty()
 	 *   .register(UserService, () => new UserService());
 	 *
 	 * const merged = container1.merge(container2);
@@ -641,7 +643,7 @@ export class Container<TReg extends AnyTag = never>
 	 *
 	 * @example Basic cleanup
 	 * ```typescript
-	 * const c = container()
+	 * const c = Container.empty()
 	 *   .register(DatabaseConnection,
 	 *     async () => {
 	 *       const conn = new DatabaseConnection();
@@ -664,7 +666,7 @@ export class Container<TReg extends AnyTag = never>
 	 *
 	 * @example Application shutdown
 	 * ```typescript
-	 * const appContainer = container()
+	 * const appContainer Container.empty
 	 *   .register(DatabaseService, () => new DatabaseService())
 	 *   .register(HTTPServer, async (ctx) => new HTTPServer(await ctx.get(DatabaseService)));
 	 *
@@ -730,33 +732,4 @@ export class Container<TReg extends AnyTag = never>
 			// but the container is no longer usable
 		}
 	}
-}
-
-/**
- * Creates a new empty dependency injection container.
- *
- * This is a convenience factory function that creates a new DependencyContainer instance.
- * The returned container starts with no registered dependencies and the type parameter
- * defaults to `never`, indicating no dependencies are available for retrieval yet.
- *
- * @returns A new empty DependencyContainer instance
- *
- * @example
- * ```typescript
- * import { container, Tag } from 'sandly';
- *
- * class DatabaseService extends Tag.Class('DatabaseService') {}
- * class UserService extends Tag.Class('UserService') {}
- *
- * const c = container()
- *   .register(DatabaseService, () => new DatabaseService())
- *   .register(UserService, async (ctx) =>
- *     new UserService(await ctx.get(DatabaseService))
- *   );
- *
- * const userService = await c.get(UserService);
- * ```
- */
-export function container(): Container {
-	return new Container();
 }

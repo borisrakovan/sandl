@@ -1,4 +1,4 @@
-import { Container, container } from '@/container.js';
+import { Container } from '@/container.js';
 import {
 	CircularDependencyError,
 	ContainerDestroyedError,
@@ -13,12 +13,12 @@ import { describe, expect, it, vi } from 'vitest';
 describe('DependencyContainer', () => {
 	describe('constructor and factory', () => {
 		it('should create an empty container', () => {
-			const c = container();
+			const c = Container.empty();
 			expect(c).toBeInstanceOf(Container);
 		});
 
 		it('should create a container with proper typing', () => {
-			const c = container();
+			const c = Container.empty();
 			// Type check - should be DependencyContainer<never>
 			expect(c).toBeDefined();
 		});
@@ -32,7 +32,7 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			const c = container();
+			const c = Container.empty();
 			const registered = c.register(TestService, () => new TestService());
 
 			expect(registered).toBeInstanceOf(Container);
@@ -47,7 +47,7 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			const c = container().register(
+			const c = Container.empty().register(
 				TestService,
 				() => new TestService('sync')
 			);
@@ -62,7 +62,7 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			const c = container().register(
+			const c = Container.empty().register(
 				TestService,
 				() => new TestService('async')
 			);
@@ -75,7 +75,7 @@ describe('DependencyContainer', () => {
 				cleanup = vi.fn() as () => void;
 			}
 
-			const c = container().register(TestService, {
+			const c = Container.empty().register(TestService, {
 				factory: () => new TestService(),
 				finalizer: (instance) => {
 					instance.cleanup();
@@ -92,7 +92,7 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			const c = container()
+			const c = Container.empty()
 				.register(TestService, () => new TestService('original'))
 				.register(TestService, () => new TestService('overridden'));
 
@@ -103,7 +103,7 @@ describe('DependencyContainer', () => {
 			class ServiceA extends Tag.Class('ServiceA') {}
 			class ServiceB extends Tag.Class('ServiceB') {}
 
-			const c = container()
+			const c = Container.empty()
 				.register(ServiceA, () => new ServiceA())
 				.register(ServiceB, () => new ServiceB());
 
@@ -117,7 +117,7 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			const c = container().register(
+			const c = Container.empty().register(
 				TestService,
 				() => new TestService('original')
 			);
@@ -134,7 +134,7 @@ describe('DependencyContainer', () => {
 		it('should throw error when registering on destroyed container', async () => {
 			class TestService extends Tag.Class('TestService') {}
 
-			const c = container().register(
+			const c = Container.empty().register(
 				TestService,
 				() => new TestService()
 			);
@@ -151,7 +151,7 @@ describe('DependencyContainer', () => {
 		it('should return false for unregistered dependency', () => {
 			class TestService extends Tag.Class('TestService') {}
 
-			const c = container();
+			const c = Container.empty();
 
 			expect(c.has(TestService)).toBe(false);
 		});
@@ -159,7 +159,7 @@ describe('DependencyContainer', () => {
 		it('should return true for registered dependency', () => {
 			class TestService extends Tag.Class('TestService') {}
 
-			const c = container().register(
+			const c = Container.empty().register(
 				TestService,
 				() => new TestService()
 			);
@@ -170,7 +170,7 @@ describe('DependencyContainer', () => {
 		it('should return true for instantiated dependency', async () => {
 			class TestService extends Tag.Class('TestService') {}
 
-			const c = container().register(
+			const c = Container.empty().register(
 				TestService,
 				() => new TestService()
 			);
@@ -189,7 +189,7 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			const c = container().register(
+			const c = Container.empty().register(
 				TestService,
 				() => new TestService()
 			);
@@ -207,7 +207,7 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			const c = container().register(TestService, async () => {
+			const c = Container.empty().register(TestService, async () => {
 				await Promise.resolve();
 				return new TestService('async');
 			});
@@ -222,7 +222,7 @@ describe('DependencyContainer', () => {
 			class TestService extends Tag.Class('TestService') {}
 
 			const factory = vi.fn(() => new TestService());
-			const c = container().register(TestService, factory);
+			const c = Container.empty().register(TestService, factory);
 
 			const instance1 = await c.get(TestService);
 			const instance2 = await c.get(TestService);
@@ -234,7 +234,7 @@ describe('DependencyContainer', () => {
 		it('should throw UnknownDependencyError for unregistered dependency', async () => {
 			class TestService extends Tag.Class('TestService') {}
 
-			const c = container();
+			const c = Container.empty();
 
 			// @ts-expect-error - TestService is not registered
 			await expect(c.get(TestService)).rejects.toThrow(
@@ -245,7 +245,7 @@ describe('DependencyContainer', () => {
 		it('should wrap factory errors in DependencyCreationError', async () => {
 			class TestService extends Tag.Class('TestService') {}
 
-			const c = container().register(TestService, () => {
+			const c = Container.empty().register(TestService, () => {
 				throw new Error('Factory error');
 			});
 
@@ -257,7 +257,7 @@ describe('DependencyContainer', () => {
 		it('should handle async factory errors', async () => {
 			class TestService extends Tag.Class('TestService') {}
 
-			const c = container().register(TestService, async () => {
+			const c = Container.empty().register(TestService, async () => {
 				await Promise.resolve();
 				throw new Error('Async factory error');
 			});
@@ -271,7 +271,7 @@ describe('DependencyContainer', () => {
 			class TestService extends Tag.Class('TestService') {}
 
 			let shouldFail = true;
-			const c = container().register(TestService, () => {
+			const c = Container.empty().register(TestService, () => {
 				if (shouldFail) {
 					throw new Error('Factory error');
 				}
@@ -296,7 +296,7 @@ describe('DependencyContainer', () => {
 			class TestService extends Tag.Class('TestService') {}
 
 			const factory = vi.fn(() => new TestService());
-			const c = container().register(TestService, factory);
+			const c = Container.empty().register(TestService, factory);
 
 			// Make concurrent calls
 			const [instance1, instance2, instance3] = await Promise.all([
@@ -313,7 +313,7 @@ describe('DependencyContainer', () => {
 		it('should throw error when getting from destroyed container', async () => {
 			class TestService extends Tag.Class('TestService') {}
 
-			const c = container().register(
+			const c = Container.empty().register(
 				TestService,
 				() => new TestService()
 			);
@@ -344,7 +344,7 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			const c = container()
+			const c = Container.empty()
 				.register(DatabaseService, () => new DatabaseService())
 				.register(
 					UserService,
@@ -389,7 +389,7 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			const c = container()
+			const c = Container.empty()
 				.register(ConfigService, () => new ConfigService())
 				.register(
 					DatabaseService,
@@ -426,7 +426,7 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			const c = container()
+			const c = Container.empty()
 				.register(
 					ServiceA,
 					async (ctx) =>
@@ -485,7 +485,7 @@ describe('DependencyContainer', () => {
 				instance.cleanup();
 			});
 
-			const c = container().register(TestService, {
+			const c = Container.empty().register(TestService, {
 				factory: () => new TestService(),
 				finalizer,
 			});
@@ -504,7 +504,7 @@ describe('DependencyContainer', () => {
 
 			const finalizer = vi.fn();
 
-			const c = container().register(TestService, {
+			const c = Container.empty().register(TestService, {
 				factory: () => new TestService(),
 				finalizer,
 			});
@@ -522,7 +522,7 @@ describe('DependencyContainer', () => {
 
 			const finalizationOrder: string[] = [];
 
-			const c = container()
+			const c = Container.empty()
 				.register(ServiceA, {
 					factory: () => new ServiceA(),
 					finalizer: () => {
@@ -569,7 +569,7 @@ describe('DependencyContainer', () => {
 					return instance.asyncCleanup();
 				});
 
-			const c = container().register(TestService, {
+			const c = Container.empty().register(TestService, {
 				factory: () => new TestService(),
 				finalizer,
 			});
@@ -585,7 +585,7 @@ describe('DependencyContainer', () => {
 			class ServiceA extends Tag.Class('ServiceA') {}
 			class ServiceB extends Tag.Class('ServiceB') {}
 
-			const c = container()
+			const c = Container.empty()
 				.register(ServiceA, {
 					factory: () => new ServiceA(),
 					finalizer: () => {
@@ -611,7 +611,7 @@ describe('DependencyContainer', () => {
 		it('should clear instance cache even if finalization fails', async () => {
 			class TestService extends Tag.Class('TestService') {}
 
-			const c = container().register(TestService, {
+			const c = Container.empty().register(TestService, {
 				factory: () => new TestService(),
 				finalizer: () => {
 					throw new Error('Finalizer error');
@@ -631,7 +631,7 @@ describe('DependencyContainer', () => {
 			class ServiceA extends Tag.Class('ServiceA') {}
 			class ServiceB extends Tag.Class('ServiceB') {}
 
-			const c = container()
+			const c = Container.empty()
 				.register(ServiceA, () => new ServiceA())
 				.register(ServiceB, () => new ServiceB());
 
@@ -668,7 +668,7 @@ describe('DependencyContainer', () => {
 			}
 
 			let instanceCount = 0;
-			const c = container().register(TestService, () => {
+			const c = Container.empty().register(TestService, () => {
 				return new TestService(++instanceCount);
 			});
 
@@ -696,7 +696,7 @@ describe('DependencyContainer', () => {
 				instance.cleanup();
 			});
 
-			const c = container().register(TestService, {
+			const c = Container.empty().register(TestService, {
 				factory: () => new TestService(),
 				finalizer,
 			});
@@ -719,7 +719,7 @@ describe('DependencyContainer', () => {
 			const StringTag = Tag.of('string')<string>();
 			const NumberTag = Tag.of('number')<number>();
 
-			const c = container()
+			const c = Container.empty()
 				.register(StringTag, () => 'hello')
 				.register(NumberTag, () => 42);
 
@@ -733,7 +733,7 @@ describe('DependencyContainer', () => {
 		it('should work with anonymous ValueTags', async () => {
 			const ConfigTag = Tag.for<{ apiKey: string }>();
 
-			const c = container().register(ConfigTag, () => ({
+			const c = Container.empty().register(ConfigTag, () => ({
 				apiKey: 'secret',
 			}));
 
@@ -755,7 +755,7 @@ describe('DependencyContainer', () => {
 
 			const ApiKeyTag = Tag.of('apiKey')<string>();
 
-			const c = container()
+			const c = Container.empty()
 				.register(ApiKeyTag, () => 'secret-key')
 				.register(
 					UserService,
@@ -773,7 +773,7 @@ describe('DependencyContainer', () => {
 			class TestService extends Tag.Class('TestService') {}
 
 			const originalError = new Error('Original error');
-			const c = container().register(TestService, () => {
+			const c = Container.empty().register(TestService, () => {
 				throw originalError;
 			});
 
@@ -792,7 +792,7 @@ describe('DependencyContainer', () => {
 			class DatabaseService extends Tag.Class('DatabaseService') {}
 			class UserService extends Tag.Class('UserService') {}
 
-			const c = container()
+			const c = Container.empty()
 				.register(DatabaseService, () => {
 					throw new Error('Database connection failed');
 				})
@@ -826,7 +826,7 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			const c = container().register(
+			const c = Container.empty().register(
 				BaseService,
 				() => new ExtendedService()
 			);
@@ -855,11 +855,11 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			const source = container()
+			const source = Container.empty()
 				.register(ServiceA, () => new ServiceA())
 				.register(ServiceB, () => new ServiceB());
 
-			const target = container();
+			const target = Container.empty();
 			const result = source.merge(target);
 
 			// Should be able to get services from merged container
@@ -879,12 +879,12 @@ describe('DependencyContainer', () => {
 				instance.cleanup();
 			});
 
-			const source = container().register(TestService, {
+			const source = Container.empty().register(TestService, {
 				factory: () => new TestService(),
 				finalizer,
 			});
 
-			const target = container();
+			const target = Container.empty();
 			const result = source.merge(target);
 
 			const instance = await result.get(TestService);
@@ -899,12 +899,12 @@ describe('DependencyContainer', () => {
 			const NumberTag = Tag.of('number')<number>();
 			const ConfigTag = Tag.for<{ apiKey: string }>();
 
-			const source = container()
+			const source = Container.empty()
 				.register(StringTag, () => 'hello')
 				.register(NumberTag, () => 42)
 				.register(ConfigTag, () => ({ apiKey: 'secret' }));
 
-			const target = container();
+			const target = Container.empty();
 			const result = source.merge(target);
 
 			const stringValue = await result.get(StringTag);
@@ -921,11 +921,14 @@ describe('DependencyContainer', () => {
 			class ServiceB extends Tag.Class('ServiceB') {}
 			class ServiceC extends Tag.Class('ServiceC') {}
 
-			const source = container()
+			const source = Container.empty()
 				.register(ServiceA, () => new ServiceA())
 				.register(ServiceB, () => new ServiceB());
 
-			const target = container().register(ServiceC, () => new ServiceC());
+			const target = Container.empty().register(
+				ServiceC,
+				() => new ServiceC()
+			);
 
 			const result = source.merge(target);
 
@@ -946,12 +949,12 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			const source = container().register(
+			const source = Container.empty().register(
 				TestService,
 				() => new TestService('from-source')
 			);
 
-			const target = container().register(
+			const target = Container.empty().register(
 				TestService,
 				() => new TestService('from-target')
 			);
@@ -969,7 +972,7 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			const source = container().register(
+			const source = Container.empty().register(
 				TestService,
 				() => new TestService()
 			);
@@ -977,7 +980,7 @@ describe('DependencyContainer', () => {
 			// Get instance from source first
 			const sourceInstance = await source.get(TestService);
 
-			const target = container();
+			const target = Container.empty();
 			const result = source.merge(target);
 
 			// Get instance from merged container
@@ -991,8 +994,8 @@ describe('DependencyContainer', () => {
 		it('should work with empty source container', () => {
 			class TestService extends Tag.Class('TestService') {}
 
-			const source = container();
-			const target = container().register(
+			const source = Container.empty();
+			const target = Container.empty().register(
 				TestService,
 				() => new TestService()
 			);
@@ -1004,11 +1007,11 @@ describe('DependencyContainer', () => {
 		it('should work with empty target container', () => {
 			class TestService extends Tag.Class('TestService') {}
 
-			const source = container().register(
+			const source = Container.empty().register(
 				TestService,
 				() => new TestService()
 			);
-			const target = container();
+			const target = Container.empty();
 
 			const result = source.merge(target);
 			expect(result.has(TestService)).toBe(true);
@@ -1017,13 +1020,13 @@ describe('DependencyContainer', () => {
 		it('should throw error when merging from destroyed container', async () => {
 			class TestService extends Tag.Class('TestService') {}
 
-			const source = container().register(
+			const source = Container.empty().register(
 				TestService,
 				() => new TestService()
 			);
 			await source.destroy();
 
-			const target = container();
+			const target = Container.empty();
 
 			expect(() => source.merge(target)).toThrow(ContainerDestroyedError);
 		});
@@ -1045,7 +1048,7 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			const source = container()
+			const source = Container.empty()
 				.register(ConfigService, () => new ConfigService())
 				.register(
 					DatabaseService,
@@ -1053,7 +1056,7 @@ describe('DependencyContainer', () => {
 						new DatabaseService(await ctx.get(ConfigService))
 				);
 
-			const target = container();
+			const target = Container.empty();
 			const result = source.merge(target);
 
 			const dbService = await result.get(DatabaseService);

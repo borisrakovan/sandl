@@ -8,18 +8,21 @@ import { AnyTag, TagType } from './tag.js';
 
 export type Scope = string | symbol;
 
-export class ScopedContainer<
-	TReg extends AnyTag = never,
-> extends Container<TReg> {
+// @ts-expect-error - ScopedContainer overrides the empty method
+export class ScopedContainer<TReg extends AnyTag> extends Container<TReg> {
 	public readonly scope: Scope;
 
 	private parent: IContainer<TReg> | null;
 	private readonly children: WeakRef<ScopedContainer<TReg>>[] = [];
 
-	constructor(parent: IContainer<TReg> | null, scope: Scope) {
+	protected constructor(parent: IContainer<TReg> | null, scope: Scope) {
 		super();
 		this.parent = parent;
 		this.scope = scope;
+	}
+
+	static override empty(scope: Scope): ScopedContainer<never> {
+		return new ScopedContainer<never>(null, scope);
 	}
 
 	/**
@@ -212,7 +215,7 @@ export class ScopedContainer<
  * ```typescript
  * import { container, scoped } from 'sandly';
  *
- * const appContainer = container()
+ * const appContainer = Container.empty()
  *   .register(DatabaseService, () => new DatabaseService())
  *   .register(ConfigService, () => new ConfigService());
  *
@@ -224,7 +227,7 @@ export class ScopedContainer<
  *
  * @example Copying complex registrations
  * ```typescript
- * const baseContainer = container()
+ * const baseContainer = Container.empty()
  *   .register(DatabaseService, () => new DatabaseService())
  *   .register(UserService, {
  *     factory: async (ctx) => new UserService(await ctx.get(DatabaseService)),
@@ -240,10 +243,8 @@ export function scoped<TReg extends AnyTag>(
 	scope: Scope
 ): ScopedContainer<TReg> {
 	// Create new scoped container (no parent, it becomes the root)
-	const emptyScoped = new ScopedContainer<never>(null, scope);
+	const emptyScoped = ScopedContainer.empty(scope);
 
 	// Merge all registrations using the scoped container's merge method
-	const result = emptyScoped.merge(container);
-
-	return result;
+	return emptyScoped.merge(container);
 }

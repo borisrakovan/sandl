@@ -110,7 +110,7 @@ export class ContainerDestroyedError extends ContainerError {}
  *
  * @example
  * ```typescript
- * const c = container(); // Empty container
+ * const c = Container.empty(); // Empty container
  *
  * try {
  *   await c.get(UnregisteredService); // This will throw
@@ -145,7 +145,7 @@ export class UnknownDependencyError extends ContainerError {
  * class ServiceA extends Tag.Class('ServiceA') {}
  * class ServiceB extends Tag.Class('ServiceB') {}
  *
- * const c = container()
+ * const c = Container.empty()
  *   .register(ServiceA, async (ctx) =>
  *     new ServiceA(await ctx.get(ServiceB)) // Depends on B
  *   )
@@ -195,7 +195,7 @@ export class CircularDependencyError extends ContainerError {
  * ```typescript
  * class DatabaseService extends Tag.Class('DatabaseService') {}
  *
- * const c = container().register(DatabaseService, () => {
+ * const c = Container.empty().register(DatabaseService, () => {
  *   throw new Error('Database connection failed');
  * });
  *

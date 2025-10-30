@@ -1,4 +1,4 @@
-export { Container, container } from './container.js';
+export { Container } from './container.js';
 export type {
 	DependencyLifecycle,
 	DependencySpec,

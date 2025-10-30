@@ -49,7 +49,7 @@ export const LayerTypeId: unique symbol = Symbol.for('sandly/Layer');
  * );
  *
  * // Apply the layer to a container
- * const c = container();
+ * const c = Container.empty();
  * const finalContainer = databaseLayer.register(c);
  *
  * const db = await finalContainer.get(DatabaseService);
@@ -98,13 +98,13 @@ export interface Layer<
 	 *
 	 * @example Basic usage
 	 * ```typescript
-	 * const c = container();
+	 * const c = Container.empty();
 	 * const updatedContainer = myLayer.register(c);
 	 * ```
 	 *
 	 * @example With existing services preserved
 	 * ```typescript
-	 * const baseContainer = container()
+	 * const baseContainer = Container.empty()
 	 *   .register(ExistingService, () => new ExistingService());
 	 *
 	 * const enhanced = myLayer.register(baseContainer);

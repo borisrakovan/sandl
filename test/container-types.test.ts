@@ -1,24 +1,22 @@
-import {
-	Container,
-	container,
-	IContainer,
-	ResolutionContext,
-} from '@/container.js';
+import { Container, IContainer, ResolutionContext } from '@/container.js';
 import { Tag } from '@/tag.js';
 import { describe, expectTypeOf, it } from 'vitest';
 
 describe('DependencyContainer Type Safety', () => {
 	describe('basic container types', () => {
 		it('should start with never type for empty container', () => {
-			const c = container();
+			const c = Container.empty();
 
-			expectTypeOf(c).toEqualTypeOf<Container>();
+			expectTypeOf(c).toEqualTypeOf<Container<never>>();
 		});
 
 		it('should add tag to union type when registering', () => {
 			class ServiceA extends Tag.Class('ServiceA') {}
 
-			const c = container().register(ServiceA, () => new ServiceA());
+			const c = Container.empty().register(
+				ServiceA,
+				() => new ServiceA()
+			);
 
 			expectTypeOf(c).toEqualTypeOf<Container<typeof ServiceA>>();
 		});
@@ -27,7 +25,7 @@ describe('DependencyContainer Type Safety', () => {
 			class ServiceA extends Tag.Class('ServiceA') {}
 			class ServiceB extends Tag.Class('ServiceB') {}
 
-			const c = container()
+			const c = Container.empty()
 				.register(ServiceA, () => new ServiceA())
 				.register(ServiceB, () => new ServiceB());
 
@@ -42,7 +40,7 @@ describe('DependencyContainer Type Safety', () => {
 			class ServiceA extends Tag.Class('ServiceA') {}
 			class ServiceB extends Tag.Class('ServiceB') {}
 
-			const c = container()
+			const c = Container.empty()
 				.register(ServiceA, () => new ServiceA())
 				.register(ServiceB, () => new ServiceB());
 
@@ -57,7 +55,10 @@ describe('DependencyContainer Type Safety', () => {
 				'UnregisteredService'
 			) {}
 
-			const c = container().register(ServiceA, () => new ServiceA());
+			const c = Container.empty().register(
+				ServiceA,
+				() => new ServiceA()
+			);
 
 			// This should cause a TypeScript error but we'll suppress it
 			// @ts-expect-error - UnregisteredService is not in container type
@@ -72,7 +73,7 @@ describe('DependencyContainer Type Safety', () => {
 			class DatabaseService extends Tag.Class('DatabaseService') {}
 			class UserService extends Tag.Class('UserService') {}
 
-			const c = container()
+			const c = Container.empty()
 				.register(DatabaseService, () => new DatabaseService())
 				.register(UserService, async (ctx) => {
 					// Factory should receive correctly typed container
@@ -102,11 +103,14 @@ describe('DependencyContainer Type Safety', () => {
 			class ServiceB extends Tag.Class('ServiceB') {}
 
 			// Should accept correct return type
-			const c1 = container().register(ServiceA, () => new ServiceA());
+			const c1 = Container.empty().register(
+				ServiceA,
+				() => new ServiceA()
+			);
 			expectTypeOf(c1).toEqualTypeOf<Container<typeof ServiceA>>();
 
 			// Should reject incorrect return type
-			container().register(
+			Container.empty().register(
 				ServiceA,
 				// @ts-expect-error - returning wrong type
 				() => {
@@ -118,7 +122,7 @@ describe('DependencyContainer Type Safety', () => {
 		it('should support async factories', () => {
 			class ServiceA extends Tag.Class('ServiceA') {}
 
-			const c = container().register(ServiceA, async () => {
+			const c = Container.empty().register(ServiceA, async () => {
 				await Promise.resolve();
 				return new ServiceA();
 			});
@@ -137,7 +141,7 @@ describe('DependencyContainer Type Safety', () => {
 			}
 			const ComplexConfigTag = Tag.of('complexConfig')<ComplexConfig>();
 
-			const c = container()
+			const c = Container.empty()
 				.register(StringConfigTag, () => 'hello')
 				.register(NumberConfigTag, () => 42)
 				.register(ComplexConfigTag, () => ({
@@ -164,7 +168,7 @@ describe('DependencyContainer Type Safety', () => {
 			}
 			const DbConfigTag = Tag.for<DatabaseConfig>();
 
-			const c = container().register(DbConfigTag, () => ({
+			const c = Container.empty().register(DbConfigTag, () => ({
 				host: 'localhost',
 				port: 5432,
 			}));
@@ -184,7 +188,7 @@ describe('DependencyContainer Type Safety', () => {
 			}
 			const ApiKeyTag = Tag.of('apiKey')<string>();
 
-			const c = container()
+			const c = Container.empty()
 				.register(ApiKeyTag, () => 'secret-key')
 				.register(UserService, async (ctx) => {
 					const apiKey = await ctx.get(ApiKeyTag);
@@ -216,7 +220,7 @@ describe('DependencyContainer Type Safety', () => {
 			}
 
 			// Register with base class tag but extended implementation
-			const c = container().register(
+			const c = Container.empty().register(
 				BaseService,
 				() => new ExtendedService()
 			);
@@ -241,7 +245,7 @@ describe('DependencyContainer Type Safety', () => {
 				name = '';
 			}
 
-			const c = container().register(
+			const c = Container.empty().register(
 				Repository,
 				() => new Repository(User)
 			);
@@ -261,7 +265,7 @@ describe('DependencyContainer Type Safety', () => {
 			}
 
 			// Should accept correct finalizer type
-			const c1 = container().register(ServiceWithCleanup, {
+			const c1 = Container.empty().register(ServiceWithCleanup, {
 				factory: () => new ServiceWithCleanup(),
 				finalizer: (instance) => {
 					expectTypeOf(instance).toEqualTypeOf<ServiceWithCleanup>();
@@ -273,7 +277,7 @@ describe('DependencyContainer Type Safety', () => {
 			>();
 
 			// Should reject incorrect finalizer type
-			container().register(ServiceWithCleanup, {
+			Container.empty().register(ServiceWithCleanup, {
 				factory: () => new ServiceWithCleanup(),
 				// @ts-expect-error - Should reject incorrect finalizer type
 				finalizer: (instance: string) => {
@@ -291,7 +295,7 @@ describe('DependencyContainer Type Safety', () => {
 				}
 			}
 
-			const c = container().register(ServiceWithAsyncCleanup, {
+			const c = Container.empty().register(ServiceWithAsyncCleanup, {
 				factory: () => new ServiceWithAsyncCleanup(),
 				finalizer: async (instance) => {
 					expectTypeOf(
@@ -312,7 +316,7 @@ describe('DependencyContainer Type Safety', () => {
 			class ServiceA extends Tag.Class('ServiceA') {}
 			class ServiceB extends Tag.Class('ServiceB') {}
 
-			const c = container()
+			const c = Container.empty()
 				.register(ServiceA, () => {
 					throw new Error('test');
 				})
@@ -345,7 +349,7 @@ describe('DependencyContainer Type Safety', () => {
 			) {}
 			class AppService extends Tag.Class('AppService') {}
 
-			const c = container()
+			const c = Container.empty()
 				.register(ConfigService, () => new ConfigService())
 				.register(DatabaseService, async (ctx) => {
 					const config = await ctx.get(ConfigService);
@@ -393,12 +397,12 @@ describe('DependencyContainer Type Safety', () => {
 			class ServiceB extends Tag.Class('ServiceB') {}
 			const ApiKeyTag = Tag.of('apiKey')<string>();
 
-			const source = container()
+			const source = Container.empty()
 				.register(ServiceA, () => new ServiceA())
 				.register(ServiceB, () => new ServiceB())
 				.register(ApiKeyTag, () => 'secret');
 
-			const target = container();
+			const target = Container.empty();
 			const result = source.merge(target);
 
 			// Should return a new container with combined types
@@ -412,11 +416,14 @@ describe('DependencyContainer Type Safety', () => {
 			class ServiceB extends Tag.Class('ServiceB') {}
 			class ServiceC extends Tag.Class('ServiceC') {}
 
-			const source = container()
+			const source = Container.empty()
 				.register(ServiceA, () => new ServiceA())
 				.register(ServiceB, () => new ServiceB());
 
-			const target = container().register(ServiceC, () => new ServiceC());
+			const target = Container.empty().register(
+				ServiceC,
+				() => new ServiceC()
+			);
 
 			const result = source.merge(target);
 
@@ -430,11 +437,14 @@ describe('DependencyContainer Type Safety', () => {
 			const NumberTag = Tag.of('number')<number>();
 			class ServiceA extends Tag.Class('ServiceA') {}
 
-			const source = container()
+			const source = Container.empty()
 				.register(StringTag, () => 'hello')
 				.register(NumberTag, () => 42);
 
-			const target = container().register(ServiceA, () => new ServiceA());
+			const target = Container.empty().register(
+				ServiceA,
+				() => new ServiceA()
+			);
 
 			const result = source.merge(target);
 
@@ -446,8 +456,11 @@ describe('DependencyContainer Type Safety', () => {
 		it('should work with empty source container', () => {
 			class ServiceA extends Tag.Class('ServiceA') {}
 
-			const source = container();
-			const target = container().register(ServiceA, () => new ServiceA());
+			const source = Container.empty();
+			const target = Container.empty().register(
+				ServiceA,
+				() => new ServiceA()
+			);
 
 			const result = source.merge(target);
 
@@ -458,11 +471,11 @@ describe('DependencyContainer Type Safety', () => {
 			class ServiceA extends Tag.Class('ServiceA') {}
 			class ServiceB extends Tag.Class('ServiceB') {}
 
-			const source = container()
+			const source = Container.empty()
 				.register(ServiceA, () => new ServiceA())
 				.register(ServiceB, () => new ServiceB());
 
-			const target = container();
+			const target = Container.empty();
 			const result = source.merge(target);
 
 			expectTypeOf(result).toEqualTypeOf<
@@ -477,11 +490,11 @@ describe('DependencyContainer Type Safety', () => {
 			class ServiceB extends Tag.Class('ServiceB') {}
 
 			// Create containers with specific types
-			const containerA = container().register(
+			const containerA = Container.empty().register(
 				ServiceA,
 				() => new ServiceA()
 			);
-			const containerAB = container()
+			const containerAB = Container.empty()
 				.register(ServiceA, () => new ServiceA())
 				.register(ServiceB, () => new ServiceB());
 
@@ -538,7 +551,7 @@ describe('DependencyContainer Type Safety', () => {
 			class LoggerService extends Tag.Class('LoggerService') {}
 
 			// Full application container with all services
-			const appContainer = container()
+			const appContainer = Container.empty()
 				.register(ConfigService, () => new ConfigService())
 				.register(DatabaseService, () => new DatabaseService())
 				.register(LoggerService, () => new LoggerService());
@@ -568,7 +581,7 @@ describe('DependencyContainer Type Safety', () => {
 			useConfigAndDb(appContainer); // Works! appContainer has both ConfigService and DatabaseService (and more)
 
 			// This should fail - we can't pass a container with fewer services
-			const configOnlyContainer = container().register(
+			const configOnlyContainer = Container.empty().register(
 				ConfigService,
 				() => new ConfigService()
 			);
