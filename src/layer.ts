@@ -71,10 +71,10 @@ export const LayerTypeId: unique symbol = Symbol.for('sandly/Layer');
 export interface Layer<
 	// Covariant: A layer requiring fewer dependencies can substitute one requiring more
 	// Layer<never, X> can be used where Layer<A | B, X> is expected (less demanding is more compatible)
-	TRequires extends AnyTag = never,
+	TRequires extends AnyTag,
 	// Contravariant: A layer providing more services can substitute one providing fewer
 	// Layer<X, A | B> can be used where Layer<X, A> is expected (more generous is more compatible)
-	TProvides extends AnyTag = never,
+	TProvides extends AnyTag,
 > {
 	readonly [LayerTypeId]?: {
 		readonly _TRequires: Covariant<TRequires>;
@@ -434,7 +434,7 @@ export const Layer = {
 	 *   .merge(serviceLayer);
 	 * ```
 	 */
-	empty(): Layer {
+	empty(): Layer<never, never> {
 		return layer(
 			<TContainer extends AnyTag>(container: IContainer<TContainer>) =>
 				container

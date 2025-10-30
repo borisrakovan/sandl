@@ -310,7 +310,7 @@ describe('Layer Type Safety', () => {
 		it('should type Layer.empty() correctly', () => {
 			const emptyLayer = Layer.empty();
 
-			expectTypeOf(emptyLayer).toEqualTypeOf<Layer>();
+			expectTypeOf(emptyLayer).toEqualTypeOf<Layer<never, never>>();
 		});
 
 		it('should type Layer.merge() correctly for two layers', () => {
