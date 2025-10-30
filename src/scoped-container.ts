@@ -9,7 +9,7 @@ import { AnyTag, TagType } from './tag.js';
 export type Scope = string | symbol;
 
 export class ScopedContainer<
-	in TReg extends AnyTag = never,
+	TReg extends AnyTag = never,
 > extends Container<TReg> {
 	public readonly scope: Scope;
 

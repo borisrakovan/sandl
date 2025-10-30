@@ -1,6 +1,6 @@
 import { container } from '@/container.js';
 import { service } from '@/service.js';
-import { Inject, Tag } from '@/tag.js';
+import { Tag } from '@/tag.js';
 import { describe, expect, it } from 'vitest';
 
 describe('Service', () => {
@@ -145,57 +145,6 @@ describe('Service', () => {
 		});
 	});
 
-	describe('ValueTag services', () => {
-		it('should create a service layer for a ValueTag', async () => {
-			const ApiKeyTag = Tag.of('apiKey')<string>();
-
-			const apiKeyService = service(ApiKeyTag, () => 'test-api-key-123');
-
-			// Apply the service to a container
-			const c = container();
-			const finalContainer = apiKeyService.register(c);
-
-			// Get the service value
-			const apiKey = await finalContainer.get(ApiKeyTag);
-			expect(apiKey).toBe('test-api-key-123');
-		});
-
-		it('should compose ValueTag services with ClassTag services', async () => {
-			const DatabaseUrlTag = Tag.of('dbUrl')<string>();
-
-			class DatabaseService extends Tag.Class('DatabaseService') {
-				constructor(private url: Inject<typeof DatabaseUrlTag>) {
-					super();
-				}
-
-				connect() {
-					return `Connected to ${this.url}`;
-				}
-			}
-
-			const dbUrlService = service(
-				DatabaseUrlTag,
-				() => 'postgresql://localhost:5432'
-			);
-
-			const dbService = service(DatabaseService, async (ctx) => {
-				const url = await ctx.get(DatabaseUrlTag);
-				return new DatabaseService(url);
-			});
-
-			// Compose the services
-			const appLayer = dbService.provide(dbUrlService);
-
-			const c = container();
-			const finalContainer = appLayer.register(c);
-
-			const db = await finalContainer.get(DatabaseService);
-			expect(db.connect()).toBe(
-				'Connected to postgresql://localhost:5432'
-			);
-		});
-	});
-
 	describe('Service with finalizers', () => {
 		it('should create a service layer with a finalizer using DependencyLifecycle', async () => {
 			const cleanupCalls: string[] = [];
@@ -218,7 +167,9 @@ describe('Service', () => {
 			const dbService = service(DatabaseConnection, {
 				factory: () =>
 					new DatabaseConnection('postgresql://localhost:5432'),
-				finalizer: (conn) => conn.disconnect(),
+				finalizer: (conn) => {
+					conn.disconnect();
+				},
 			});
 
 			const c = container();
@@ -329,37 +280,6 @@ describe('Service', () => {
 				'Logger: Executing: SELECT * FROM users',
 				'Logger: Database connection closed',
 			]);
-		});
-
-		it('should support ValueTag services with finalizers', async () => {
-			const cleanupCalls: string[] = [];
-
-			const FileHandleTag = Tag.of('fileHandle')<{
-				read: () => string;
-				close: () => void;
-			}>();
-
-			const fileService = service(FileHandleTag, {
-				factory: () => ({
-					read: () => 'file content',
-					close: () => cleanupCalls.push('File closed'),
-				}),
-				finalizer: (handle) => {
-					handle.close();
-				},
-			});
-
-			const c = container();
-			const finalContainer = fileService.register(c);
-
-			// Use the service
-			const fileHandle = await finalContainer.get(FileHandleTag);
-			expect(fileHandle.read()).toBe('file content');
-
-			// Destroy the container
-			await finalContainer.destroy();
-
-			expect(cleanupCalls).toEqual(['File closed']);
 		});
 	});
 });

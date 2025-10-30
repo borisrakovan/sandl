@@ -2,7 +2,7 @@
  * Unique symbol used to store the original ValueTag in Inject<T> types.
  * This prevents property name collisions while allowing type-level extraction.
  */
-const InjectSource = Symbol('InjectSource');
+export const InjectSource = Symbol('InjectSource');
 
 /**
  * Helper type for injecting ValueTag dependencies in constructor parameters.
@@ -28,10 +28,8 @@ const InjectSource = Symbol('InjectSource');
  * }
  * ```
  */
-export type Inject<T extends ValueTag<unknown, string | symbol>> =
-	T extends ValueTag<infer V, string | symbol>
-		? V & { readonly [InjectSource]?: T }
-		: never;
+export type Inject<T extends ValueTag<unknown>> =
+	T extends ValueTag<infer V> ? V & { readonly [InjectSource]?: T } : never;
 
 /**
  * Helper type to extract the original ValueTag from an Inject<T> type.
@@ -70,7 +68,7 @@ export const TagId = '__tag_id__' as const;
  * container.register(ApiKeyTag, () => 'my-secret-key');
  * ```
  */
-export interface ValueTag<T, Id extends string | symbol> {
+export interface ValueTag<T, Id extends string | symbol = string | symbol> {
 	readonly [TagId]: Id;
 	/** @internal Phantom type to carry T */
 	readonly __type: T;
@@ -99,7 +97,7 @@ export interface ValueTag<T, Id extends string | symbol> {
  *
  * @internal - Users should use Tag.Class() instead of working with this type directly
  */
-export interface ClassTag<T, Id extends string | symbol> {
+export interface ClassTag<T, Id extends string | symbol = string | symbol> {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	new (...args: any[]): T & { readonly [TagId]: Id };
 	readonly [TagId]: Id;
@@ -144,11 +142,7 @@ export interface ClassTag<T, Id extends string | symbol> {
  * ```
  */
 export type TagType<T> =
-	T extends ValueTag<infer V, string | symbol>
-		? V
-		: T extends ClassTag<infer V, string | symbol>
-			? V
-			: never;
+	T extends ValueTag<infer V> ? V : T extends ClassTag<infer V> ? V : never;
 
 /**
  * Union type representing any valid dependency tag in the system.
@@ -171,9 +165,9 @@ export type TagType<T> =
  */
 export type AnyTag =
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	| ValueTag<any, string | symbol>
+	| ValueTag<any>
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	| ClassTag<any, string | symbol>;
+	| ClassTag<any>;
 
 /**
  * Utility object containing factory functions for creating dependency tags.

@@ -6,8 +6,11 @@ import { AnyTag, ClassTag, ExtractInjectTag, TagId } from './tag.js';
  * Extracts constructor parameter types from a ClassTag.
  * Only parameters that extend AnyTag are considered as dependencies.
  */
-export type ConstructorParams<T extends ClassTag<unknown, string | symbol>> =
-	T extends new (...args: infer A) => unknown ? A : never;
+export type ConstructorParams<T extends ClassTag<unknown>> = T extends new (
+	...args: infer A
+) => unknown
+	? A
+	: never;
 
 /**
  * Helper to convert a tagged instance type back to its constructor type.
@@ -43,11 +46,9 @@ export type FilterTags<T extends readonly unknown[]> = T extends readonly []
  * or returns never for ValueTag services (which have no constructor dependencies).
  * This is used to determine what dependencies a service requires.
  */
-export type ServiceDependencies<T extends AnyTag> =
-	T extends ClassTag<unknown, string | symbol>
-		? FilterTags<ConstructorParams<T>> extends AnyTag
-			? FilterTags<ConstructorParams<T>>
-			: never
+export type ServiceDependencies<T extends ClassTag<unknown>> =
+	FilterTags<ConstructorParams<T>> extends AnyTag
+		? FilterTags<ConstructorParams<T>>
 		: never;
 
 /**
@@ -93,7 +94,7 @@ export type ServiceDependencies<T extends AnyTag> =
  * );
  * ```
  */
-export function service<T extends AnyTag>(
+export function service<T extends ClassTag<unknown>>(
 	serviceClass: T,
 	spec: DependencySpec<T, ServiceDependencies<T>>
 ): Layer<ServiceDependencies<T>, T> {

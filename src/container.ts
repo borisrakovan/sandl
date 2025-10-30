@@ -8,7 +8,7 @@ import {
 	UnknownDependencyError,
 } from './errors.js';
 import { AnyTag, Tag, TagType } from './tag.js';
-import { PromiseOrValue } from './types.js';
+import { Contravariant, PromiseOrValue } from './types.js';
 
 /**
  * AsyncLocalStorage instance used to track the dependency resolution chain.
@@ -175,22 +175,28 @@ export type ResolutionContext<TReg extends AnyTag> = Pick<
 	'get'
 >;
 
+export const ContainerTypeId: unique symbol = Symbol.for('sandly/Container');
+
 /**
  * Interface representing a container that can register and retrieve dependencies.
  *
  * @template TReg - Union type of all dependencies available in the container
  */
-export interface IContainer<in TReg extends AnyTag> {
-	register<T extends AnyTag>(
+export interface IContainer<TReg extends AnyTag = never> {
+	readonly [ContainerTypeId]: {
+		readonly _TReg: Contravariant<TReg>;
+	};
+
+	register: <T extends AnyTag>(
 		tag: T,
 		spec: DependencySpec<T, TReg>
-	): IContainer<TReg | T>;
+	) => IContainer<TReg | T>;
 
 	has(tag: AnyTag): boolean;
 
 	exists(tag: AnyTag): boolean;
 
-	get<T extends TReg>(tag: T): Promise<TagType<T>>;
+	get: <T extends TReg>(tag: T) => Promise<TagType<T>>;
 
 	merge<TTarget extends AnyTag>(
 		other: IContainer<TTarget>
@@ -198,6 +204,8 @@ export interface IContainer<in TReg extends AnyTag> {
 
 	destroy(): Promise<void>;
 }
+
+// declare const ContainerBrand: unique symbol;
 
 /**
  * A type-safe dependency injection container that manages service instantiation,
@@ -266,9 +274,13 @@ export interface IContainer<in TReg extends AnyTag> {
  * await c.destroy(); // Calls all finalizers
  * ```
  */
-export class Container<in TReg extends AnyTag = never>
+export class Container<TReg extends AnyTag = never>
 	implements IContainer<TReg>
 {
+	readonly [ContainerTypeId]!: {
+		readonly _TReg: Contravariant<TReg>;
+	};
+
 	/**
 	 * Cache of instantiated dependencies as promises.
 	 * Ensures singleton behavior and supports concurrent access.

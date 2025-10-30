@@ -1,19 +1,17 @@
 import { IContainer } from './container.js';
 import { AnyTag } from './tag.js';
+import { Contravariant, Covariant } from './types.js';
 
 /**
- * The most generic layer type that works with variance - accepts any concrete layer.
- *
- * This type is carefully constructed to work with the Layer interface's variance annotations:
- * - `never` for TRequires (contravariant): Any layer requiring specific dependencies can be
- *   assigned to this since requiring something is more restrictive than requiring nothing
- * - `AnyTag` for TProvides (covariant): Any layer providing specific services can be assigned
- *   to this since the general AnyTag type can represent any specific tag type
- *
- * Used internally for functions like Layer.mergeAll() that need to accept arrays of layers
- * with different requirement/provision types while preserving type safety through variance.
+ * The most generic layer type that accepts any concrete layer.
  */
-export type AnyLayer = Layer<never, AnyTag>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type AnyLayer = Layer<any, any>;
+
+/**
+ * The type ID for the Layer interface.
+ */
+export const LayerTypeId: unique symbol = Symbol.for('sandly/Layer');
 
 /**
  * A dependency layer represents a reusable, composable unit of dependency registrations.
@@ -24,12 +22,12 @@ export type AnyLayer = Layer<never, AnyTag>;
  *
  * The Layer interface uses TypeScript's variance annotations to enable safe substitutability:
  *
- * ### TRequires (contravariant with `in`)
+ * ### TRequires (covariant)
  * A layer requiring fewer dependencies can substitute one requiring more:
  * - `Layer<never, X>` can be used where `Layer<A | B, X>` is expected
  * - Intuition: A service that needs nothing is more flexible than one that needs specific deps
  *
- * ### TProvides (covariant with `out`)
+ * ### TProvides (contravariant)
  * A layer providing more services can substitute one providing fewer:
  * - `Layer<X, A | B>` can be used where `Layer<X, A>` is expected
  * - Intuition: A service that gives you extra things is compatible with expecting fewer things
@@ -68,19 +66,21 @@ export type AnyLayer = Layer<never, AnyTag>;
  *
  * // Compose layers: provide database layer to user layer
  * const appLayer = userLayer.provide(databaseLayer);
- *
- * // Thanks to variance, Layer<never, typeof DatabaseService> automatically works
- * // where Layer<typeof DatabaseService, typeof UserService> requires DatabaseService
  * ```
  */
 export interface Layer<
-	// Contravariant: A layer requiring fewer dependencies can substitute one requiring more
+	// Covariant: A layer requiring fewer dependencies can substitute one requiring more
 	// Layer<never, X> can be used where Layer<A | B, X> is expected (less demanding is more compatible)
-	in TRequires extends AnyTag = never,
-	// Covariant: A layer providing more services can substitute one providing fewer
+	TRequires extends AnyTag = never,
+	// Contravariant: A layer providing more services can substitute one providing fewer
 	// Layer<X, A | B> can be used where Layer<X, A> is expected (more generous is more compatible)
-	out TProvides extends AnyTag = never,
+	TProvides extends AnyTag = never,
 > {
+	readonly [LayerTypeId]?: {
+		readonly _TRequires: Covariant<TRequires>;
+		readonly _TProvides: Contravariant<TProvides>;
+	};
+
 	/**
 	 * Applies this layer's registrations to the given container.
 	 *
@@ -395,7 +395,8 @@ function createMergedLayer<
  * @internal
  */
 type UnionOfRequires<T extends readonly AnyLayer[]> = {
-	[K in keyof T]: T[K] extends Layer<infer R, AnyTag> ? R : never;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	[K in keyof T]: T[K] extends Layer<infer R, any> ? R : never;
 }[number];
 
 /**
@@ -409,7 +410,8 @@ type UnionOfRequires<T extends readonly AnyLayer[]> = {
  * @internal
  */
 type UnionOfProvides<T extends readonly AnyLayer[]> = {
-	[K in keyof T]: T[K] extends Layer<never, infer P> ? P : never;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	[K in keyof T]: T[K] extends Layer<any, infer P> ? P : never;
 }[number];
 
 /**

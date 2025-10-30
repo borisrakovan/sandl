@@ -1,7 +1,7 @@
 import { container, IContainer, ResolutionContext } from '@/container.js';
 import { Layer } from '@/layer.js';
 import { service } from '@/service.js';
-import { Inject, Tag } from '@/tag.js';
+import { Tag } from '@/tag.js';
 import { describe, expectTypeOf, it } from 'vitest';
 
 describe('Service Type Safety', () => {
@@ -188,7 +188,7 @@ describe('Service Type Safety', () => {
 				return new UserService(db, external);
 			});
 
-			const composedService = dbService.provide(userService);
+			const composedService = userService.provide(dbService);
 
 			// ExternalService is still required (needed by both services)
 			// DatabaseService requirement is satisfied by dbService
@@ -389,105 +389,12 @@ describe('Service Type Safety', () => {
 			});
 
 			// This composition should be allowed at type level but leave ServiceB unsatisfied
-			const composed = serviceA.provide(serviceC);
+			const composed = serviceC.provide(serviceA);
 
 			// ServiceB should still be required
 			// Only ServiceC is provided (target layer's provisions)
 			expectTypeOf(composed).branded.toEqualTypeOf<
 				Layer<typeof ServiceB, typeof ServiceC>
-			>();
-		});
-	});
-
-	describe('ValueTag service types', () => {
-		it('should create service with correct layer type for ValueTag service', () => {
-			const ApiKeyTag = Tag.of('apiKey')<string>();
-
-			const apiKeyService = service(ApiKeyTag, () => 'test-key');
-
-			expectTypeOf(apiKeyService).toEqualTypeOf<
-				Layer<never, typeof ApiKeyTag>
-			>();
-
-			// ValueTag service should extend Layer with no requirements (never)
-			expectTypeOf(apiKeyService).toExtend<
-				Layer<never, typeof ApiKeyTag>
-			>();
-		});
-
-		it('should compose ValueTag and ClassTag services correctly', () => {
-			const DatabaseUrlTag = Tag.of('dbUrl')<string>();
-
-			class DatabaseService extends Tag.Class('DatabaseService') {
-				constructor(private _url: Inject<typeof DatabaseUrlTag>) {
-					super();
-				}
-			}
-
-			const dbUrlService = service(
-				DatabaseUrlTag,
-				() => 'postgresql://localhost:5432'
-			);
-			const dbService = service(DatabaseService, async (ctx) => {
-				expectTypeOf(ctx).toExtend<
-					ResolutionContext<typeof DatabaseUrlTag>
-				>();
-
-				const url = await ctx.get(DatabaseUrlTag);
-				expectTypeOf(url).toEqualTypeOf<string>();
-
-				return new DatabaseService(url);
-			});
-
-			const composedService = dbService.provide(dbUrlService);
-
-			// No external dependencies required since dbUrlService provides what dbService needs
-			// Only DatabaseService is provided (target layer's provisions)
-			expectTypeOf(composedService).toEqualTypeOf<
-				Layer<never, typeof DatabaseService>
-			>();
-		});
-
-		it('should handle mixed ValueTag/ClassTag dependency scenarios', () => {
-			const ConfigTag = Tag.of('config')<{ dbUrl: string }>();
-			const LoggerTag = Tag.of('logger')<{
-				log: (msg: string) => void;
-			}>();
-
-			class DatabaseService extends Tag.Class('DatabaseService') {
-				constructor(
-					private _config: Inject<typeof ConfigTag>,
-					private _logger: Inject<typeof LoggerTag>
-				) {
-					super();
-				}
-			}
-
-			const configService = service(ConfigTag, () => ({
-				dbUrl: 'test',
-			}));
-			const loggerService = service(LoggerTag, () => ({
-				log: (_msg: string) => {
-					return;
-				},
-			}));
-
-			const dbService = service(DatabaseService, async (ctx) => {
-				// Container should require both ValueTags for manual injection - test key properties
-				expectTypeOf(ctx.get).toBeFunction();
-
-				const config = await ctx.get(ConfigTag);
-				const logger = await ctx.get(LoggerTag);
-				return new DatabaseService(config, logger);
-			});
-
-			// Build complete layer
-			const appLayer = dbService.provide(
-				configService.merge(loggerService)
-			);
-
-			expectTypeOf(appLayer).toEqualTypeOf<
-				Layer<never, typeof DatabaseService>
 			>();
 		});
 	});
@@ -637,31 +544,6 @@ describe('Service Type Safety', () => {
 					| typeof UserRepository
 					| typeof UserService
 				>
-			>();
-		});
-
-		it('should work with ValueTag services', () => {
-			const DatabaseUrlTag = Tag.of('dbUrl')<string>();
-			class DatabaseService extends Tag.Class('DatabaseService') {
-				constructor(private _url: Inject<typeof DatabaseUrlTag>) {
-					super();
-				}
-			}
-
-			const dbUrlService = service(
-				DatabaseUrlTag,
-				() => 'postgresql://localhost:5432'
-			);
-			const dbService = service(DatabaseService, async (ctx) => {
-				const url = await ctx.get(DatabaseUrlTag);
-				return new DatabaseService(url);
-			});
-
-			const composedService = dbService.provideMerge(dbUrlService);
-
-			// Both ValueTag and ClassTag services should be provided
-			expectTypeOf(composedService).toEqualTypeOf<
-				Layer<never, typeof DatabaseUrlTag | typeof DatabaseService>
 			>();
 		});
 
@@ -819,29 +701,6 @@ describe('Service Type Safety', () => {
 
 			expectTypeOf(dbService).branded.toEqualTypeOf<
 				Layer<typeof Logger, typeof DatabaseService>
-			>();
-		});
-
-		it('should work with ValueTag services and finalizers', () => {
-			const FileHandleTag = Tag.of('fileHandle')<{
-				read: () => string;
-				close: () => void;
-			}>();
-
-			const fileService = service(FileHandleTag, {
-				factory: () => ({
-					read: () => 'content',
-					close: () => {
-						return;
-					},
-				}),
-				finalizer: (handle) => {
-					handle.close();
-				},
-			});
-
-			expectTypeOf(fileService).toEqualTypeOf<
-				Layer<never, typeof FileHandleTag>
 			>();
 		});
 

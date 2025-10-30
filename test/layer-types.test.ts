@@ -350,7 +350,7 @@ describe('Layer Type Safety', () => {
 			class ServiceB extends Tag.Class('ServiceB') {}
 			class ServiceC extends Tag.Class('ServiceC') {}
 			class ExternalA extends Tag.Class('ExternalA') {}
-			class ExternalB extends Tag.Class('ExternalB') {}
+			class ExternalC extends Tag.Class('ExternalC') {}
 
 			const layerA = layer<typeof ExternalA, typeof ServiceA>(
 				(container) =>
@@ -364,11 +364,11 @@ describe('Layer Type Safety', () => {
 				container.register(ServiceB, () => new ServiceB())
 			);
 
-			const layerC = layer<typeof ExternalB, typeof ServiceC>(
+			const layerC = layer<typeof ExternalC, typeof ServiceC>(
 				(container) =>
 					container.register(
 						ServiceC,
-						async (ctx) => new ServiceC(await ctx.get(ExternalB))
+						async (ctx) => new ServiceC(await ctx.get(ExternalC))
 					)
 			);
 
@@ -376,7 +376,7 @@ describe('Layer Type Safety', () => {
 
 			expectTypeOf(mergedLayer).toEqualTypeOf<
 				Layer<
-					typeof ExternalA | typeof ExternalB,
+					typeof ExternalA | typeof ExternalC,
 					typeof ServiceA | typeof ServiceB | typeof ServiceC
 				>
 			>();
@@ -792,6 +792,62 @@ describe('Layer Type Safety', () => {
 			expectTypeOf(appLayer).toEqualTypeOf<
 				Layer<never, typeof UserService>
 			>();
+		});
+	});
+
+	describe('layer variance', () => {
+		it('should support contravariance for TRequires and covariance for TProvides', () => {
+			class ServiceA extends Tag.Class('ServiceA') {}
+			class ServiceB extends Tag.Class('ServiceB') {}
+			class ServiceC extends Tag.Class('ServiceC') {}
+
+			// Create layers with specific types
+			const layerAB = layer<
+				typeof ServiceA,
+				typeof ServiceB | typeof ServiceC
+			>((container) =>
+				container
+					.register(
+						ServiceB,
+						async (ctx) => new ServiceB(await ctx.get(ServiceA))
+					)
+					.register(ServiceC, () => new ServiceC())
+			);
+
+			const layerNeverB = layer<never, typeof ServiceB>((container) =>
+				container.register(ServiceB, () => new ServiceB())
+			);
+
+			// COVARIANCE TESTS: Layers requiring fewer dependencies can substitute ones requiring more
+			// Layer<never, X> can be used where Layer<ServiceA, X> is expected (less demanding is more compatible)
+
+			const covariantRequires: Layer<typeof ServiceA, typeof ServiceB> =
+				layerNeverB;
+			expectTypeOf(covariantRequires).toEqualTypeOf<
+				Layer<typeof ServiceA, typeof ServiceB>
+			>();
+
+			// CONTRAVARIANCE TESTS: Layers providing more services can substitute ones providing fewer
+			// Layer<X, ServiceB | ServiceC> can be used where Layer<X, ServiceB> is expected (more generous is more compatible)
+
+			const contravariantProvides: Layer<
+				typeof ServiceA,
+				typeof ServiceB
+			> = layerAB;
+			expectTypeOf(contravariantProvides).toEqualTypeOf<
+				Layer<typeof ServiceA, typeof ServiceB>
+			>();
+
+			// INVALID ASSIGNMENTS: These should fail
+
+			// @ts-expect-error - Cannot assign layer requiring more to one requiring less (covariance violation)
+			const _invalidCovariant: Layer<never, typeof ServiceB> = layerAB;
+
+			// @ts-expect-error - Cannot assign layer providing fewer to one providing more (contravariance violation)
+			const _invalidContravariant: Layer<
+				typeof ServiceA,
+				typeof ServiceB | typeof ServiceC
+			> = layerNeverB;
 		});
 	});
 });

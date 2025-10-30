@@ -1,6 +1,7 @@
 export { Container, container } from './container.js';
 export type {
 	DependencyLifecycle,
+	DependencySpec,
 	Factory,
 	Finalizer,
 	IContainer,
@@ -21,6 +22,7 @@ export { ScopedContainer, scoped } from './scoped-container.js';
 export type { Scope } from './scoped-container.js';
 export { service } from './service.js';
 export {
+	InjectSource,
 	Tag,
 	type AnyTag,
 	type ClassTag,
