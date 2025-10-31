@@ -1,6 +1,6 @@
 import type { Layer } from './layer.js';
 import { layer } from './layer.js';
-import type { ValueTag } from './tag.js';
+import type { TagId, ValueTag } from './tag.js';
 
 /**
  * Creates a layer that provides a constant value for a given tag.
@@ -20,7 +20,7 @@ import type { ValueTag } from './tag.js';
  * const config = Layer.merge(apiKey, dbUrl);
  * ```
  */
-export function value<Id extends string | symbol, T>(
+export function value<Id extends TagId, T>(
 	tag: ValueTag<Id, T>,
 	constantValue: T
 ): Layer<never, ValueTag<Id, T>> {

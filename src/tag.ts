@@ -1,49 +1,8 @@
 /**
- * Unique symbol used to store the original ValueTag in Inject<T> types.
- * This prevents property name collisions while allowing type-level extraction.
- */
-export const InjectSource = Symbol('InjectSource');
-
-/**
- * Helper type for injecting ValueTag dependencies in constructor parameters.
- * This allows clean specification of ValueTag dependencies while preserving
- * the original tag information for dependency inference.
- *
- * The phantom property is optional to allow normal runtime values to be assignable.
- *
- * @template T - A ValueTag type
- * @returns The value type with optional phantom tag metadata for dependency inference
- *
- * @example
- * ```typescript
- * const ApiKeyTag = Tag.of('apiKey')<string>();
- *
- * class UserService extends Tag.Service('UserService') {
- *   constructor(
- *     private db: DatabaseService,        // ServiceTag - works automatically
- *     private apiKey: Inject<typeof ApiKeyTag>  // ValueTag - type is string, tag preserved
- *   ) {
- *     super();
- *   }
- * }
- * ```
- */
-export type Inject<T extends ValueTag<string | symbol, unknown>> =
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	T extends ValueTag<any, infer V>
-		? V & { readonly [InjectSource]?: T }
-		: never;
-
-/**
- * Helper type to extract the original ValueTag from an Inject<T> type.
- * Since InjectSource is optional, we need to check for both presence and absence.
+ * Type representing a tag identifier (string or symbol).
  * @internal
  */
-export type ExtractInjectTag<T> = T extends {
-	readonly [InjectSource]?: infer U;
-}
-	? U
-	: never;
+export type TagId = string | symbol;
 
 /**
  * Symbol used to identify tagged types within the dependency injection system.
@@ -83,7 +42,7 @@ export const TagTypeKey: unique symbol = Symbol.for('sandly/TagTypeKey');
  * container.register(ApiKeyTag, () => 'my-secret-key');
  * ```
  */
-export interface ValueTag<Id extends string | symbol, T> {
+export interface ValueTag<Id extends TagId, T> {
 	readonly [TagIdKey]: Id;
 	readonly [TagTypeKey]: T;
 }
@@ -111,7 +70,7 @@ export interface ValueTag<Id extends string | symbol, T> {
  *
  * @internal - Users should use Tag.Service() instead of working with this type directly
  */
-export interface ServiceTag<Id extends string | symbol, T> {
+export interface ServiceTag<Id extends TagId, T> {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	new (...args: any[]): T & { readonly [TagIdKey]: Id };
 	readonly [TagIdKey]: Id;
@@ -258,7 +217,7 @@ export const Tag = {
 	 * }));
 	 * ```
 	 */
-	of: <Id extends string | symbol>(id: Id) => {
+	of: <Id extends TagId>(id: Id) => {
 		return <T>(): ValueTag<Id, T> => ({
 			[TagIdKey]: id,
 			[TagTypeKey]: undefined as T,
@@ -359,7 +318,7 @@ export const Tag = {
 	 * }
 	 * ```
 	 */
-	Service: <Id extends string | symbol>(id: Id) => {
+	Service: <Id extends TagId>(id: Id) => {
 		class Tagged {
 			static readonly [TagIdKey]: Id = id;
 			readonly [TagIdKey]: Id = id;
@@ -391,7 +350,54 @@ export const Tag = {
 	 * @internal - Primarily for internal use in error messages and debugging
 	 */
 	id: (tag: AnyTag): string => {
-		const id = tag[TagIdKey] as string | symbol;
+		const id = tag[TagIdKey] as TagId;
 		return typeof id === 'symbol' ? id.toString() : String(id);
 	},
 };
+
+/**
+ * Unique symbol used to store the original ValueTag in Inject<T> types.
+ * This prevents property name collisions while allowing type-level extraction.
+ */
+export const InjectSource = Symbol('InjectSource');
+
+/**
+ * Helper type for injecting ValueTag dependencies in constructor parameters.
+ * This allows clean specification of ValueTag dependencies while preserving
+ * the original tag information for dependency inference.
+ *
+ * The phantom property is optional to allow normal runtime values to be assignable.
+ *
+ * @template T - A ValueTag type
+ * @returns The value type with optional phantom tag metadata for dependency inference
+ *
+ * @example
+ * ```typescript
+ * const ApiKeyTag = Tag.of('apiKey')<string>();
+ *
+ * class UserService extends Tag.Service('UserService') {
+ *   constructor(
+ *     private db: DatabaseService,        // ServiceTag - works automatically
+ *     private apiKey: Inject<typeof ApiKeyTag>  // ValueTag - type is string, tag preserved
+ *   ) {
+ *     super();
+ *   }
+ * }
+ * ```
+ */
+export type Inject<T extends ValueTag<TagId, unknown>> =
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	T extends ValueTag<any, infer V>
+		? V & { readonly [InjectSource]?: T }
+		: never;
+
+/**
+ * Helper type to extract the original ValueTag from an Inject<T> type.
+ * Since InjectSource is optional, we need to check for both presence and absence.
+ * @internal
+ */
+export type ExtractInjectTag<T> = T extends {
+	readonly [InjectSource]?: infer U;
+}
+	? U
+	: never;

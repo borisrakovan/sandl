@@ -1,12 +1,18 @@
 import { DependencySpec, IContainer } from './container.js';
 import { Layer, layer } from './layer.js';
-import { AnyTag, ExtractInjectTag, ServiceTag, TagIdKey } from './tag.js';
+import {
+	AnyTag,
+	ExtractInjectTag,
+	ServiceTag,
+	TagId,
+	TagIdKey,
+} from './tag.js';
 
 /**
  * Extracts constructor parameter types from a ServiceTag.
  * Only parameters that extend AnyTag are considered as dependencies.
  */
-export type ConstructorParams<T extends ServiceTag<string | symbol, unknown>> =
+export type ConstructorParams<T extends ServiceTag<TagId, unknown>> =
 	T extends new (...args: infer A) => unknown ? A : never;
 
 /**
@@ -16,7 +22,7 @@ export type ConstructorParams<T extends ServiceTag<string | symbol, unknown>> =
 export type InstanceToConstructorType<T> = T extends {
 	readonly [TagIdKey]: infer Id;
 }
-	? Id extends string | symbol
+	? Id extends TagId
 		? ServiceTag<Id, T>
 		: never
 	: never;
@@ -30,7 +36,7 @@ export type FilterTags<T extends readonly unknown[]> = T extends readonly []
 	? never
 	: {
 			[K in keyof T]: T[K] extends {
-				readonly [TagIdKey]: string | symbol;
+				readonly [TagIdKey]: TagId;
 			}
 				? InstanceToConstructorType<T[K]>
 				: ExtractInjectTag<T[K]> extends never
@@ -43,9 +49,7 @@ export type FilterTags<T extends readonly unknown[]> = T extends readonly []
  * or returns never for ValueTag services (which have no constructor dependencies).
  * This is used to determine what dependencies a service requires.
  */
-export type ServiceDependencies<
-	T extends ServiceTag<string | symbol, unknown>,
-> =
+export type ServiceDependencies<T extends ServiceTag<TagId, unknown>> =
 	FilterTags<ConstructorParams<T>> extends AnyTag
 		? FilterTags<ConstructorParams<T>>
 		: never;
@@ -93,7 +97,7 @@ export type ServiceDependencies<
  * );
  * ```
  */
-export function service<T extends ServiceTag<string | symbol, unknown>>(
+export function service<T extends ServiceTag<TagId, unknown>>(
 	serviceClass: T,
 	spec: DependencySpec<T, ServiceDependencies<T>>
 ): Layer<ServiceDependencies<T>, T> {
