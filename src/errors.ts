@@ -129,7 +129,7 @@ export class UnknownDependencyError extends ContainerError {
 	 * @param tag - The dependency tag that wasn't found
 	 */
 	constructor(tag: AnyTag) {
-		super(`No factory registered for dependency ${Tag.id(tag)}`);
+		super(`No factory registered for dependency ${String(Tag.id(tag))}`);
 	}
 }
 
@@ -174,7 +174,7 @@ export class CircularDependencyError extends ContainerError {
 	constructor(tag: AnyTag, dependencyChain: AnyTag[]) {
 		const chain = dependencyChain.map((t) => Tag.id(t)).join(' -> ');
 		super(
-			`Circular dependency detected for ${Tag.id(tag)}: ${chain} -> ${Tag.id(tag)}`,
+			`Circular dependency detected for ${String(Tag.id(tag))}: ${chain} -> ${String(Tag.id(tag))}`,
 			{
 				detail: {
 					tag: Tag.id(tag),
@@ -218,7 +218,7 @@ export class DependencyCreationError extends ContainerError {
 	 * @param error - The original error thrown by the factory function
 	 */
 	constructor(tag: AnyTag, error: unknown) {
-		super(`Error creating instance of ${Tag.id(tag)}`, {
+		super(`Error creating instance of ${String(Tag.id(tag))}`, {
 			cause: error,
 			detail: {
 				tag: Tag.id(tag),

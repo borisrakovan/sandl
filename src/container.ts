@@ -408,7 +408,7 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 		// Check if dependency has been instantiated (exists in cache)
 		if (this.has(tag) && this.exists(tag)) {
 			throw new DependencyAlreadyInstantiatedError(
-				`Cannot register dependency ${Tag.id(tag)} - it has already been instantiated. ` +
+				`Cannot register dependency ${String(Tag.id(tag))} - it has already been instantiated. ` +
 					`Registration must happen before any instantiation occurs, as cached instances ` +
 					`would still be used by existing dependencies.`
 			);

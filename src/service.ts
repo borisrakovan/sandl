@@ -65,7 +65,7 @@ export type ServiceDependencies<T extends ServiceTag<TagId, unknown>> =
  * - No constructor dependencies are needed since they don't have constructors
  *
  * @template T - The tag representing the service (ServiceTag or ValueTag)
- * @param serviceClass - The tag (ServiceTag or ValueTag)
+ * @param tag - The tag (ServiceTag or ValueTag)
  * @param factory - Factory function for service instantiation with container
  * @returns The service layer
  *
@@ -98,14 +98,14 @@ export type ServiceDependencies<T extends ServiceTag<TagId, unknown>> =
  * ```
  */
 export function service<T extends ServiceTag<TagId, unknown>>(
-	serviceClass: T,
+	tag: T,
 	spec: DependencySpec<T, ServiceDependencies<T>>
 ): Layer<ServiceDependencies<T>, T> {
 	return layer<ServiceDependencies<T>, T>(
 		<TContainer extends AnyTag>(
 			container: IContainer<TContainer | ServiceDependencies<T>>
 		) => {
-			return container.register(serviceClass, spec);
+			return container.register(tag, spec);
 		}
 	);
 }

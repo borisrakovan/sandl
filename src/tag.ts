@@ -144,9 +144,9 @@ export type TagType<TTag extends AnyTag> =
  */
 export type AnyTag =
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	| ValueTag<any, any>
+	| ValueTag<TagId, any>
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	| ServiceTag<any, any>;
+	| ServiceTag<TagId, any>;
 
 /**
  * Utility object containing factory functions for creating dependency tags.
@@ -343,9 +343,8 @@ export const Tag = {
 	 *
 	 * @internal - Primarily for internal use in error messages and debugging
 	 */
-	id: (tag: AnyTag): string => {
-		const id = tag[TagIdKey] as TagId;
-		return typeof id === 'symbol' ? id.toString() : String(id);
+	id: (tag: AnyTag): TagId => {
+		return tag[TagIdKey];
 	},
 };
 
