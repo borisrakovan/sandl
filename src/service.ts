@@ -1,12 +1,12 @@
 import { DependencySpec, IContainer } from './container.js';
 import { Layer, layer } from './layer.js';
-import { AnyTag, ClassTag, ExtractInjectTag, TagId } from './tag.js';
+import { AnyTag, ExtractInjectTag, ServiceTag, TagId } from './tag.js';
 
 /**
- * Extracts constructor parameter types from a ClassTag.
+ * Extracts constructor parameter types from a ServiceTag.
  * Only parameters that extend AnyTag are considered as dependencies.
  */
-export type ConstructorParams<T extends ClassTag<string | symbol, unknown>> =
+export type ConstructorParams<T extends ServiceTag<string | symbol, unknown>> =
 	T extends new (...args: infer A) => unknown ? A : never;
 
 /**
@@ -17,14 +17,14 @@ export type InstanceToConstructorType<T> = T extends {
 	readonly [TagId]: infer Id;
 }
 	? Id extends string | symbol
-		? ClassTag<Id, T>
+		? ServiceTag<Id, T>
 		: never
 	: never;
 
 /**
  * Extracts constructor-typed dependencies from constructor parameters.
  * Converts instance types to their corresponding constructor types.
- * Handles both ClassTag dependencies (automatic) and ValueTag dependencies (via Inject helper).
+ * Handles both ServiceTag dependencies (automatic) and ValueTag dependencies (via Inject helper).
  */
 export type FilterTags<T extends readonly unknown[]> = T extends readonly []
 	? never
@@ -39,27 +39,29 @@ export type FilterTags<T extends readonly unknown[]> = T extends readonly []
 		}[number];
 
 /**
- * Extracts only the dependency tags from a constructor's parameters for ClassTag services,
+ * Extracts only the dependency tags from a constructor's parameters for ServiceTag services,
  * or returns never for ValueTag services (which have no constructor dependencies).
  * This is used to determine what dependencies a service requires.
  */
-export type ServiceDependencies<T extends ClassTag<string | symbol, unknown>> =
+export type ServiceDependencies<
+	T extends ServiceTag<string | symbol, unknown>,
+> =
 	FilterTags<ConstructorParams<T>> extends AnyTag
 		? FilterTags<ConstructorParams<T>>
 		: never;
 
 /**
- * Creates a service layer from any tag type (ClassTag or ValueTag) with optional parameters.
+ * Creates a service layer from any tag type (ServiceTag or ValueTag) with optional parameters.
  *
- * For ClassTag services:
+ * For ServiceTag services:
  * - Dependencies are automatically inferred from constructor parameters
  * - The factory function must handle dependency injection by resolving dependencies from the container
  *
  * For ValueTag services:
  * - No constructor dependencies are needed since they don't have constructors
  *
- * @template T - The tag representing the service (ClassTag or ValueTag)
- * @param serviceClass - The tag (ClassTag or ValueTag)
+ * @template T - The tag representing the service (ServiceTag or ValueTag)
+ * @param serviceClass - The tag (ServiceTag or ValueTag)
  * @param factory - Factory function for service instantiation with container
  * @returns The service layer
  *
@@ -91,7 +93,7 @@ export type ServiceDependencies<T extends ClassTag<string | symbol, unknown>> =
  * );
  * ```
  */
-export function service<T extends ClassTag<string | symbol, unknown>>(
+export function service<T extends ServiceTag<string | symbol, unknown>>(
 	serviceClass: T,
 	spec: DependencySpec<T, ServiceDependencies<T>>
 ): Layer<ServiceDependencies<T>, T> {

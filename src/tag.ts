@@ -20,7 +20,7 @@ export const InjectSource = Symbol('InjectSource');
  *
  * class UserService extends Tag.Class('UserService') {
  *   constructor(
- *     private db: DatabaseService,        // ClassTag - works automatically
+ *     private db: DatabaseService,        // ServiceTag - works automatically
  *     private apiKey: Inject<typeof ApiKeyTag>  // ValueTag - type is string, tag preserved
  *   ) {
  *     super();
@@ -47,7 +47,7 @@ export type ExtractInjectTag<T> = T extends {
 
 /**
  * Internal symbol used to identify tagged types within the dependency injection system.
- * This symbol is used as a property key to attach metadata to both value tags and class tags.
+ * This symbol is used as a property key to attach metadata to both value tags and service tags.
  * @internal
  */
 export const TagId = '__tag_id__' as const;
@@ -100,7 +100,7 @@ export interface ValueTag<Id extends string | symbol, T> {
  *
  * @internal - Users should use Tag.Class() instead of working with this type directly
  */
-export interface ClassTag<Id extends string | symbol, T> {
+export interface ServiceTag<Id extends string | symbol, T> {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	new (...args: any[]): T & { readonly [TagId]: Id };
 	readonly [TagId]: Id;
@@ -113,7 +113,7 @@ export interface ClassTag<Id extends string | symbol, T> {
  * the container and layers to automatically determine what type of service
  * a given tag represents without manual type annotations.
  *
- * @template T - Any dependency tag (ValueTag or ClassTag)
+ * @template T - Any dependency tag (ValueTag or ServiceTag)
  * @returns The service type that the tag represents
  *
  * @example With value tags
@@ -125,7 +125,7 @@ export interface ClassTag<Id extends string | symbol, T> {
  * type ConfigService = TagType<typeof ConfigTag>; // { apiKey: string }
  * ```
  *
- * @example With class tags
+ * @example With service tags
  * ```typescript
  * class UserService extends Tag.Class('UserService') {
  *   getUsers() { return []; }
@@ -149,7 +149,7 @@ export type TagType<TTag extends AnyTag> =
 	TTag extends ValueTag<any, infer T>
 		? T
 		: // eslint-disable-next-line @typescript-eslint/no-explicit-any
-			TTag extends ClassTag<any, infer T>
+			TTag extends ServiceTag<any, infer T>
 			? T
 			: never;
 
@@ -176,12 +176,12 @@ export type AnyTag =
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	| ValueTag<any, any>
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	| ClassTag<any, any>;
+	| ServiceTag<any, any>;
 
 /**
  * Utility object containing factory functions for creating dependency tags.
  *
- * The Tag object provides the primary API for creating both value tags and class tags
+ * The Tag object provides the primary API for creating both value tags and service tags
  * used throughout the dependency injection system. It's the main entry point for
  * defining dependencies in a type-safe way.
  */
@@ -347,7 +347,7 @@ export const Tag = {
 			static readonly [TagId]: Id = id;
 			readonly [TagId]: Id = id;
 		}
-		return Tagged as ClassTag<Id, Tagged>;
+		return Tagged as ServiceTag<Id, Tagged>;
 	},
 
 	/**
@@ -357,7 +357,7 @@ export const Tag = {
 	 * whether it's a string-based or symbol-based tag. Primarily used internally
 	 * for error messages and debugging.
 	 *
-	 * @param tag - Any valid dependency tag (value tag or class tag)
+	 * @param tag - Any valid dependency tag (value tag or service tag)
 	 * @returns String representation of the tag's identifier
 	 *
 	 * @example
@@ -374,7 +374,7 @@ export const Tag = {
 	 * @internal - Primarily for internal use in error messages and debugging
 	 */
 	id: (tag: AnyTag): string => {
-		// For class constructors (ClassTag), get the TagId from the static property
+		// For class constructors (ServiceTag), get the TagId from the static property
 		if (typeof tag === 'function') {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
 			const id = (tag as any)[TagId];

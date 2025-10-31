@@ -742,7 +742,7 @@ describe('DependencyContainer', () => {
 			expect(config.apiKey).toBe('secret');
 		});
 
-		it('should mix ClassTag and ValueTag dependencies', async () => {
+		it('should mix ServiceTag and ValueTag dependencies', async () => {
 			class UserService extends Tag.Class('UserService') {
 				constructor(private apiKey: string) {
 					super();

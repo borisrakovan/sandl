@@ -25,7 +25,7 @@ export {
 	InjectSource,
 	Tag,
 	type AnyTag,
-	type ClassTag,
+	type ServiceTag,
 	type Inject,
 	type TagType,
 	type ValueTag,

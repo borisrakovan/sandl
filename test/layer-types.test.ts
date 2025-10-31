@@ -282,7 +282,7 @@ describe('Layer Type Safety', () => {
 			>();
 		});
 
-		it('should mix class tags and value tags', () => {
+		it('should mix service tags and value tags', () => {
 			const ConfigTag = Tag.of('config')<{ apiKey: string }>();
 			class ApiService extends Tag.Class('ApiService') {}
 

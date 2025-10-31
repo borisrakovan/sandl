@@ -180,7 +180,7 @@ describe('DependencyContainer Type Safety', () => {
 	});
 
 	describe('mixed tag types', () => {
-		it('should handle mix of ClassTag and ValueTag', () => {
+		it('should handle mix of ServiceTag and ValueTag', () => {
 			class UserService extends Tag.Class('UserService') {
 				constructor(private apiKey: string) {
 					super();
@@ -219,7 +219,7 @@ describe('DependencyContainer Type Safety', () => {
 				}
 			}
 
-			// Register with base class tag but extended implementation
+			// Register with base service tag but extended implementation
 			const c = Container.empty().register(
 				BaseService,
 				() => new ExtendedService()

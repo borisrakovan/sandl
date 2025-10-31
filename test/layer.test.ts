@@ -612,7 +612,7 @@ describe('Layer', () => {
 			expect(apiKey).toBe('secret-key');
 		});
 
-		it('should mix value tags and class tags', async () => {
+		it('should mix value tags and service tags', async () => {
 			const ApiKeyTag = Tag.of('apiKey')<string>();
 
 			class ApiService extends Tag.Class('ApiService') {

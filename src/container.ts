@@ -218,7 +218,7 @@ export interface IContainer<TReg extends AnyTag = never> {
  *
  * @template TReg - Union type of all registered dependency tags in this container
  *
- * @example Basic usage with class tags
+ * @example Basic usage with service tags
  * ```typescript
  * import { container, Tag } from 'sandly';
  *
