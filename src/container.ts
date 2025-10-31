@@ -165,14 +165,14 @@ export type DependencySpec<T extends AnyTag, TReg extends AnyTag> =
 /**
  * Type representing the context available to factory functions during dependency resolution.
  *
- * This type contains only the `get` method from the container, which is used to retrieve
+ * This type contains only the `resolve` and `resolveAll` methods from the container, which are used to retrieve
  * other dependencies during the creation of a service.
  *
  * @template TReg - Union type of all dependencies available in the container
  */
 export type ResolutionContext<TReg extends AnyTag> = Pick<
 	IContainer<TReg>,
-	'resolve'
+	'resolve' | 'resolveAll'
 >;
 
 export const ContainerTypeId: unique symbol = Symbol.for('sandly/Container');
@@ -197,6 +197,10 @@ export interface IContainer<TReg extends AnyTag = never> {
 	exists(tag: AnyTag): boolean;
 
 	resolve: <T extends TReg>(tag: T) => Promise<TagType<T>>;
+
+	resolveAll: <const T extends readonly TReg[]>(
+		...tags: T
+	) => Promise<{ [K in keyof T]: TagType<T[K]> }>;
 
 	merge<TTarget extends AnyTag>(
 		other: IContainer<TTarget>
@@ -549,6 +553,63 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 
 		this.cache.set(tag, instancePromise);
 		return instancePromise;
+	}
+
+	/**
+	 * Resolves multiple dependencies concurrently using Promise.all.
+	 *
+	 * This method takes a variable number of dependency tags and resolves all of them concurrently,
+	 * returning a tuple with the resolved instances in the same order as the input tags.
+	 * The method maintains all the same guarantees as the individual resolve method:
+	 * singleton behavior, circular dependency detection, and proper error handling.
+	 *
+	 * @template T - The tuple type of dependency tags to resolve
+	 * @param tags - Variable number of dependency tags to resolve
+	 * @returns Promise resolving to a tuple of service instances in the same order
+	 * @throws {ContainerDestroyedError} If the container has been destroyed
+	 * @throws {UnknownDependencyError} If any dependency is not registered
+	 * @throws {CircularDependencyError} If a circular dependency is detected
+	 * @throws {DependencyCreationError} If any factory function throws an error
+	 *
+	 * @example Basic usage
+	 * ```typescript
+	 * const c = Container.empty()
+	 *   .register(DatabaseService, () => new DatabaseService())
+	 *   .register(LoggerService, () => new LoggerService());
+	 *
+	 * const [db, logger] = await c.resolveAll(DatabaseService, LoggerService);
+	 * ```
+	 *
+	 * @example Mixed tag types
+	 * ```typescript
+	 * const ApiKeyTag = Tag.of('apiKey')<string>();
+	 * const c = Container.empty()
+	 *   .register(ApiKeyTag, () => 'secret-key')
+	 *   .register(UserService, () => new UserService());
+	 *
+	 * const [apiKey, userService] = await c.resolveAll(ApiKeyTag, UserService);
+	 * ```
+	 *
+	 * @example Empty array
+	 * ```typescript
+	 * const results = await c.resolveAll(); // Returns empty array
+	 * ```
+	 */
+	async resolveAll<const T extends readonly TReg[]>(
+		...tags: T
+	): Promise<{ [K in keyof T]: TagType<T[K]> }> {
+		if (this.isDestroyed) {
+			throw new ContainerDestroyedError(
+				'Cannot resolve dependencies from a destroyed container'
+			);
+		}
+
+		// Use Promise.all to resolve all dependencies concurrently
+		const promises = tags.map((tag) => this.resolve(tag));
+		const results = await Promise.all(promises);
+
+		// TypeScript knows this is the correct tuple type due to the generic constraint
+		return results as { [K in keyof T]: TagType<T[K]> };
 	}
 
 	/**

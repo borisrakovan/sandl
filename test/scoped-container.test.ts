@@ -185,7 +185,7 @@ describe('ScopedContainer', () => {
 		});
 	});
 
-	describe('get method and dependency resolution', () => {
+	describe('resolve method and dependency resolution', () => {
 		it('should resolve dependency from current scope', async () => {
 			class TestService extends Tag.Service('TestService') {
 				getValue() {
@@ -738,6 +738,132 @@ describe('ScopedContainer', () => {
 
 			expect(childConfig.env).toBe('development');
 			expect(parentConfig.env).toBe('production');
+		});
+	});
+
+	describe('resolveAll method', () => {
+		it('should resolve multiple dependencies from current scope', async () => {
+			class ServiceA extends Tag.Service('ServiceA') {
+				getValue() {
+					return 'A';
+				}
+			}
+			class ServiceB extends Tag.Service('ServiceB') {
+				getValue() {
+					return 'B';
+				}
+			}
+
+			const c = ScopedContainer.empty('test')
+				.register(ServiceA, () => new ServiceA())
+				.register(ServiceB, () => new ServiceB());
+
+			const [serviceA, serviceB] = await c.resolveAll(ServiceA, ServiceB);
+
+			expect(serviceA).toBeInstanceOf(ServiceA);
+			expect(serviceB).toBeInstanceOf(ServiceB);
+			expect(serviceA.getValue()).toBe('A');
+			expect(serviceB.getValue()).toBe('B');
+		});
+
+		it('should resolve dependencies from parent scope', async () => {
+			class ServiceA extends Tag.Service('ServiceA') {
+				getValue() {
+					return 'parent-A';
+				}
+			}
+			class ServiceB extends Tag.Service('ServiceB') {
+				getValue() {
+					return 'parent-B';
+				}
+			}
+
+			const parent = ScopedContainer.empty('parent')
+				.register(ServiceA, () => new ServiceA())
+				.register(ServiceB, () => new ServiceB());
+
+			const child = parent.child('child');
+
+			const [serviceA, serviceB] = await child.resolveAll(
+				ServiceA,
+				ServiceB
+			);
+
+			expect(serviceA.getValue()).toBe('parent-A');
+			expect(serviceB.getValue()).toBe('parent-B');
+		});
+
+		it('should resolve mix of current and parent scope dependencies', async () => {
+			class ParentService extends Tag.Service('ParentService') {
+				getValue() {
+					return 'parent';
+				}
+			}
+			class ChildService extends Tag.Service('ChildService') {
+				getValue() {
+					return 'child';
+				}
+			}
+
+			const parent = ScopedContainer.empty('parent').register(
+				ParentService,
+				() => new ParentService()
+			);
+
+			const child = parent
+				.child('child')
+				.register(ChildService, () => new ChildService());
+
+			const [parentService, childService] = await child.resolveAll(
+				ParentService,
+				ChildService
+			);
+
+			expect(parentService.getValue()).toBe('parent');
+			expect(childService.getValue()).toBe('child');
+		});
+
+		it('should handle empty array', async () => {
+			const c = ScopedContainer.empty('test');
+
+			const results = await c.resolveAll();
+
+			expect(results).toEqual([]);
+		});
+
+		it('should work with ValueTag dependencies across scopes', async () => {
+			const StringTag = Tag.of('string')<string>();
+			const NumberTag = Tag.of('number')<number>();
+
+			const parent = ScopedContainer.empty('parent').register(
+				StringTag,
+				() => 'parent-string'
+			);
+
+			const child = parent.child('child').register(NumberTag, () => 42);
+
+			const [stringValue, numberValue] = await child.resolveAll(
+				StringTag,
+				NumberTag
+			);
+
+			expect(stringValue).toBe('parent-string');
+			expect(numberValue).toBe(42);
+		});
+
+		it('should throw error when resolving from destroyed container', async () => {
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
+
+			const c = ScopedContainer.empty('test')
+				.register(ServiceA, () => new ServiceA())
+				.register(ServiceB, () => new ServiceB());
+
+			await c.destroy();
+
+			await expect(c.resolveAll(ServiceA, ServiceB)).rejects.toThrow(
+				ContainerDestroyedError
+			);
 		});
 	});
 

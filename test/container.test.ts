@@ -181,7 +181,7 @@ describe('DependencyContainer', () => {
 		});
 	});
 
-	describe('get', () => {
+	describe('resolve', () => {
 		it('should create and return instance for sync factory', async () => {
 			class TestService extends Tag.Service('TestService') {
 				getValue() {
@@ -323,6 +323,277 @@ describe('DependencyContainer', () => {
 			await expect(c.resolve(TestService)).rejects.toThrow(
 				ContainerDestroyedError
 			);
+		});
+	});
+
+	describe('resolveAll', () => {
+		it('should resolve multiple dependencies concurrently', async () => {
+			class ServiceA extends Tag.Service('ServiceA') {
+				getValue() {
+					return 'A';
+				}
+			}
+			class ServiceB extends Tag.Service('ServiceB') {
+				getValue() {
+					return 'B';
+				}
+			}
+
+			const c = Container.empty()
+				.register(ServiceA, () => new ServiceA())
+				.register(ServiceB, () => new ServiceB());
+
+			const [serviceA, serviceB] = await c.resolveAll(ServiceA, ServiceB);
+
+			expect(serviceA).toBeInstanceOf(ServiceA);
+			expect(serviceB).toBeInstanceOf(ServiceB);
+			expect(serviceA.getValue()).toBe('A');
+			expect(serviceB.getValue()).toBe('B');
+		});
+
+		it('should resolve empty array', async () => {
+			const c = Container.empty();
+
+			const results = await c.resolveAll();
+
+			expect(results).toEqual([]);
+		});
+
+		it('should resolve single dependency in array', async () => {
+			class TestService extends Tag.Service('TestService') {
+				getValue() {
+					return 'test';
+				}
+			}
+
+			const c = Container.empty().register(
+				TestService,
+				() => new TestService()
+			);
+
+			const [service] = await c.resolveAll(TestService);
+
+			expect(service).toBeInstanceOf(TestService);
+			expect(service.getValue()).toBe('test');
+		});
+
+		it('should return cached instances for multiple calls', async () => {
+			class TestService extends Tag.Service('TestService') {}
+
+			const factory = vi.fn(() => new TestService());
+			const c = Container.empty().register(TestService, factory);
+
+			// First call
+			const [instance1] = await c.resolveAll(TestService);
+			// Second call
+			const [instance2] = await c.resolveAll(TestService);
+			// Call with resolve for comparison
+			const instance3 = await c.resolve(TestService);
+
+			expect(instance1).toBe(instance2);
+			expect(instance1).toBe(instance3);
+			expect(factory).toHaveBeenCalledTimes(1);
+		});
+
+		it('should work with ValueTag dependencies', async () => {
+			const StringTag = Tag.of('string')<string>();
+			const NumberTag = Tag.of('number')<number>();
+			class ServiceA extends Tag.Service('ServiceA') {}
+
+			const c = Container.empty()
+				.register(StringTag, () => 'hello')
+				.register(NumberTag, () => 42)
+				.register(ServiceA, () => new ServiceA());
+
+			const [stringValue, numberValue, serviceA] = await c.resolveAll(
+				StringTag,
+				NumberTag,
+				ServiceA
+			);
+
+			expect(stringValue).toBe('hello');
+			expect(numberValue).toBe(42);
+			expect(serviceA).toBeInstanceOf(ServiceA);
+		});
+
+		it('should maintain order of resolved dependencies', async () => {
+			class ServiceA extends Tag.Service('ServiceA') {
+				getValue() {
+					return 'A';
+				}
+			}
+			class ServiceB extends Tag.Service('ServiceB') {
+				getValue() {
+					return 'B';
+				}
+			}
+			class ServiceC extends Tag.Service('ServiceC') {
+				getValue() {
+					return 'C';
+				}
+			}
+
+			const c = Container.empty()
+				.register(ServiceA, () => new ServiceA())
+				.register(ServiceB, () => new ServiceB())
+				.register(ServiceC, () => new ServiceC());
+
+			// Test different orders
+			const [a1, b1, c1] = await c.resolveAll(
+				ServiceA,
+				ServiceB,
+				ServiceC
+			);
+			expect(a1.getValue()).toBe('A');
+			expect(b1.getValue()).toBe('B');
+			expect(c1.getValue()).toBe('C');
+
+			const [c2, a2, b2] = await c.resolveAll(
+				ServiceC,
+				ServiceA,
+				ServiceB
+			);
+			expect(c2.getValue()).toBe('C');
+			expect(a2.getValue()).toBe('A');
+			expect(b2.getValue()).toBe('B');
+		});
+
+		it('should handle async factories properly', async () => {
+			class ServiceA extends Tag.Service('ServiceA') {
+				constructor(public value: string) {
+					super();
+				}
+			}
+			class ServiceB extends Tag.Service('ServiceB') {
+				constructor(public value: number) {
+					super();
+				}
+			}
+
+			const c = Container.empty()
+				.register(ServiceA, async () => {
+					await Promise.resolve();
+					return new ServiceA('async-A');
+				})
+				.register(ServiceB, async () => {
+					await Promise.resolve();
+					return new ServiceB(123);
+				});
+
+			const [serviceA, serviceB] = await c.resolveAll(ServiceA, ServiceB);
+
+			expect(serviceA.value).toBe('async-A');
+			expect(serviceB.value).toBe(123);
+		});
+
+		it('should throw UnknownDependencyError for unregistered dependency', async () => {
+			class RegisteredService extends Tag.Service('RegisteredService') {}
+			class UnregisteredService extends Tag.Service(
+				'UnregisteredService'
+			) {}
+
+			const c = Container.empty().register(
+				RegisteredService,
+				() => new RegisteredService()
+			);
+
+			await expect(
+				// @ts-expect-error - UnregisteredService is not registered
+				c.resolveAll(RegisteredService, UnregisteredService)
+			).rejects.toThrow(UnknownDependencyError);
+		});
+
+		it('should throw DependencyCreationError if any factory fails', async () => {
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
+
+			const c = Container.empty()
+				.register(ServiceA, () => new ServiceA())
+				.register(ServiceB, () => {
+					throw new Error('Factory B failed');
+				});
+
+			await expect(c.resolveAll(ServiceA, ServiceB)).rejects.toThrow(
+				DependencyCreationError
+			);
+		});
+
+		it('should throw error when resolving from destroyed container', async () => {
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
+
+			const c = Container.empty()
+				.register(ServiceA, () => new ServiceA())
+				.register(ServiceB, () => new ServiceB());
+
+			await c.destroy();
+
+			await expect(c.resolveAll(ServiceA, ServiceB)).rejects.toThrow(
+				ContainerDestroyedError
+			);
+		});
+
+		it('should handle concurrent resolveAll calls properly', async () => {
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
+
+			const factoryA = vi.fn(() => new ServiceA());
+			const factoryB = vi.fn(() => new ServiceB());
+
+			const c = Container.empty()
+				.register(ServiceA, factoryA)
+				.register(ServiceB, factoryB);
+
+			// Make concurrent resolveAll calls
+			const [result1, result2, result3] = await Promise.all([
+				c.resolveAll(ServiceA, ServiceB),
+				c.resolveAll(ServiceA, ServiceB),
+				c.resolveAll(ServiceB, ServiceA),
+			]);
+
+			// All results should have the same instances
+			expect(result1[0]).toBe(result2[0]);
+			expect(result1[1]).toBe(result2[1]);
+			expect(result1[0]).toBe(result3[1]);
+			expect(result1[1]).toBe(result3[0]);
+
+			// Factories should only be called once each
+			expect(factoryA).toHaveBeenCalledTimes(1);
+			expect(factoryB).toHaveBeenCalledTimes(1);
+		});
+
+		it('should handle mix of cached and non-cached dependencies', async () => {
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
+			class ServiceC extends Tag.Service('ServiceC') {}
+
+			const factoryA = vi.fn(() => new ServiceA());
+			const factoryB = vi.fn(() => new ServiceB());
+			const factoryC = vi.fn(() => new ServiceC());
+
+			const c = Container.empty()
+				.register(ServiceA, factoryA)
+				.register(ServiceB, factoryB)
+				.register(ServiceC, factoryC);
+
+			// Resolve ServiceA first to cache it
+			const cachedA = await c.resolve(ServiceA);
+
+			// Now resolve all three - A should be from cache, B and C should be new
+			const [serviceA, serviceB, serviceC] = await c.resolveAll(
+				ServiceA,
+				ServiceB,
+				ServiceC
+			);
+
+			expect(serviceA).toBe(cachedA);
+			expect(serviceB).toBeInstanceOf(ServiceB);
+			expect(serviceC).toBeInstanceOf(ServiceC);
+
+			// ServiceA factory called once (from first resolve), others called once each
+			expect(factoryA).toHaveBeenCalledTimes(1);
+			expect(factoryB).toHaveBeenCalledTimes(1);
+			expect(factoryC).toHaveBeenCalledTimes(1);
 		});
 	});
 

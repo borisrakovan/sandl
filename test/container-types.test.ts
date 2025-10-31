@@ -1,6 +1,7 @@
 import { Container, IContainer, ResolutionContext } from '@/container.js';
+import { UnknownDependencyError } from '@/errors.js';
 import { Tag } from '@/tag.js';
-import { describe, expectTypeOf, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 
 describe('DependencyContainer Type Safety', () => {
 	describe('basic container types', () => {
@@ -35,7 +36,7 @@ describe('DependencyContainer Type Safety', () => {
 		});
 	});
 
-	describe('get method type constraints', () => {
+	describe('resolve method type constraints', () => {
 		it('should only allow getting registered dependencies', () => {
 			class ServiceA extends Tag.Service('ServiceA') {}
 			class ServiceB extends Tag.Service('ServiceB') {}
@@ -69,6 +70,115 @@ describe('DependencyContainer Type Safety', () => {
 			c.resolve(UnregisteredService).catch(() => {
 				// Expected error - UnregisteredService not in container
 			});
+		});
+	});
+
+	describe('resolveAll method type constraints', () => {
+		it('should preserve tuple types for multiple dependencies', async () => {
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
+			const StringTag = Tag.of('string')<string>();
+
+			const c = Container.empty()
+				.register(ServiceA, () => new ServiceA())
+				.register(ServiceB, () => new ServiceB())
+				.register(StringTag, () => 'hello');
+
+			// Test individual types after destructuring
+			const [serviceA, serviceB] = await c.resolveAll(ServiceA, ServiceB);
+			expectTypeOf(serviceA).toEqualTypeOf<ServiceA>();
+			expectTypeOf(serviceB).toEqualTypeOf<ServiceB>();
+
+			const [stringValue, serviceA2] = await c.resolveAll(
+				StringTag,
+				ServiceA
+			);
+			expectTypeOf(stringValue).toEqualTypeOf<string>();
+			expectTypeOf(serviceA2).toEqualTypeOf<ServiceA>();
+
+			// Different order should preserve exact types
+			const [serviceBFirst, stringSecond, serviceAThird] =
+				await c.resolveAll(ServiceB, StringTag, ServiceA);
+			expectTypeOf(serviceBFirst).toEqualTypeOf<ServiceB>();
+			expectTypeOf(stringSecond).toEqualTypeOf<string>();
+			expectTypeOf(serviceAThird).toEqualTypeOf<ServiceA>();
+		});
+
+		it('should handle empty parameter list', async () => {
+			const c = Container.empty();
+
+			const results = await c.resolveAll();
+			expectTypeOf(results).toEqualTypeOf<readonly []>();
+		});
+
+		it('should handle single dependency', async () => {
+			class ServiceA extends Tag.Service('ServiceA') {}
+			const c = Container.empty().register(
+				ServiceA,
+				() => new ServiceA()
+			);
+
+			const [service] = await c.resolveAll(ServiceA);
+			expectTypeOf(service).toEqualTypeOf<ServiceA>();
+		});
+
+		it('should work with value tags', async () => {
+			const StringTag = Tag.of('string')<string>();
+			const NumberTag = Tag.of('number')<number>();
+			const BoolTag = Tag.of('bool')<boolean>();
+
+			const c = Container.empty()
+				.register(StringTag, () => 'hello')
+				.register(NumberTag, () => 42)
+				.register(BoolTag, () => true);
+
+			const [stringValue, numberValue, boolValue] = await c.resolveAll(
+				StringTag,
+				NumberTag,
+				BoolTag
+			);
+			expectTypeOf(stringValue).toEqualTypeOf<string>();
+			expectTypeOf(numberValue).toEqualTypeOf<number>();
+			expectTypeOf(boolValue).toEqualTypeOf<boolean>();
+		});
+
+		it('should prevent resolving unregistered dependencies at compile time', async () => {
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class UnregisteredService extends Tag.Service(
+				'UnregisteredService'
+			) {}
+
+			const c = Container.empty().register(
+				ServiceA,
+				() => new ServiceA()
+			);
+
+			try {
+				// @ts-expect-error - UnregisteredService is not in container type
+				await c.resolveAll(ServiceA, UnregisteredService);
+			} catch (error) {
+				expect(error).toBeInstanceOf(UnknownDependencyError);
+			}
+		});
+
+		it('should work with mixed tag types in correct order', async () => {
+			class UserService extends Tag.Service('UserService') {}
+			const ApiKeyTag = Tag.of('apiKey')<string>();
+			const ConfigTag = Tag.for<{ port: number }>();
+
+			const c = Container.empty()
+				.register(UserService, () => new UserService())
+				.register(ApiKeyTag, () => 'secret')
+				.register(ConfigTag, () => ({ port: 3000 }));
+
+			const [apiKey, userService, config] = await c.resolveAll(
+				ApiKeyTag,
+				UserService,
+				ConfigTag
+			);
+			expectTypeOf(apiKey).toEqualTypeOf<string>();
+			expectTypeOf(userService).toEqualTypeOf<UserService>();
+			expectTypeOf(config).toEqualTypeOf<{ port: number }>();
 		});
 	});
 
