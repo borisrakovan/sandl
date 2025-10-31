@@ -28,8 +28,11 @@ export const InjectSource = Symbol('InjectSource');
  * }
  * ```
  */
-export type Inject<T extends ValueTag<unknown>> =
-	T extends ValueTag<infer V> ? V & { readonly [InjectSource]?: T } : never;
+export type Inject<T extends ValueTag<string | symbol, unknown>> =
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	T extends ValueTag<any, infer V>
+		? V & { readonly [InjectSource]?: T }
+		: never;
 
 /**
  * Helper type to extract the original ValueTag from an Inject<T> type.
@@ -62,13 +65,13 @@ export const TagId = '__tag_id__' as const;
  * @example
  * ```typescript
  * // Creates a value tag for string configuration
- * const ApiKeyTag: ValueTag<string, 'apiKey'> = Tag.of('apiKey')<string>();
+ * const ApiKeyTag: ValueTag<'apiKey', string> = Tag.of('apiKey')<string>();
  *
  * // Register in container
  * container.register(ApiKeyTag, () => 'my-secret-key');
  * ```
  */
-export interface ValueTag<T, Id extends string | symbol = string | symbol> {
+export interface ValueTag<Id extends string | symbol, T> {
 	readonly [TagId]: Id;
 	/** @internal Phantom type to carry T */
 	readonly __type: T;
@@ -97,7 +100,7 @@ export interface ValueTag<T, Id extends string | symbol = string | symbol> {
  *
  * @internal - Users should use Tag.Class() instead of working with this type directly
  */
-export interface ClassTag<T, Id extends string | symbol = string | symbol> {
+export interface ClassTag<Id extends string | symbol, T> {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	new (...args: any[]): T & { readonly [TagId]: Id };
 	readonly [TagId]: Id;
@@ -141,8 +144,14 @@ export interface ClassTag<T, Id extends string | symbol = string | symbol> {
  * const user: UserService = await container.get(UserService); // Automatically typed as UserService
  * ```
  */
-export type TagType<T> =
-	T extends ValueTag<infer V> ? V : T extends ClassTag<infer V> ? V : never;
+export type TagType<TTag extends AnyTag> =
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	TTag extends ValueTag<any, infer T>
+		? T
+		: // eslint-disable-next-line @typescript-eslint/no-explicit-any
+			TTag extends ClassTag<any, infer T>
+			? T
+			: never;
 
 /**
  * Union type representing any valid dependency tag in the system.
@@ -165,9 +174,9 @@ export type TagType<T> =
  */
 export type AnyTag =
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	| ValueTag<any>
+	| ValueTag<any, any>
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	| ClassTag<any>;
+	| ClassTag<any, any>;
 
 /**
  * Utility object containing factory functions for creating dependency tags.
@@ -233,7 +242,7 @@ export const Tag = {
 	 * ```
 	 */
 	of: <Id extends string | symbol>(id: Id) => {
-		return <T>(): ValueTag<T, Id> => ({
+		return <T>(): ValueTag<Id, T> => ({
 			[TagId]: id,
 			__type: undefined as T,
 		});
@@ -272,7 +281,7 @@ export const Tag = {
 	 * console.log(ConfigA === ConfigB); // false
 	 * ```
 	 */
-	for: <T>(): ValueTag<T, symbol> => {
+	for: <T>(): ValueTag<symbol, T> => {
 		return {
 			[TagId]: Symbol(),
 			__type: undefined as T,
@@ -338,7 +347,7 @@ export const Tag = {
 			static readonly [TagId]: Id = id;
 			readonly [TagId]: Id = id;
 		}
-		return Tagged as ClassTag<Tagged, Id>;
+		return Tagged as ClassTag<Id, Tagged>;
 	},
 
 	/**
@@ -373,7 +382,7 @@ export const Tag = {
 		}
 
 		// For value tags, get the TagId directly
-		const id = tag[TagId];
+		const id = tag[TagId] as string | symbol;
 		return typeof id === 'symbol' ? id.toString() : String(id);
 	},
 };
