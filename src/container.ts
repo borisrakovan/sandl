@@ -7,7 +7,7 @@ import {
 	DependencyFinalizationError,
 	UnknownDependencyError,
 } from './errors.js';
-import { AnyTag, Tag, TagType } from './tag.js';
+import { AnyTag, PublicTagType, Tag, TagType } from './tag.js';
 import { Contravariant, PromiseOrValue } from './types.js';
 
 /**
@@ -159,8 +159,8 @@ export type DependencyLifecycle<T, TReg extends AnyTag> = {
  * ```
  */
 export type DependencySpec<T extends AnyTag, TReg extends AnyTag> =
-	| Factory<TagType<T>, TReg>
-	| DependencyLifecycle<TagType<T>, TReg>;
+	| Factory<PublicTagType<T>, TReg>
+	| DependencyLifecycle<PublicTagType<T>, TReg>;
 
 /**
  * Type representing the context available to factory functions during dependency resolution.
