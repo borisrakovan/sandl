@@ -123,7 +123,7 @@ describe('DependencyContainer', () => {
 			);
 
 			// Instantiate the service
-			await c.get(TestService);
+			await c.resolve(TestService);
 
 			// Now try to register again - should throw
 			expect(() =>
@@ -175,7 +175,7 @@ describe('DependencyContainer', () => {
 				() => new TestService()
 			);
 
-			await c.get(TestService);
+			await c.resolve(TestService);
 
 			expect(c.has(TestService)).toBe(true);
 		});
@@ -194,7 +194,7 @@ describe('DependencyContainer', () => {
 				() => new TestService()
 			);
 
-			const instance = await c.get(TestService);
+			const instance = await c.resolve(TestService);
 
 			expect(instance).toBeInstanceOf(TestService);
 			expect(instance.getValue()).toBe('test');
@@ -212,7 +212,7 @@ describe('DependencyContainer', () => {
 				return new TestService('async');
 			});
 
-			const instance = await c.get(TestService);
+			const instance = await c.resolve(TestService);
 
 			expect(instance).toBeInstanceOf(TestService);
 			expect(instance.value).toBe('async');
@@ -224,8 +224,8 @@ describe('DependencyContainer', () => {
 			const factory = vi.fn(() => new TestService());
 			const c = Container.empty().register(TestService, factory);
 
-			const instance1 = await c.get(TestService);
-			const instance2 = await c.get(TestService);
+			const instance1 = await c.resolve(TestService);
+			const instance2 = await c.resolve(TestService);
 
 			expect(instance1).toBe(instance2);
 			expect(factory).toHaveBeenCalledTimes(1);
@@ -237,7 +237,7 @@ describe('DependencyContainer', () => {
 			const c = Container.empty();
 
 			// @ts-expect-error - TestService is not registered
-			await expect(c.get(TestService)).rejects.toThrow(
+			await expect(c.resolve(TestService)).rejects.toThrow(
 				UnknownDependencyError
 			);
 		});
@@ -249,7 +249,7 @@ describe('DependencyContainer', () => {
 				throw new Error('Factory error');
 			});
 
-			await expect(c.get(TestService)).rejects.toThrow(
+			await expect(c.resolve(TestService)).rejects.toThrow(
 				DependencyCreationError
 			);
 		});
@@ -262,7 +262,7 @@ describe('DependencyContainer', () => {
 				throw new Error('Async factory error');
 			});
 
-			await expect(c.get(TestService)).rejects.toThrow(
+			await expect(c.resolve(TestService)).rejects.toThrow(
 				DependencyCreationError
 			);
 		});
@@ -279,7 +279,7 @@ describe('DependencyContainer', () => {
 			});
 
 			// First call should fail
-			await expect(c.get(TestService)).rejects.toThrow(
+			await expect(c.resolve(TestService)).rejects.toThrow(
 				DependencyCreationError
 			);
 
@@ -288,7 +288,7 @@ describe('DependencyContainer', () => {
 
 			// Second call should succeed
 			shouldFail = false;
-			const instance = await c.get(TestService);
+			const instance = await c.resolve(TestService);
 			expect(instance).toBeInstanceOf(TestService);
 		});
 
@@ -300,9 +300,9 @@ describe('DependencyContainer', () => {
 
 			// Make concurrent calls
 			const [instance1, instance2, instance3] = await Promise.all([
-				c.get(TestService),
-				c.get(TestService),
-				c.get(TestService),
+				c.resolve(TestService),
+				c.resolve(TestService),
+				c.resolve(TestService),
 			]);
 
 			expect(instance1).toBe(instance2);
@@ -320,7 +320,7 @@ describe('DependencyContainer', () => {
 
 			await c.destroy();
 
-			await expect(c.get(TestService)).rejects.toThrow(
+			await expect(c.resolve(TestService)).rejects.toThrow(
 				ContainerDestroyedError
 			);
 		});
@@ -349,10 +349,10 @@ describe('DependencyContainer', () => {
 				.register(
 					UserService,
 					async (ctx) =>
-						new UserService(await ctx.get(DatabaseService))
+						new UserService(await ctx.resolve(DatabaseService))
 				);
 
-			const userService = await c.get(UserService);
+			const userService = await c.resolve(UserService);
 
 			expect(userService.getUser()).toBe('db-result');
 		});
@@ -394,19 +394,19 @@ describe('DependencyContainer', () => {
 				.register(
 					DatabaseService,
 					async (ctx) =>
-						new DatabaseService(await ctx.get(ConfigService))
+						new DatabaseService(await ctx.resolve(ConfigService))
 				)
 				.register(CacheService, () => new CacheService())
 				.register(
 					UserService,
 					async (ctx) =>
 						new UserService(
-							await ctx.get(DatabaseService),
-							await ctx.get(CacheService)
+							await ctx.resolve(DatabaseService),
+							await ctx.resolve(CacheService)
 						)
 				);
 
-			const userService = await c.get(UserService);
+			const userService = await c.resolve(UserService);
 
 			expect(userService.getUser()).toBe(
 				'Connected to db://localhost with cache'
@@ -431,16 +431,16 @@ describe('DependencyContainer', () => {
 					ServiceA,
 					async (ctx) =>
 						// @ts-expect-error - ServiceB is not registered
-						new ServiceA(await ctx.get(ServiceB))
+						new ServiceA(await ctx.resolve(ServiceB))
 				)
 				.register(
 					ServiceB,
-					async (ctx) => new ServiceB(await ctx.get(ServiceA))
+					async (ctx) => new ServiceB(await ctx.resolve(ServiceA))
 				);
 
 			// Should throw DependencyCreationError with nested error chain leading to CircularDependencyError
 			try {
-				await c.get(ServiceA);
+				await c.resolve(ServiceA);
 				expect.fail('Should have thrown');
 			} catch (error) {
 				expect(error).toBeInstanceOf(DependencyCreationError);
@@ -457,7 +457,7 @@ describe('DependencyContainer', () => {
 			}
 
 			try {
-				await c.get(ServiceB);
+				await c.resolve(ServiceB);
 				expect.fail('Should have thrown');
 			} catch (error) {
 				expect(error).toBeInstanceOf(DependencyCreationError);
@@ -491,7 +491,7 @@ describe('DependencyContainer', () => {
 			});
 
 			// Instantiate the service
-			const instance = await c.get(TestService);
+			const instance = await c.resolve(TestService);
 
 			await c.destroy();
 
@@ -543,9 +543,9 @@ describe('DependencyContainer', () => {
 				});
 
 			// Instantiate all services
-			await c.get(ServiceA);
-			await c.get(ServiceB);
-			await c.get(ServiceC);
+			await c.resolve(ServiceA);
+			await c.resolve(ServiceB);
+			await c.resolve(ServiceC);
 
 			await c.destroy();
 
@@ -574,7 +574,7 @@ describe('DependencyContainer', () => {
 				finalizer,
 			});
 
-			const instance = await c.get(TestService);
+			const instance = await c.resolve(TestService);
 
 			await c.destroy();
 
@@ -600,8 +600,8 @@ describe('DependencyContainer', () => {
 				});
 
 			// Instantiate services
-			await c.get(ServiceA);
-			await c.get(ServiceB);
+			await c.resolve(ServiceA);
+			await c.resolve(ServiceB);
 
 			await expect(c.destroy()).rejects.toThrow(
 				DependencyFinalizationError
@@ -618,7 +618,7 @@ describe('DependencyContainer', () => {
 				},
 			});
 
-			await c.get(TestService);
+			await c.resolve(TestService);
 
 			// Should throw due to finalizer error
 			await expect(c.destroy()).rejects.toThrow();
@@ -635,8 +635,8 @@ describe('DependencyContainer', () => {
 				.register(ServiceA, () => new ServiceA())
 				.register(ServiceB, () => new ServiceB());
 
-			await c.get(ServiceA);
-			await c.get(ServiceB);
+			await c.resolve(ServiceA);
+			await c.resolve(ServiceB);
 
 			expect(c.has(ServiceA)).toBe(true);
 			expect(c.has(ServiceB)).toBe(true);
@@ -648,7 +648,7 @@ describe('DependencyContainer', () => {
 			expect(c.has(ServiceB)).toBe(true);
 
 			// Container should now be unusable
-			await expect(c.get(ServiceA)).rejects.toThrow(
+			await expect(c.resolve(ServiceA)).rejects.toThrow(
 				'Cannot resolve dependencies from a destroyed container'
 			);
 
@@ -673,12 +673,12 @@ describe('DependencyContainer', () => {
 			});
 
 			// First cycle
-			const instance1 = await c.get(TestService);
+			const instance1 = await c.resolve(TestService);
 			expect(instance1.id).toBe(1);
 			await c.destroy();
 
 			// Container should now be unusable
-			await expect(c.get(TestService)).rejects.toThrow(
+			await expect(c.resolve(TestService)).rejects.toThrow(
 				'Cannot resolve dependencies from a destroyed container'
 			);
 
@@ -702,13 +702,13 @@ describe('DependencyContainer', () => {
 			});
 
 			// First cycle
-			const instance1 = await c.get(TestService);
+			const instance1 = await c.resolve(TestService);
 			await c.destroy();
 			expect(finalizer).toHaveBeenCalledTimes(1);
 			expect(instance1.cleanup).toHaveBeenCalledTimes(1);
 
 			// Container should now be unusable
-			await expect(c.get(TestService)).rejects.toThrow(
+			await expect(c.resolve(TestService)).rejects.toThrow(
 				'Cannot resolve dependencies from a destroyed container'
 			);
 		});
@@ -723,8 +723,8 @@ describe('DependencyContainer', () => {
 				.register(StringTag, () => 'hello')
 				.register(NumberTag, () => 42);
 
-			const stringValue = await c.get(StringTag);
-			const numberValue = await c.get(NumberTag);
+			const stringValue = await c.resolve(StringTag);
+			const numberValue = await c.resolve(NumberTag);
 
 			expect(stringValue).toBe('hello');
 			expect(numberValue).toBe(42);
@@ -737,7 +737,7 @@ describe('DependencyContainer', () => {
 				apiKey: 'secret',
 			}));
 
-			const config = await c.get(ConfigTag);
+			const config = await c.resolve(ConfigTag);
 
 			expect(config.apiKey).toBe('secret');
 		});
@@ -759,10 +759,10 @@ describe('DependencyContainer', () => {
 				.register(ApiKeyTag, () => 'secret-key')
 				.register(
 					UserService,
-					async (ctx) => new UserService(await ctx.get(ApiKeyTag))
+					async (ctx) => new UserService(await ctx.resolve(ApiKeyTag))
 				);
 
-			const userService = await c.get(UserService);
+			const userService = await c.resolve(UserService);
 
 			expect(userService.getApiKey()).toBe('secret-key');
 		});
@@ -778,7 +778,7 @@ describe('DependencyContainer', () => {
 			});
 
 			try {
-				await c.get(TestService);
+				await c.resolve(TestService);
 				expect.fail('Should have thrown');
 			} catch (error) {
 				expect(error).toBeInstanceOf(DependencyCreationError);
@@ -799,11 +799,11 @@ describe('DependencyContainer', () => {
 				.register(
 					UserService,
 					async (ctx) =>
-						new UserService(await ctx.get(DatabaseService))
+						new UserService(await ctx.resolve(DatabaseService))
 				);
 
 			try {
-				await c.get(UserService);
+				await c.resolve(UserService);
 				expect.fail('Should have thrown');
 			} catch (error) {
 				expect(error).toBeInstanceOf(DependencyCreationError);
@@ -831,7 +831,7 @@ describe('DependencyContainer', () => {
 				() => new ExtendedService()
 			);
 
-			const instance = await c.get(BaseService);
+			const instance = await c.resolve(BaseService);
 
 			// Should be able to call base method
 			expect(instance.baseMethod()).toBe('base');
@@ -863,8 +863,8 @@ describe('DependencyContainer', () => {
 			const result = source.merge(target);
 
 			// Should be able to get services from merged container
-			const serviceA = await result.get(ServiceA);
-			const serviceB = await result.get(ServiceB);
+			const serviceA = await result.resolve(ServiceA);
+			const serviceB = await result.resolve(ServiceB);
 
 			expect(serviceA.getValue()).toBe('A');
 			expect(serviceB.getValue()).toBe('B');
@@ -887,7 +887,7 @@ describe('DependencyContainer', () => {
 			const target = Container.empty();
 			const result = source.merge(target);
 
-			const instance = await result.get(TestService);
+			const instance = await result.resolve(TestService);
 			await result.destroy();
 
 			expect(finalizer).toHaveBeenCalledWith(instance);
@@ -907,9 +907,9 @@ describe('DependencyContainer', () => {
 			const target = Container.empty();
 			const result = source.merge(target);
 
-			const stringValue = await result.get(StringTag);
-			const numberValue = await result.get(NumberTag);
-			const configValue = await result.get(ConfigTag);
+			const stringValue = await result.resolve(StringTag);
+			const numberValue = await result.resolve(NumberTag);
+			const configValue = await result.resolve(ConfigTag);
 
 			expect(stringValue).toBe('hello');
 			expect(numberValue).toBe(42);
@@ -933,9 +933,9 @@ describe('DependencyContainer', () => {
 			const result = source.merge(target);
 
 			// Should have all three services
-			const serviceA = await result.get(ServiceA);
-			const serviceB = await result.get(ServiceB);
-			const serviceC = await result.get(ServiceC);
+			const serviceA = await result.resolve(ServiceA);
+			const serviceB = await result.resolve(ServiceB);
+			const serviceC = await result.resolve(ServiceC);
 
 			expect(serviceA).toBeInstanceOf(ServiceA);
 			expect(serviceB).toBeInstanceOf(ServiceB);
@@ -961,7 +961,7 @@ describe('DependencyContainer', () => {
 
 			const result = source.merge(target);
 
-			const instance = await result.get(TestService);
+			const instance = await result.resolve(TestService);
 			expect(instance.value).toBe('from-source');
 		});
 
@@ -978,13 +978,13 @@ describe('DependencyContainer', () => {
 			);
 
 			// Get instance from source first
-			const sourceInstance = await source.get(TestService);
+			const sourceInstance = await source.resolve(TestService);
 
 			const target = Container.empty();
 			const result = source.merge(target);
 
 			// Get instance from merged container
-			const resultInstance = await result.get(TestService);
+			const resultInstance = await result.resolve(TestService);
 
 			// Should be different instances (different caches)
 			expect(sourceInstance).not.toBe(resultInstance);
@@ -1053,13 +1053,13 @@ describe('DependencyContainer', () => {
 				.register(
 					DatabaseService,
 					async (ctx) =>
-						new DatabaseService(await ctx.get(ConfigService))
+						new DatabaseService(await ctx.resolve(ConfigService))
 				);
 
 			const target = Container.empty();
 			const result = source.merge(target);
 
-			const dbService = await result.get(DatabaseService);
+			const dbService = await result.resolve(DatabaseService);
 			expect(dbService.connect()).toBe('Connected to db://localhost');
 		});
 	});

@@ -41,8 +41,8 @@ const resolutionChain = new AsyncLocalStorage<AnyTag[]>();
  * ```typescript
  * const factory: Factory<UserService, typeof ConfigTag | typeof DatabaseService> = async (ctx) => {
  *   const [config, db] = await Promise.all([
- *     ctx.get(ConfigTag),
- *     ctx.get(DatabaseService)
+ *     ctx.resolve(ConfigTag),
+ *     ctx.resolve(DatabaseService)
  *   ]);
  *   return new UserService(config, db);
  * };
@@ -172,7 +172,7 @@ export type DependencySpec<T extends AnyTag, TReg extends AnyTag> =
  */
 export type ResolutionContext<TReg extends AnyTag> = Pick<
 	IContainer<TReg>,
-	'get'
+	'resolve'
 >;
 
 export const ContainerTypeId: unique symbol = Symbol.for('sandly/Container');
@@ -196,7 +196,7 @@ export interface IContainer<TReg extends AnyTag = never> {
 
 	exists(tag: AnyTag): boolean;
 
-	get: <T extends TReg>(tag: T) => Promise<TagType<T>>;
+	resolve: <T extends TReg>(tag: T) => Promise<TagType<T>>;
 
 	merge<TTarget extends AnyTag>(
 		other: IContainer<TTarget>
@@ -234,10 +234,10 @@ export interface IContainer<TReg extends AnyTag = never> {
  * const c = Container.empty()
  *   .register(DatabaseService, () => new DatabaseService())
  *   .register(UserService, async (ctx) =>
- *     new UserService(await ctx.get(DatabaseService))
+ *     new UserService(await ctx.resolve(DatabaseService))
  *   );
  *
- * const userService = await c.get(UserService);
+ * const userService = await c.resolve(UserService);
  * ```
  *
  * @example Usage with value tags
@@ -249,8 +249,8 @@ export interface IContainer<TReg extends AnyTag = never> {
  *   .register(ApiKeyTag, () => process.env.API_KEY!)
  *   .register(ConfigTag, () => ({ dbUrl: 'postgresql://localhost:5432' }));
  *
- * const apiKey = await c.get(ApiKeyTag);
- * const config = await c.get(ConfigTag);
+ * const apiKey = await c.resolve(ApiKeyTag);
+ * const config = await c.resolve(ConfigTag);
  * ```
  *
  * @example With finalizers for cleanup
@@ -314,7 +314,7 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 *
 	 * The factory function receives the current container instance and must return the
 	 * service instance (or a Promise of it). The container tracks the registration at
-	 * the type level, ensuring type safety for subsequent `.get()` calls.
+	 * the type level, ensuring type safety for subsequent `.resolve()` calls.
 	 *
 	 * If a dependency is already registered, this method will override it unless the
 	 * dependency has already been instantiated, in which case it will throw an error.
@@ -350,8 +350,8 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 *   .register(LoggerService, () => new LoggerService())
 	 *   .register(UserService, async (ctx) =>
 	 *     new UserService(
-	 *       await ctx.get(DatabaseService),
-	 *       await ctx.get(LoggerService)
+	 *       await ctx.resolve(DatabaseService),
+	 *       await ctx.resolve(LoggerService)
 	 *     )
 	 *   );
 	 * ```
@@ -474,7 +474,7 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 * const c = Container.empty()
 	 *   .register(DatabaseService, () => new DatabaseService());
 	 *
-	 * const db = await c.get(DatabaseService);
+	 * const db = await c.resolve(DatabaseService);
 	 * db.query('SELECT * FROM users');
 	 * ```
 	 *
@@ -482,9 +482,9 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 * ```typescript
 	 * // All three calls will receive the same instance
 	 * const [db1, db2, db3] = await Promise.all([
-	 *   c.get(DatabaseService),
-	 *   c.get(DatabaseService),
-	 *   c.get(DatabaseService)
+	 *   c.resolve(DatabaseService),
+	 *   c.resolve(DatabaseService),
+	 *   c.resolve(DatabaseService)
 	 * ]);
 	 *
 	 * console.log(db1 === db2 === db3); // true
@@ -495,14 +495,14 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 * const c = Container.empty()
 	 *   .register(DatabaseService, () => new DatabaseService())
 	 *   .register(UserService, async (ctx) => {
-	 *     const db = await ctx.get(DatabaseService);
+	 *     const db = await ctx.resolve(DatabaseService);
 	 *     return new UserService(db);
 	 *   });
 	 *
-	 * const userService = await c.get(UserService);
+	 * const userService = await c.resolve(UserService);
 	 * ```
 	 */
-	async get<T extends TReg>(tag: T): Promise<TagType<T>> {
+	async resolve<T extends TReg>(tag: T): Promise<TagType<T>> {
 		if (this.isDestroyed) {
 			throw new ContainerDestroyedError(
 				'Cannot resolve dependencies from a destroyed container'
@@ -653,12 +653,12 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 *     (conn) => conn.disconnect() // Finalizer
 	 *   );
 	 *
-	 * const db = await c.get(DatabaseConnection);
+	 * const db = await c.resolve(DatabaseConnection);
 	 * await c.destroy(); // Calls conn.disconnect(), container becomes unusable
 	 *
 	 * // This will throw an error
 	 * try {
-	 *   await c.get(DatabaseConnection);
+	 *   await c.resolve(DatabaseConnection);
 	 * } catch (error) {
 	 *   console.log(error.message); // "Cannot resolve dependencies from a destroyed container"
 	 * }
@@ -668,7 +668,7 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 * ```typescript
 	 * const appContainer Container.empty
 	 *   .register(DatabaseService, () => new DatabaseService())
-	 *   .register(HTTPServer, async (ctx) => new HTTPServer(await ctx.get(DatabaseService)));
+	 *   .register(HTTPServer, async (ctx) => new HTTPServer(await ctx.resolve(DatabaseService)));
 	 *
 	 * // During application shutdown
 	 * process.on('SIGTERM', async () => {

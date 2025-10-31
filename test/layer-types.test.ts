@@ -13,7 +13,7 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceB,
-						async (ctx) => new ServiceB(await ctx.get(ServiceA))
+						async (ctx) => new ServiceB(await ctx.resolve(ServiceA))
 					)
 			);
 
@@ -63,11 +63,11 @@ describe('Layer Type Safety', () => {
 				container
 					.register(
 						ServiceC,
-						async (ctx) => new ServiceC(await ctx.get(ServiceA))
+						async (ctx) => new ServiceC(await ctx.resolve(ServiceA))
 					)
 					.register(
 						ServiceD,
-						async (ctx) => new ServiceD(await ctx.get(ServiceB))
+						async (ctx) => new ServiceD(await ctx.resolve(ServiceB))
 					)
 			);
 
@@ -93,7 +93,7 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceB,
-						async (ctx) => new ServiceB(await ctx.get(ServiceA))
+						async (ctx) => new ServiceB(await ctx.resolve(ServiceA))
 					)
 			);
 
@@ -116,7 +116,7 @@ describe('Layer Type Safety', () => {
 					container.register(
 						ServiceA,
 						async (ctx) =>
-							new ServiceA(await ctx.get(ExternalService))
+							new ServiceA(await ctx.resolve(ExternalService))
 					)
 			);
 
@@ -124,7 +124,7 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceB,
-						async (ctx) => new ServiceB(await ctx.get(ServiceA))
+						async (ctx) => new ServiceB(await ctx.resolve(ServiceA))
 					)
 			);
 
@@ -162,9 +162,9 @@ describe('Layer Type Safety', () => {
 					ServiceD,
 					async (ctx) =>
 						new ServiceD(
-							await ctx.get(ServiceA),
-							await ctx.get(ServiceB),
-							await ctx.get(ServiceC)
+							await ctx.resolve(ServiceA),
+							await ctx.resolve(ServiceB),
+							await ctx.resolve(ServiceC)
 						)
 				)
 			);
@@ -209,7 +209,8 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceA,
-						async (ctx) => new ServiceA(await ctx.get(ExternalA))
+						async (ctx) =>
+							new ServiceA(await ctx.resolve(ExternalA))
 					)
 			);
 
@@ -217,7 +218,8 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceB,
-						async (ctx) => new ServiceB(await ctx.get(ExternalB))
+						async (ctx) =>
+							new ServiceB(await ctx.resolve(ExternalB))
 					)
 			);
 
@@ -241,7 +243,7 @@ describe('Layer Type Safety', () => {
 					container.register(
 						ServiceA,
 						async (ctx) =>
-							new ServiceA(await ctx.get(SharedExternal))
+							new ServiceA(await ctx.resolve(SharedExternal))
 					)
 			);
 
@@ -250,7 +252,7 @@ describe('Layer Type Safety', () => {
 					container.register(
 						ServiceB,
 						async (ctx) =>
-							new ServiceB(await ctx.get(SharedExternal))
+							new ServiceB(await ctx.resolve(SharedExternal))
 					)
 			);
 
@@ -294,7 +296,8 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ApiService,
-						async (ctx) => new ApiService(await ctx.get(ConfigTag))
+						async (ctx) =>
+							new ApiService(await ctx.resolve(ConfigTag))
 					)
 			);
 
@@ -323,7 +326,8 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceA,
-						async (ctx) => new ServiceA(await ctx.get(ExternalA))
+						async (ctx) =>
+							new ServiceA(await ctx.resolve(ExternalA))
 					)
 			);
 
@@ -331,7 +335,8 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceB,
-						async (ctx) => new ServiceB(await ctx.get(ExternalB))
+						async (ctx) =>
+							new ServiceB(await ctx.resolve(ExternalB))
 					)
 			);
 
@@ -356,7 +361,8 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceA,
-						async (ctx) => new ServiceA(await ctx.get(ExternalA))
+						async (ctx) =>
+							new ServiceA(await ctx.resolve(ExternalA))
 					)
 			);
 
@@ -368,7 +374,8 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceC,
-						async (ctx) => new ServiceC(await ctx.get(ExternalC))
+						async (ctx) =>
+							new ServiceC(await ctx.resolve(ExternalC))
 					)
 			);
 
@@ -394,11 +401,13 @@ describe('Layer Type Safety', () => {
 			>((container) =>
 				container.register(ProvidedService, async (ctx) => {
 					// Container should have ExternalService available
-					expectTypeOf(ctx.get(ExternalService)).toEqualTypeOf<
+					expectTypeOf(ctx.resolve(ExternalService)).toEqualTypeOf<
 						Promise<ExternalService>
 					>();
 
-					return new ProvidedService(await ctx.get(ExternalService));
+					return new ProvidedService(
+						await ctx.resolve(ExternalService)
+					);
 				})
 			);
 
@@ -409,7 +418,7 @@ describe('Layer Type Safety', () => {
 			);
 			const finalContainer = testLayer.register(baseContainer);
 
-			expectTypeOf(finalContainer.get(ProvidedService)).toEqualTypeOf<
+			expectTypeOf(finalContainer.resolve(ProvidedService)).toEqualTypeOf<
 				Promise<ProvidedService>
 			>();
 		});
@@ -430,7 +439,7 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceB,
-						async (ctx) => new ServiceB(await ctx.get(ServiceA))
+						async (ctx) => new ServiceB(await ctx.resolve(ServiceA))
 					)
 			);
 
@@ -438,7 +447,7 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceC,
-						async (ctx) => new ServiceC(await ctx.get(ServiceB))
+						async (ctx) => new ServiceC(await ctx.resolve(ServiceB))
 					)
 			);
 
@@ -446,7 +455,7 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceD,
-						async (ctx) => new ServiceD(await ctx.get(ServiceC))
+						async (ctx) => new ServiceD(await ctx.resolve(ServiceC))
 					)
 			);
 
@@ -475,7 +484,8 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceA,
-						async (ctx) => new ServiceA(await ctx.get(BaseService))
+						async (ctx) =>
+							new ServiceA(await ctx.resolve(BaseService))
 					)
 			);
 
@@ -483,7 +493,8 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceB,
-						async (ctx) => new ServiceB(await ctx.get(BaseService))
+						async (ctx) =>
+							new ServiceB(await ctx.resolve(BaseService))
 					)
 			);
 
@@ -499,9 +510,9 @@ describe('Layer Type Safety', () => {
 					CompositeService,
 					async (ctx) =>
 						new CompositeService(
-							await ctx.get(ServiceA),
-							await ctx.get(ServiceB),
-							await ctx.get(ServiceC)
+							await ctx.resolve(ServiceA),
+							await ctx.resolve(ServiceB),
+							await ctx.resolve(ServiceC)
 						)
 				)
 			);
@@ -532,7 +543,7 @@ describe('Layer Type Safety', () => {
 					container.register(
 						UnrelatedService,
 						async (ctx) =>
-							new UnrelatedService(await ctx.get(ServiceB))
+							new UnrelatedService(await ctx.resolve(ServiceB))
 					)
 			);
 
@@ -560,7 +571,7 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceB,
-						async (ctx) => new ServiceB(await ctx.get(ServiceA))
+						async (ctx) => new ServiceB(await ctx.resolve(ServiceA))
 					)
 			);
 
@@ -583,7 +594,7 @@ describe('Layer Type Safety', () => {
 					container.register(
 						ServiceA,
 						async (ctx) =>
-							new ServiceA(await ctx.get(ExternalService))
+							new ServiceA(await ctx.resolve(ExternalService))
 					)
 			);
 
@@ -591,7 +602,7 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceB,
-						async (ctx) => new ServiceB(await ctx.get(ServiceA))
+						async (ctx) => new ServiceB(await ctx.resolve(ServiceA))
 					)
 			);
 
@@ -629,9 +640,9 @@ describe('Layer Type Safety', () => {
 					ServiceD,
 					async (ctx) =>
 						new ServiceD(
-							await ctx.get(ServiceA),
-							await ctx.get(ServiceB),
-							await ctx.get(ServiceC)
+							await ctx.resolve(ServiceA),
+							await ctx.resolve(ServiceB),
+							await ctx.resolve(ServiceC)
 						)
 				)
 			);
@@ -664,7 +675,7 @@ describe('Layer Type Safety', () => {
 				container.register(
 					DatabaseService,
 					async (ctx) =>
-						new DatabaseService(await ctx.get(ConfigService))
+						new DatabaseService(await ctx.resolve(ConfigService))
 				)
 			);
 
@@ -693,7 +704,8 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ApiService,
-						async (ctx) => new ApiService(await ctx.get(ConfigTag))
+						async (ctx) =>
+							new ApiService(await ctx.resolve(ConfigTag))
 					)
 			);
 
@@ -718,7 +730,7 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceB,
-						async (ctx) => new ServiceB(await ctx.get(ServiceA))
+						async (ctx) => new ServiceB(await ctx.resolve(ServiceA))
 					)
 			);
 
@@ -726,7 +738,7 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceC,
-						async (ctx) => new ServiceC(await ctx.get(ServiceB))
+						async (ctx) => new ServiceC(await ctx.resolve(ServiceB))
 					)
 			);
 
@@ -734,7 +746,7 @@ describe('Layer Type Safety', () => {
 				(container) =>
 					container.register(
 						ServiceD,
-						async (ctx) => new ServiceD(await ctx.get(ServiceC))
+						async (ctx) => new ServiceD(await ctx.resolve(ServiceC))
 					)
 			);
 
@@ -771,7 +783,7 @@ describe('Layer Type Safety', () => {
 				container.register(
 					DatabaseService,
 					async (ctx) =>
-						new DatabaseService(await ctx.get(ConfigService))
+						new DatabaseService(await ctx.resolve(ConfigService))
 				)
 			);
 
@@ -780,7 +792,7 @@ describe('Layer Type Safety', () => {
 					container.register(
 						UserService,
 						async (ctx) =>
-							new UserService(await ctx.get(DatabaseService))
+							new UserService(await ctx.resolve(DatabaseService))
 					)
 			);
 
@@ -809,7 +821,7 @@ describe('Layer Type Safety', () => {
 				container
 					.register(
 						ServiceB,
-						async (ctx) => new ServiceB(await ctx.get(ServiceA))
+						async (ctx) => new ServiceB(await ctx.resolve(ServiceA))
 					)
 					.register(ServiceC, () => new ServiceC())
 			);

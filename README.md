@@ -4,7 +4,7 @@
 
 A dependency injection framework for TypeScript that emphasizes complete type safety, modular architecture, and scope management.
 
-*Sandly* stands for **Services & Layers** - reflecting the framework's core concepts of organizing code into composable service layers.
+_Sandly_ stands for **Services & Layers** - reflecting the framework's core concepts of organizing code into composable service layers.
 
 ## Key Features
 
@@ -26,10 +26,10 @@ class DatabaseService extends Tag.Service('DatabaseService') {
 const c = container().register(DatabaseService, () => new DatabaseService());
 
 // ✅ TypeScript knows DatabaseService is available
-const db = await c.get(DatabaseService);
+const db = await c.resolve(DatabaseService);
 
 // ❌ Compile error - UserService not registered
-const user = await c.get(UserService); // Type error
+const user = await c.resolve(UserService); // Type error
 ```
 
 ### Modular Architecture with Layers
@@ -47,7 +47,7 @@ const userServiceLayer = layer<typeof DatabaseService, typeof UserService>(
 	(container) =>
 		container.register(
 			UserService,
-			async (c) => new UserService(await c.get(DatabaseService))
+			async (c) => new UserService(await c.resolve(DatabaseService))
 		)
 );
 
@@ -73,11 +73,11 @@ export const handler = async (event, context) => {
 	// Create request scope for this invocation
 	const requestContainer = runtime.child('request').register(
 		UserService,
-		async (c) => new UserService(await c.get(DatabaseService)) // Uses runtime DB
+		async (c) => new UserService(await c.resolve(DatabaseService)) // Uses runtime DB
 	);
 
 	try {
-		const userService = await requestContainer.get(UserService);
+		const userService = await requestContainer.resolve(UserService);
 		return await userService.handleRequest(event);
 	} finally {
 		await requestContainer.destroy(); // Cleanup request scope
@@ -113,10 +113,10 @@ const app = container()
 	.register(EmailService, () => new EmailService())
 	.register(
 		UserService,
-		async (c) => new UserService(await c.get(EmailService))
+		async (c) => new UserService(await c.resolve(EmailService))
 	);
 
-const userService = await app.get(UserService);
+const userService = await app.resolve(UserService);
 ```
 
 ### Service Pattern with Auto-Composition
@@ -127,7 +127,7 @@ import { service, Layer } from 'sandly';
 const emailService = service(EmailService, () => new EmailService());
 const userService = service(
 	UserService,
-	async (container) => new UserService(await container.get(EmailService))
+	async (container) => new UserService(await container.resolve(EmailService))
 );
 
 // Automatic dependency resolution
@@ -155,7 +155,10 @@ const app = container()
 	.register(
 		DatabaseService,
 		async (c) =>
-			new DatabaseService(await c.get(ConfigTag), await c.get(ApiKeyTag))
+			new DatabaseService(
+				await c.resolve(ConfigTag),
+				await c.resolve(ApiKeyTag)
+			)
 	);
 ```
 
@@ -180,8 +183,8 @@ const userServiceLayer = layer<
 		UserService,
 		async (c) =>
 			new UserService(
-				await c.get(DatabaseService),
-				await c.get(CacheService)
+				await c.resolve(DatabaseService),
+				await c.resolve(CacheService)
 			)
 	)
 );

@@ -89,7 +89,7 @@ export type ServiceDependencies<
  * }
  *
  * const userService = service(UserService, async (ctx) =>
- *   new UserService(await ctx.get(DatabaseService))
+ *   new UserService(await ctx.resolve(DatabaseService))
  * );
  * ```
  */

@@ -37,7 +37,7 @@ describe('Layer', () => {
 			const c = Container.empty();
 			const updatedContainer = testLayer.register(c);
 
-			const instance = await updatedContainer.get(TestService);
+			const instance = await updatedContainer.resolve(TestService);
 			expect(instance).toBeInstanceOf(TestService);
 			expect(instance.getValue()).toBe('test');
 		});
@@ -74,7 +74,7 @@ describe('Layer', () => {
 					container.register(
 						UserService,
 						async (ctx) =>
-							new UserService(await ctx.get(DatabaseService))
+							new UserService(await ctx.resolve(DatabaseService))
 					)
 			);
 
@@ -83,7 +83,7 @@ describe('Layer', () => {
 			const c = Container.empty();
 			const finalContainer = composedLayer.register(c);
 
-			const userService = await finalContainer.get(UserService);
+			const userService = await finalContainer.resolve(UserService);
 			expect(userService.getUser()).toBe('db-result');
 		});
 
@@ -126,7 +126,7 @@ describe('Layer', () => {
 				container.register(
 					DatabaseService,
 					async (ctx) =>
-						new DatabaseService(await ctx.get(ConfigService))
+						new DatabaseService(await ctx.resolve(ConfigService))
 				)
 			);
 
@@ -135,7 +135,7 @@ describe('Layer', () => {
 					container.register(
 						UserService,
 						async (ctx) =>
-							new UserService(await ctx.get(DatabaseService))
+							new UserService(await ctx.resolve(DatabaseService))
 					)
 			);
 
@@ -146,7 +146,7 @@ describe('Layer', () => {
 			const c = Container.empty();
 			const finalContainer = finalLayer.register(c);
 
-			const userService = await finalContainer.get(UserService);
+			const userService = await finalContainer.resolve(UserService);
 			expect(userService.getUser()).toBe('Connected to db://localhost');
 		});
 
@@ -184,8 +184,8 @@ describe('Layer', () => {
 					UserService,
 					async (ctx) =>
 						new UserService(
-							await ctx.get(ApiKeyTag),
-							await ctx.get(DatabaseService)
+							await ctx.resolve(ApiKeyTag),
+							await ctx.resolve(DatabaseService)
 						)
 				)
 			);
@@ -196,7 +196,7 @@ describe('Layer', () => {
 			const c = Container.empty().register(ApiKeyTag, () => 'secret-key');
 			const finalContainer = composedLayer.register(c);
 
-			const userService = await finalContainer.get(UserService);
+			const userService = await finalContainer.resolve(UserService);
 			expect(userService.getApiKey()).toBe('secret-key');
 		});
 	});
@@ -231,7 +231,7 @@ describe('Layer', () => {
 				container.register(
 					DatabaseService,
 					async (ctx) =>
-						new DatabaseService(await ctx.get(ConfigService))
+						new DatabaseService(await ctx.resolve(ConfigService))
 				)
 			);
 
@@ -241,8 +241,8 @@ describe('Layer', () => {
 			const finalContainer = infraLayer.register(c);
 
 			// Both services should be available
-			const config = await finalContainer.get(ConfigService);
-			const database = await finalContainer.get(DatabaseService);
+			const config = await finalContainer.resolve(ConfigService);
+			const database = await finalContainer.resolve(DatabaseService);
 
 			expect(config.getConfig()).toBe('config-value');
 			expect(database.connect()).toBe('Connected with config-value');
@@ -277,7 +277,7 @@ describe('Layer', () => {
 				container.register(
 					DatabaseService,
 					async (ctx) =>
-						new DatabaseService(await ctx.get(ConfigService))
+						new DatabaseService(await ctx.resolve(ConfigService))
 				)
 			);
 
@@ -286,7 +286,7 @@ describe('Layer', () => {
 			const provideContainer = withProvide.register(Container.empty());
 
 			// Should have DatabaseService but not ConfigService directly accessible
-			const db1 = await provideContainer.get(DatabaseService);
+			const db1 = await provideContainer.resolve(DatabaseService);
 			expect(db1.getValue()).toBe('db-config');
 
 			// .provideMerge() exposes both layers' provisions
@@ -296,8 +296,8 @@ describe('Layer', () => {
 			);
 
 			// Should have both services accessible
-			const config = await provideMergeContainer.get(ConfigService);
-			const db2 = await provideMergeContainer.get(DatabaseService);
+			const config = await provideMergeContainer.resolve(ConfigService);
+			const db2 = await provideMergeContainer.resolve(DatabaseService);
 
 			expect(config.getValue()).toBe('config');
 			expect(db2.getValue()).toBe('db-config');
@@ -331,8 +331,8 @@ describe('Layer', () => {
 			const c = Container.empty();
 			const finalContainer = mergedLayer.register(c);
 
-			const serviceA = await finalContainer.get(ServiceA);
-			const serviceB = await finalContainer.get(ServiceB);
+			const serviceA = await finalContainer.resolve(ServiceA);
+			const serviceB = await finalContainer.resolve(ServiceB);
 
 			expect(serviceA.getValue()).toBe('A');
 			expect(serviceB.getValue()).toBe('B');
@@ -375,7 +375,7 @@ describe('Layer', () => {
 					container.register(
 						ServiceA,
 						async (ctx) =>
-							new ServiceA(await ctx.get(ConfigService))
+							new ServiceA(await ctx.resolve(ConfigService))
 					)
 			);
 
@@ -384,7 +384,7 @@ describe('Layer', () => {
 					container.register(
 						ServiceB,
 						async (ctx) =>
-							new ServiceB(await ctx.get(ConfigService))
+							new ServiceB(await ctx.resolve(ConfigService))
 					)
 			);
 
@@ -396,8 +396,8 @@ describe('Layer', () => {
 			const c = Container.empty();
 			const finalContainer = finalLayer.register(c);
 
-			const serviceA = await finalContainer.get(ServiceA);
-			const serviceB = await finalContainer.get(ServiceB);
+			const serviceA = await finalContainer.resolve(ServiceA);
+			const serviceB = await finalContainer.resolve(ServiceB);
 
 			expect(serviceA.getValue()).toBe('A-config');
 			expect(serviceB.getValue()).toBe('B-config');
@@ -438,10 +438,10 @@ describe('Layer', () => {
 			const c = Container.empty();
 			const finalContainer = infraLayer.register(c);
 
-			const db = await finalContainer.get(DatabaseService);
-			const cache = await finalContainer.get(CacheService);
-			const email = await finalContainer.get(EmailService);
-			const logging = await finalContainer.get(LoggingService);
+			const db = await finalContainer.resolve(DatabaseService);
+			const cache = await finalContainer.resolve(CacheService);
+			const email = await finalContainer.resolve(EmailService);
+			const logging = await finalContainer.resolve(LoggingService);
 
 			expect(db).toBeInstanceOf(DatabaseService);
 			expect(cache).toBeInstanceOf(CacheService);
@@ -482,9 +482,9 @@ describe('Layer', () => {
 			const c = Container.empty();
 			const finalContainer = mergedLayer.register(c);
 
-			const serviceA = await finalContainer.get(ServiceA);
-			const serviceB = await finalContainer.get(ServiceB);
-			const serviceC = await finalContainer.get(ServiceC);
+			const serviceA = await finalContainer.resolve(ServiceA);
+			const serviceB = await finalContainer.resolve(ServiceB);
+			const serviceC = await finalContainer.resolve(ServiceC);
 
 			expect(serviceA).toBeInstanceOf(ServiceA);
 			expect(serviceB).toBeInstanceOf(ServiceB);
@@ -508,8 +508,8 @@ describe('Layer', () => {
 			const c = Container.empty();
 			const finalContainer = mergedLayer.register(c);
 
-			const serviceA = await finalContainer.get(ServiceA);
-			const serviceB = await finalContainer.get(ServiceB);
+			const serviceA = await finalContainer.resolve(ServiceA);
+			const serviceB = await finalContainer.resolve(ServiceB);
 
 			expect(serviceA).toBeInstanceOf(ServiceA);
 			expect(serviceB).toBeInstanceOf(ServiceB);
@@ -535,7 +535,7 @@ describe('Layer', () => {
 			const c = Container.empty();
 			const finalContainer = layerWithFinalizer.register(c);
 
-			const service = await finalContainer.get(ServiceWithCleanup);
+			const service = await finalContainer.resolve(ServiceWithCleanup);
 			expect(service).toBeInstanceOf(ServiceWithCleanup);
 
 			await finalContainer.destroy();
@@ -575,8 +575,8 @@ describe('Layer', () => {
 			const c = Container.empty();
 			const finalContainer = composedLayer.register(c);
 
-			const serviceA = await finalContainer.get(ServiceA);
-			const serviceB = await finalContainer.get(ServiceB);
+			const serviceA = await finalContainer.resolve(ServiceA);
+			const serviceB = await finalContainer.resolve(ServiceB);
 
 			await finalContainer.destroy();
 
@@ -605,8 +605,8 @@ describe('Layer', () => {
 			const c = Container.empty();
 			const finalContainer = configLayer.register(c);
 
-			const dbUrl = await finalContainer.get(DatabaseUrlTag);
-			const apiKey = await finalContainer.get(ApiKeyTag);
+			const dbUrl = await finalContainer.resolve(DatabaseUrlTag);
+			const apiKey = await finalContainer.resolve(ApiKeyTag);
 
 			expect(dbUrl).toBe('postgresql://localhost:5432');
 			expect(apiKey).toBe('secret-key');
@@ -633,7 +633,8 @@ describe('Layer', () => {
 				(container) =>
 					container.register(
 						ApiService,
-						async (ctx) => new ApiService(await ctx.get(ApiKeyTag))
+						async (ctx) =>
+							new ApiService(await ctx.resolve(ApiKeyTag))
 					)
 			);
 
@@ -642,7 +643,7 @@ describe('Layer', () => {
 			const c = Container.empty();
 			const finalContainer = appLayer.register(c);
 
-			const apiService = await finalContainer.get(ApiService);
+			const apiService = await finalContainer.resolve(ApiService);
 			expect(apiService.getApiKey()).toBe('secret-key');
 		});
 	});
@@ -661,7 +662,9 @@ describe('Layer', () => {
 			const c = Container.empty();
 			const finalContainer = failingLayer.register(c);
 
-			await expect(finalContainer.get(FailingService)).rejects.toThrow();
+			await expect(
+				finalContainer.resolve(FailingService)
+			).rejects.toThrow();
 		});
 
 		it('should handle circular dependencies across layers', async () => {
@@ -681,7 +684,7 @@ describe('Layer', () => {
 				(container) =>
 					container.register(
 						ServiceA,
-						async (ctx) => new ServiceA(await ctx.get(ServiceB))
+						async (ctx) => new ServiceA(await ctx.resolve(ServiceB))
 					)
 			);
 
@@ -689,7 +692,7 @@ describe('Layer', () => {
 				(container) =>
 					container.register(
 						ServiceB,
-						async (ctx) => new ServiceB(await ctx.get(ServiceA))
+						async (ctx) => new ServiceB(await ctx.resolve(ServiceA))
 					)
 			);
 
@@ -699,7 +702,7 @@ describe('Layer', () => {
 			// @ts-expect-error - circular dependency
 			const finalContainer = circularLayer.register(c);
 
-			await expect(finalContainer.get(ServiceA)).rejects.toThrow();
+			await expect(finalContainer.resolve(ServiceA)).rejects.toThrow();
 		});
 	});
 
@@ -747,11 +750,11 @@ describe('Layer', () => {
 			>((container) =>
 				container
 					.register(DatabaseService, async (ctx) => {
-						const config = await ctx.get(ConfigTag);
+						const config = await ctx.resolve(ConfigTag);
 						return new DatabaseService(config.dbUrl);
 					})
 					.register(CacheService, async (ctx) => {
-						const config = await ctx.get(ConfigTag);
+						const config = await ctx.resolve(ConfigTag);
 						return new CacheService(config.redisUrl);
 					})
 			);
@@ -777,9 +780,9 @@ describe('Layer', () => {
 			>((container) =>
 				container.register(UserService, async (ctx) => {
 					const [db, cache, config] = await Promise.all([
-						ctx.get(DatabaseService),
-						ctx.get(CacheService),
-						ctx.get(ConfigTag),
+						ctx.resolve(DatabaseService),
+						ctx.resolve(CacheService),
+						ctx.resolve(ConfigTag),
 					]);
 					return new UserService(db, cache, config.apiKey);
 				})
@@ -793,7 +796,7 @@ describe('Layer', () => {
 			const c = Container.empty();
 			const finalContainer = appLayer.register(c);
 
-			const userService = await finalContainer.get(UserService);
+			const userService = await finalContainer.resolve(UserService);
 			expect(userService.getUser()).toBe(
 				'Querying postgresql://localhost:5432 + Caching with redis://localhost:6379 + app-secret'
 			);

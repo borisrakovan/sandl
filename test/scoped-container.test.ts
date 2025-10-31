@@ -131,7 +131,7 @@ describe('ScopedContainer', () => {
 			const child = parent.child('child');
 
 			// Instantiate in parent first
-			await parent.get(TestService);
+			await parent.resolve(TestService);
 
 			// Now try to register in child - should throw
 			expect(() =>
@@ -198,7 +198,7 @@ describe('ScopedContainer', () => {
 				() => new TestService()
 			);
 
-			const instance = await c.get(TestService);
+			const instance = await c.resolve(TestService);
 			expect(instance).toBeInstanceOf(TestService);
 			expect(instance.getValue()).toBe('current-scope');
 		});
@@ -216,7 +216,7 @@ describe('ScopedContainer', () => {
 			);
 			const child = parent.child('child');
 
-			const instance = await child.get(TestService);
+			const instance = await child.resolve(TestService);
 			expect(instance).toBeInstanceOf(TestService);
 			expect(instance.getValue()).toBe('parent-scope');
 		});
@@ -234,8 +234,8 @@ describe('ScopedContainer', () => {
 			);
 			const child = parent.child('child');
 
-			const parentInstance = await parent.get(TestService);
-			const childInstance = await child.get(TestService);
+			const parentInstance = await parent.resolve(TestService);
+			const childInstance = await child.resolve(TestService);
 
 			// Both should get the same instance from parent scope
 			expect(parentInstance.value).toBe('parent');
@@ -254,12 +254,12 @@ describe('ScopedContainer', () => {
 			const child = parent.child('child');
 
 			// Get from parent twice
-			const parentInstance1 = await parent.get(TestService);
-			const parentInstance2 = await parent.get(TestService);
+			const parentInstance1 = await parent.resolve(TestService);
+			const parentInstance2 = await parent.resolve(TestService);
 
 			// Get from child twice
-			const childInstance1 = await child.get(TestService);
-			const childInstance2 = await child.get(TestService);
+			const childInstance1 = await child.resolve(TestService);
+			const childInstance2 = await child.resolve(TestService);
 
 			// Same instance within scope
 			expect(parentInstance1).toBe(parentInstance2);
@@ -288,8 +288,8 @@ describe('ScopedContainer', () => {
 				.register(TestService, () => new TestService('child'));
 
 			// Child should get its own instance, parent should get parent instance
-			const childInstance = await child.get(TestService);
-			const parentInstance = await parent.get(TestService);
+			const childInstance = await child.resolve(TestService);
+			const parentInstance = await parent.resolve(TestService);
 
 			expect(childInstance.value).toBe('child');
 			expect(parentInstance.value).toBe('parent');
@@ -302,7 +302,7 @@ describe('ScopedContainer', () => {
 			const c = ScopedContainer.empty('test');
 
 			// @ts-expect-error - TestService is not registered
-			await expect(c.get(TestService)).rejects.toThrow(
+			await expect(c.resolve(TestService)).rejects.toThrow(
 				UnknownDependencyError
 			);
 		});
@@ -347,12 +347,12 @@ describe('ScopedContainer', () => {
 					UserService,
 					async (ctx) =>
 						new UserService(
-							await ctx.get(DatabaseService),
-							await ctx.get(CacheService)
+							await ctx.resolve(DatabaseService),
+							await ctx.resolve(CacheService)
 						)
 				);
 
-			const userService = await request.get(UserService);
+			const userService = await request.resolve(UserService);
 			expect(userService.getUser()).toBe('db-result-cached-result');
 		});
 
@@ -366,7 +366,7 @@ describe('ScopedContainer', () => {
 
 			await c.destroy();
 
-			await expect(c.get(TestService)).rejects.toThrow(
+			await expect(c.resolve(TestService)).rejects.toThrow(
 				ContainerDestroyedError
 			);
 		});
@@ -387,7 +387,7 @@ describe('ScopedContainer', () => {
 				finalizer,
 			});
 
-			const instance = await c.get(TestService);
+			const instance = await c.resolve(TestService);
 			await c.destroy();
 
 			expect(finalizer).toHaveBeenCalledWith(instance);
@@ -418,8 +418,8 @@ describe('ScopedContainer', () => {
 			});
 
 			// Instantiate both
-			await parent.get(ParentService);
-			await child.get(ChildService);
+			await parent.resolve(ParentService);
+			await child.resolve(ChildService);
 
 			// Destroy parent (should destroy child first)
 			await parent.destroy();
@@ -459,9 +459,9 @@ describe('ScopedContainer', () => {
 			});
 
 			// Instantiate all
-			await parent.get(ParentService);
-			await child1.get(Child1Service);
-			await child2.get(Child2Service);
+			await parent.resolve(ParentService);
+			await child1.resolve(Child1Service);
+			await child2.resolve(Child2Service);
 
 			// Destroy parent
 			await parent.destroy();
@@ -508,9 +508,9 @@ describe('ScopedContainer', () => {
 			});
 
 			// Instantiate all
-			await grandparent.get(GrandparentService);
-			await parent.get(ParentService);
-			await child.get(ChildService);
+			await grandparent.resolve(GrandparentService);
+			await parent.resolve(ParentService);
+			await child.resolve(ChildService);
 
 			// Destroy grandparent
 			await grandparent.destroy();
@@ -543,8 +543,8 @@ describe('ScopedContainer', () => {
 				},
 			});
 
-			await parent.get(ParentService);
-			await child.get(ChildService);
+			await parent.resolve(ParentService);
+			await child.resolve(ChildService);
 
 			await expect(parent.destroy()).rejects.toThrow(
 				DependencyFinalizationError
@@ -567,14 +567,14 @@ describe('ScopedContainer', () => {
 				() => new TestService()
 			);
 
-			await c.get(TestService);
+			await c.resolve(TestService);
 			await c.destroy();
 
 			// Should still report as having the service
 			expect(c.has(TestService)).toBe(true);
 
 			// But should throw when trying to get it
-			await expect(c.get(TestService)).rejects.toThrow(
+			await expect(c.resolve(TestService)).rejects.toThrow(
 				ContainerDestroyedError
 			);
 
@@ -593,7 +593,7 @@ describe('ScopedContainer', () => {
 				const child = parent
 					.child('child')
 					.register(ChildService, () => new ChildService());
-				await child.get(ChildService);
+				await child.resolve(ChildService);
 				// child goes out of scope here
 			}
 
@@ -618,7 +618,7 @@ describe('ScopedContainer', () => {
 				}
 			);
 
-			await expect(c.get(TestService)).rejects.toThrow(
+			await expect(c.resolve(TestService)).rejects.toThrow(
 				DependencyCreationError
 			);
 		});
@@ -632,15 +632,15 @@ describe('ScopedContainer', () => {
 					ServiceA,
 					async (ctx) =>
 						// @ts-expect-error - ServiceB not registered yet
-						new ServiceA(await ctx.get(ServiceB))
+						new ServiceA(await ctx.resolve(ServiceB))
 				)
 				.register(
 					ServiceB,
-					async (ctx) => new ServiceB(await ctx.get(ServiceA))
+					async (ctx) => new ServiceB(await ctx.resolve(ServiceA))
 				);
 
 			try {
-				await c.get(ServiceA);
+				await c.resolve(ServiceA);
 				expect.fail('Should have thrown');
 			} catch (error) {
 				expect(error).toBeInstanceOf(DependencyCreationError);
@@ -660,17 +660,17 @@ describe('ScopedContainer', () => {
 				ServiceA,
 				async (ctx) =>
 					// @ts-expect-error - ServiceB not in parent scope
-					new ServiceA(await ctx.get(ServiceB))
+					new ServiceA(await ctx.resolve(ServiceB))
 			);
 			const child = parent
 				.child('child')
 				.register(
 					ServiceB,
-					async (ctx) => new ServiceB(await ctx.get(ServiceA))
+					async (ctx) => new ServiceB(await ctx.resolve(ServiceA))
 				);
 
 			try {
-				await child.get(ServiceB);
+				await child.resolve(ServiceB);
 				expect.fail('Should have thrown');
 			} catch (error) {
 				expect(error).toBeInstanceOf(DependencyCreationError);
@@ -714,8 +714,8 @@ describe('ScopedContainer', () => {
 			);
 			const child = parent.child('child').register(NumberTag, () => 42);
 
-			const stringValue = await child.get(StringTag); // From parent
-			const numberValue = await child.get(NumberTag); // From child
+			const stringValue = await child.resolve(StringTag); // From parent
+			const numberValue = await child.resolve(NumberTag); // From child
 
 			expect(stringValue).toBe('parent-string');
 			expect(numberValue).toBe(42);
@@ -733,8 +733,8 @@ describe('ScopedContainer', () => {
 				.register(ConfigTag, () => ({ env: 'development' }));
 
 			// Child should get its own config, parent should get parent config
-			const childConfig = await child.get(ConfigTag);
-			const parentConfig = await parent.get(ConfigTag);
+			const childConfig = await child.resolve(ConfigTag);
+			const parentConfig = await parent.resolve(ConfigTag);
 
 			expect(childConfig.env).toBe('development');
 			expect(parentConfig.env).toBe('production');
@@ -760,8 +760,8 @@ describe('ScopedContainer', () => {
 			expect(scopedContainer.has(ServiceB)).toBe(true);
 
 			// Should be able to get services
-			const serviceA = await scopedContainer.get(ServiceA);
-			const serviceB = await scopedContainer.get(ServiceB);
+			const serviceA = await scopedContainer.resolve(ServiceA);
+			const serviceB = await scopedContainer.resolve(ServiceB);
 
 			expect(serviceA).toBeInstanceOf(ServiceA);
 			expect(serviceB).toBeInstanceOf(ServiceB);
@@ -782,7 +782,7 @@ describe('ScopedContainer', () => {
 			});
 
 			const scopedContainer = scoped(regularContainer, 'test-scope');
-			const instance = await scopedContainer.get(TestService);
+			const instance = await scopedContainer.resolve(TestService);
 
 			await scopedContainer.destroy();
 
@@ -803,10 +803,11 @@ describe('ScopedContainer', () => {
 			);
 
 			// Get instance from original first
-			const originalInstance = await regularContainer.get(TestService);
+			const originalInstance =
+				await regularContainer.resolve(TestService);
 
 			const scopedContainer = scoped(regularContainer, 'test-scope');
-			const scopedInstance = await scopedContainer.get(TestService);
+			const scopedInstance = await scopedContainer.resolve(TestService);
 
 			// Should be different instances (fresh cache)
 			expect(originalInstance).not.toBe(scopedInstance);

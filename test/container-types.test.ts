@@ -45,8 +45,12 @@ describe('DependencyContainer Type Safety', () => {
 				.register(ServiceB, () => new ServiceB());
 
 			// Should return correct instance types for registered services
-			expectTypeOf(c.get(ServiceA)).toEqualTypeOf<Promise<ServiceA>>();
-			expectTypeOf(c.get(ServiceB)).toEqualTypeOf<Promise<ServiceB>>();
+			expectTypeOf(c.resolve(ServiceA)).toEqualTypeOf<
+				Promise<ServiceA>
+			>();
+			expectTypeOf(c.resolve(ServiceB)).toEqualTypeOf<
+				Promise<ServiceB>
+			>();
 		});
 
 		it('should prevent getting unregistered dependencies at compile time', () => {
@@ -62,7 +66,7 @@ describe('DependencyContainer Type Safety', () => {
 
 			// This should cause a TypeScript error but we'll suppress it
 			// @ts-expect-error - UnregisteredService is not in container type
-			c.get(UnregisteredService).catch(() => {
+			c.resolve(UnregisteredService).catch(() => {
 				// Expected error - UnregisteredService not in container
 			});
 		});
@@ -82,13 +86,13 @@ describe('DependencyContainer Type Safety', () => {
 					>();
 
 					// Should be able to get DatabaseService
-					expectTypeOf(ctx.get(DatabaseService)).toEqualTypeOf<
+					expectTypeOf(ctx.resolve(DatabaseService)).toEqualTypeOf<
 						Promise<DatabaseService>
 					>();
 
 					// Should NOT be able to get UserService (circular dependency would be caught)
 					// @ts-expect-error - UserService not available in factory container type
-					await ctx.get(UserService);
+					await ctx.resolve(UserService);
 
 					return new UserService();
 				});
@@ -127,7 +131,9 @@ describe('DependencyContainer Type Safety', () => {
 				return new ServiceA();
 			});
 
-			expectTypeOf(c.get(ServiceA)).toEqualTypeOf<Promise<ServiceA>>();
+			expectTypeOf(c.resolve(ServiceA)).toEqualTypeOf<
+				Promise<ServiceA>
+			>();
 		});
 	});
 
@@ -150,13 +156,13 @@ describe('DependencyContainer Type Safety', () => {
 				}));
 
 			// Should return correct types
-			expectTypeOf(c.get(StringConfigTag)).toEqualTypeOf<
+			expectTypeOf(c.resolve(StringConfigTag)).toEqualTypeOf<
 				Promise<string>
 			>();
-			expectTypeOf(c.get(NumberConfigTag)).toEqualTypeOf<
+			expectTypeOf(c.resolve(NumberConfigTag)).toEqualTypeOf<
 				Promise<number>
 			>();
-			expectTypeOf(c.get(ComplexConfigTag)).toEqualTypeOf<
+			expectTypeOf(c.resolve(ComplexConfigTag)).toEqualTypeOf<
 				Promise<ComplexConfig>
 			>();
 		});
@@ -173,7 +179,7 @@ describe('DependencyContainer Type Safety', () => {
 				port: 5432,
 			}));
 
-			expectTypeOf(c.get(DbConfigTag)).toEqualTypeOf<
+			expectTypeOf(c.resolve(DbConfigTag)).toEqualTypeOf<
 				Promise<DatabaseConfig>
 			>();
 		});
@@ -191,7 +197,7 @@ describe('DependencyContainer Type Safety', () => {
 			const c = Container.empty()
 				.register(ApiKeyTag, () => 'secret-key')
 				.register(UserService, async (ctx) => {
-					const apiKey = await ctx.get(ApiKeyTag);
+					const apiKey = await ctx.resolve(ApiKeyTag);
 					expectTypeOf(apiKey).toEqualTypeOf<string>();
 					return new UserService(apiKey);
 				});
@@ -199,7 +205,7 @@ describe('DependencyContainer Type Safety', () => {
 			expectTypeOf(c).toEqualTypeOf<
 				Container<typeof ApiKeyTag | typeof UserService>
 			>();
-			expectTypeOf(c.get(UserService)).toEqualTypeOf<
+			expectTypeOf(c.resolve(UserService)).toEqualTypeOf<
 				Promise<UserService>
 			>();
 		});
@@ -226,7 +232,7 @@ describe('DependencyContainer Type Safety', () => {
 			);
 
 			// Should return BaseService type (the tag type, not implementation type)
-			expectTypeOf(c.get(BaseService)).toEqualTypeOf<
+			expectTypeOf(c.resolve(BaseService)).toEqualTypeOf<
 				Promise<BaseService>
 			>();
 		});
@@ -250,7 +256,7 @@ describe('DependencyContainer Type Safety', () => {
 				() => new Repository(User)
 			);
 
-			expectTypeOf(c.get(Repository)).toEqualTypeOf<
+			expectTypeOf(c.resolve(Repository)).toEqualTypeOf<
 				Promise<Repository<unknown>>
 			>();
 		});
@@ -329,11 +335,11 @@ describe('DependencyContainer Type Safety', () => {
 
 			// And get should still return the correct Promise type (even though it will reject)
 			// We catch the error to prevent test suite failure
-			c.get(ServiceA).catch(() => {
+			c.resolve(ServiceA).catch(() => {
 				// Expected error - factory throws
 			});
 			expectTypeOf<
-				ReturnType<typeof c.get<typeof ServiceA>>
+				ReturnType<typeof c.resolve<typeof ServiceA>>
 			>().toEqualTypeOf<Promise<ServiceA>>();
 		});
 	});
@@ -352,25 +358,25 @@ describe('DependencyContainer Type Safety', () => {
 			const c = Container.empty()
 				.register(ConfigService, () => new ConfigService())
 				.register(DatabaseService, async (ctx) => {
-					const config = await ctx.get(ConfigService);
+					const config = await ctx.resolve(ConfigService);
 					expectTypeOf(config).toEqualTypeOf<ConfigService>();
 					return new DatabaseService();
 				})
 				.register(UserRepository, async (ctx) => {
-					const db = await ctx.get(DatabaseService);
+					const db = await ctx.resolve(DatabaseService);
 					expectTypeOf(db).toEqualTypeOf<DatabaseService>();
 					return new UserRepository();
 				})
 				.register(UserService, async (ctx) => {
-					const repo = await ctx.get(UserRepository);
+					const repo = await ctx.resolve(UserRepository);
 					expectTypeOf(repo).toEqualTypeOf<UserRepository>();
 					return new UserService();
 				})
 				.register(NotificationService, () => new NotificationService())
 				.register(AppService, async (ctx) => {
-					const userService = await ctx.get(UserService);
+					const userService = await ctx.resolve(UserService);
 					const notificationService =
-						await ctx.get(NotificationService);
+						await ctx.resolve(NotificationService);
 					expectTypeOf(userService).toEqualTypeOf<UserService>();
 					expectTypeOf(
 						notificationService

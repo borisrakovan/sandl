@@ -80,15 +80,15 @@ export class ScopedContainer<TReg extends AnyTag> extends Container<TReg> {
 	 * 3. Otherwise, delegate to parent scope
 	 * 4. If no parent or parent doesn't have it, throw UnknownDependencyError
 	 */
-	override async get<T extends TReg>(tag: T): Promise<TagType<T>> {
+	override async resolve<T extends TReg>(tag: T): Promise<TagType<T>> {
 		// If this scope has a factory, resolve here (uses this scope's cache)
 		if (this.factories.has(tag)) {
-			return super.get(tag);
+			return super.resolve(tag);
 		}
 
 		// Otherwise delegate to parent scope if available
 		if (this.parent !== null) {
-			return this.parent.get(tag);
+			return this.parent.resolve(tag);
 		}
 
 		// Not found in this scope or any parent
@@ -230,7 +230,7 @@ export class ScopedContainer<TReg extends AnyTag> extends Container<TReg> {
  * const baseContainer = Container.empty()
  *   .register(DatabaseService, () => new DatabaseService())
  *   .register(UserService, {
- *     factory: async (ctx) => new UserService(await ctx.get(DatabaseService)),
+ *     factory: async (ctx) => new UserService(await ctx.resolve(DatabaseService)),
  *     finalizer: (service) => service.cleanup()
  *   });
  *

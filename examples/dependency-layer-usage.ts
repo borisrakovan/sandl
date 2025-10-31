@@ -148,13 +148,13 @@ const databaseLayer = layer<typeof ConnectionString, typeof DatabaseConnection>(
 		container.register(
 			DatabaseConnection,
 			async () =>
-				new DatabaseConnection(await container.get(ConnectionString))
+				new DatabaseConnection(await container.resolve(ConnectionString))
 		)
 );
 
 const cacheLayer = layer<typeof RedisConfig, typeof CacheService>((container) =>
 	container.register(CacheService, async () => {
-		const config = await container.get(RedisConfig);
+		const config = await container.resolve(RedisConfig);
 		return new CacheService(config.url, config.password);
 	})
 );
@@ -162,7 +162,7 @@ const cacheLayer = layer<typeof RedisConfig, typeof CacheService>((container) =>
 const emailLayer = layer<typeof ApiKey, typeof EmailService>((container) =>
 	container.register(
 		EmailService,
-		async () => new EmailService(await container.get(ApiKey))
+		async () => new EmailService(await container.resolve(ApiKey))
 	)
 );
 
@@ -173,7 +173,7 @@ const userRepositoryLayer = layer<
 >((container) =>
 	container.register(
 		UserRepository,
-		async () => new UserRepository(await container.get(DatabaseConnection))
+		async () => new UserRepository(await container.resolve(DatabaseConnection))
 	)
 );
 
@@ -186,8 +186,8 @@ const userServiceLayer = layer<
 		UserService,
 		async () =>
 			new UserService(
-				await container.get(UserRepository),
-				await container.get(CacheService)
+				await container.resolve(UserRepository),
+				await container.resolve(CacheService)
 			)
 	)
 );
@@ -198,7 +198,7 @@ const notificationServiceLayer = layer<
 >((container) =>
 	container.register(
 		NotificationService,
-		async () => new NotificationService(await container.get(EmailService))
+		async () => new NotificationService(await container.resolve(EmailService))
 	)
 );
 
@@ -211,8 +211,8 @@ const appServiceLayer = layer<
 		AppService,
 		async (ctx) =>
 			new AppService(
-				await ctx.get(UserService),
-				await ctx.get(NotificationService)
+				await ctx.resolve(UserService),
+				await ctx.resolve(NotificationService)
 			)
 	)
 );
@@ -257,7 +257,7 @@ export async function demonstrateLayerUsage() {
 	const finalContainer = appWithConfig.register(appContainer);
 
 	// Now we can use the fully configured application
-	const app = await finalContainer.get(AppService);
+	const app = await finalContainer.resolve(AppService);
 
 	// Register a new user - this will:
 	// 1. Use UserService to create user (via UserRepository -> DatabaseConnection)
@@ -276,7 +276,7 @@ export async function demonstrateLayerUsage() {
 	const fetchedUser = await app.getUser(1);
 	console.log('Fetched user:', fetchedUser);
 
-	const connectionString = await finalContainer.get(ConnectionString);
+	const connectionString = await finalContainer.resolve(ConnectionString);
 	console.log('Connection string:', connectionString);
 
 	// Clean up
@@ -293,12 +293,12 @@ export const bigInfrastructureLayer = Layer.mergeAll(
 		container.register(
 			DatabaseConnection,
 			async () =>
-				new DatabaseConnection(await container.get(ConnectionString))
+				new DatabaseConnection(await container.resolve(ConnectionString))
 		)
 	),
 	layer<typeof RedisConfig, typeof CacheService>((container) =>
 		container.register(CacheService, async () => {
-			const config = await container.get(RedisConfig);
+			const config = await container.resolve(RedisConfig);
 			return new CacheService(config.url, config.password);
 		})
 	)
@@ -321,13 +321,13 @@ export async function testCompleteApplication() {
 		.register(appContainer);
 
 	// Should be able to get all our services
-	const app = await finalContainer.get(AppService);
-	const db = await finalContainer.get(DatabaseConnection);
-	const cache = await finalContainer.get(CacheService);
-	const email = await finalContainer.get(EmailService);
-	const userRepo = await finalContainer.get(UserRepository);
-	const userService = await finalContainer.get(UserService);
-	const notification = await finalContainer.get(NotificationService);
+	const app = await finalContainer.resolve(AppService);
+	const db = await finalContainer.resolve(DatabaseConnection);
+	const cache = await finalContainer.resolve(CacheService);
+	const email = await finalContainer.resolve(EmailService);
+	const userRepo = await finalContainer.resolve(UserRepository);
+	const userService = await finalContainer.resolve(UserService);
+	const notification = await finalContainer.resolve(NotificationService);
 
 	// Complete application works with manual container creation
 

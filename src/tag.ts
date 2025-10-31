@@ -151,8 +151,8 @@ export interface ServiceTag<Id extends string | symbol, T> {
  * container.register(StringTag, () => 'hello'); // Factory must return string
  * container.register(UserService, () => new UserService()); // Factory must return UserService
  *
- * const str: string = await container.get(StringTag); // Automatically typed as string
- * const user: UserService = await container.get(UserService); // Automatically typed as UserService
+ * const str: string = await container.resolve(StringTag); // Automatically typed as string
+ * const user: UserService = await container.resolve(UserService); // Automatically typed as UserService
  * ```
  */
 export type TagType<TTag extends AnyTag> =
@@ -340,15 +340,15 @@ export const Tag = {
 	 * container
 	 *   .register(DatabaseService, () => new DatabaseService())
 	 *   .register(UserRepository, async (ctx) =>
-	 *     new UserRepository(await ctx.get(DatabaseService))
+	 *     new UserRepository(await ctx.resolve(DatabaseService))
 	 *   );
 	 * ```
 	 *
 	 * @example With symbol identifiers
 	 * ```typescript
-	 * const SERVICE_ID = Symbol('InternalService');
+	 * const ServiceId = Symbol('InternalService');
 	 *
-	 * class InternalService extends Tag.Service(SERVICE_ID) {
+	 * class InternalService extends Tag.Service(ServiceId) {
 	 *   doInternalWork() { return 'work'; }
 	 * }
 	 * ```

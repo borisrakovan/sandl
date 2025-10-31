@@ -22,7 +22,7 @@ describe('Service', () => {
 			const finalContainer = loggerService.register(c);
 
 			// Get the service instance
-			const logger = await finalContainer.get(LoggerService);
+			const logger = await finalContainer.resolve(LoggerService);
 			expect(logger.log('test')).toBe('Logged: test');
 		});
 	});
@@ -52,7 +52,7 @@ describe('Service', () => {
 				() => new DatabaseService()
 			);
 			const userService = service(UserService, async (ctx) => {
-				const db = await ctx.get(DatabaseService);
+				const db = await ctx.resolve(DatabaseService);
 				return new UserService(db);
 			});
 
@@ -64,7 +64,7 @@ describe('Service', () => {
 			const finalContainer = appLayer.register(c);
 
 			// Test the composed services
-			const users = await finalContainer.get(UserService);
+			const users = await finalContainer.resolve(UserService);
 			expect(users.getUsers()).toEqual([
 				'Result for: SELECT * FROM users',
 			]);
@@ -94,7 +94,7 @@ describe('Service', () => {
 				() => new ConfigService()
 			);
 			const dbService = service(DatabaseService, async (ctx) => {
-				return new DatabaseService(await ctx.get(ConfigService));
+				return new DatabaseService(await ctx.resolve(ConfigService));
 			});
 
 			// Compose services
@@ -103,7 +103,7 @@ describe('Service', () => {
 			const c = Container.empty();
 			const finalContainer = infraLayer.register(c);
 
-			const db = await finalContainer.get(DatabaseService);
+			const db = await finalContainer.resolve(DatabaseService);
 			expect(db.connect()).toBe(
 				'Connected to postgresql://localhost:5432'
 			);
@@ -137,8 +137,8 @@ describe('Service', () => {
 			const c = Container.empty();
 			const finalContainer = utilsLayer.register(c);
 
-			const logger = await finalContainer.get(LoggerService);
-			const cache = await finalContainer.get(CacheService);
+			const logger = await finalContainer.resolve(LoggerService);
+			const cache = await finalContainer.resolve(CacheService);
 
 			expect(logger.log('test')).toBe('Logged: test');
 			expect(cache.get('key')).toBe('Cached value for: key');
@@ -176,7 +176,7 @@ describe('Service', () => {
 			const finalContainer = dbService.register(c);
 
 			// Use the service
-			const db = await finalContainer.get(DatabaseConnection);
+			const db = await finalContainer.resolve(DatabaseConnection);
 			expect(db.connect()).toBe(
 				'Connected to postgresql://localhost:5432'
 			);
@@ -217,7 +217,7 @@ describe('Service', () => {
 			const finalContainer = resourceService.register(c);
 
 			// Use the service
-			const resource = await finalContainer.get(AsyncResource);
+			const resource = await finalContainer.resolve(AsyncResource);
 			expect(resource.initialize()).toBe('initialized');
 
 			// Destroy the container to trigger finalizers
@@ -255,7 +255,7 @@ describe('Service', () => {
 
 			const dbService = service(DatabaseService, {
 				factory: async (ctx) => {
-					const logger = await ctx.get(Logger);
+					const logger = await ctx.resolve(Logger);
 					return new DatabaseService(logger);
 				},
 				finalizer: (db) => {
@@ -270,7 +270,7 @@ describe('Service', () => {
 			const finalContainer = appLayer.register(c);
 
 			// Use the services
-			const db = await finalContainer.get(DatabaseService);
+			const db = await finalContainer.resolve(DatabaseService);
 			db.query('SELECT * FROM users');
 
 			// Destroy the container

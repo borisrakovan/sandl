@@ -52,7 +52,7 @@ export const LayerTypeId: unique symbol = Symbol.for('sandly/Layer');
  * const c = Container.empty();
  * const finalContainer = databaseLayer.register(c);
  *
- * const db = await finalContainer.get(DatabaseService);
+ * const db = await finalContainer.resolve(DatabaseService);
  * ```
  *
  * @example Layer composition with variance
@@ -60,7 +60,7 @@ export const LayerTypeId: unique symbol = Symbol.for('sandly/Layer');
  * // Layer that requires DatabaseService and provides UserService
  * const userLayer = layer<typeof DatabaseService, typeof UserService>((container) =>
  *   container.register(UserService, async (ctx) =>
- *     new UserService(await ctx.get(DatabaseService))
+ *     new UserService(await ctx.resolve(DatabaseService))
  *   )
  * );
  *
@@ -259,15 +259,15 @@ export interface Layer<
  * const infraLayer = layer<typeof ConfigTag, typeof DatabaseService | typeof CacheService>(
  *   (container) =>
  *     container
- *       .register(DatabaseService, async (ctx) => new DatabaseService(await ctx.get(ConfigTag)))
- *       .register(CacheService, async (ctx) => new CacheService(await ctx.get(ConfigTag)))
+ *       .register(DatabaseService, async (ctx) => new DatabaseService(await ctx.resolve(ConfigTag)))
+ *       .register(CacheService, async (ctx) => new CacheService(await ctx.resolve(ConfigTag)))
  * );
  *
  * // Service layer (requires infrastructure)
  * const serviceLayer = layer<typeof DatabaseService | typeof CacheService, typeof UserService>(
  *   (container) =>
  *     container.register(UserService, async (ctx) =>
- *       new UserService(await ctx.get(DatabaseService), await ctx.get(CacheService))
+ *       new UserService(await ctx.resolve(DatabaseService), await ctx.resolve(CacheService))
  *     )
  * );
  *

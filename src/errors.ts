@@ -72,7 +72,7 @@ export class BaseError extends Error {
  * @example Catching DI errors
  * ```typescript
  * try {
- *   await container.get(SomeService);
+ *   await container.resolve(SomeService);
  * } catch (error) {
  *   if (error instanceof ContainerError) {
  *     console.error('DI Error:', error.message);
@@ -95,7 +95,7 @@ export class DependencyAlreadyInstantiatedError extends ContainerError {}
 /**
  * Error thrown when attempting to use a container that has been destroyed.
  *
- * This error occurs when calling `container.get()`, `container.register()`, or `container.destroy()`
+ * This error occurs when calling `container.resolve()`, `container.register()`, or `container.destroy()`
  * on a container that has already been destroyed. It indicates a programming error where the container
  * is being used after it has been destroyed.
  */
@@ -104,7 +104,7 @@ export class ContainerDestroyedError extends ContainerError {}
 /**
  * Error thrown when attempting to retrieve a dependency that hasn't been registered.
  *
- * This error occurs when calling `container.get(Tag)` for a tag that was never
+ * This error occurs when calling `container.resolve(Tag)` for a tag that was never
  * registered via `container.register()`. It indicates a programming error where
  * the dependency setup is incomplete.
  *
@@ -113,7 +113,7 @@ export class ContainerDestroyedError extends ContainerError {}
  * const c = Container.empty(); // Empty container
  *
  * try {
- *   await c.get(UnregisteredService); // This will throw
+ *   await c.resolve(UnregisteredService); // This will throw
  * } catch (error) {
  *   if (error instanceof UnknownDependencyError) {
  *     console.error('Missing dependency:', error.message);
@@ -147,14 +147,14 @@ export class UnknownDependencyError extends ContainerError {
  *
  * const c = Container.empty()
  *   .register(ServiceA, async (ctx) =>
- *     new ServiceA(await ctx.get(ServiceB)) // Depends on B
+ *     new ServiceA(await ctx.resolve(ServiceB)) // Depends on B
  *   )
  *   .register(ServiceB, async (ctx) =>
- *     new ServiceB(await ctx.get(ServiceA)) // Depends on A - CIRCULAR!
+ *     new ServiceB(await ctx.resolve(ServiceA)) // Depends on A - CIRCULAR!
  *   );
  *
  * try {
- *   await c.get(ServiceA);
+ *   await c.resolve(ServiceA);
  * } catch (error) {
  *   if (error instanceof CircularDependencyError) {
  *     console.error('Circular dependency:', error.message);
@@ -200,7 +200,7 @@ export class CircularDependencyError extends ContainerError {
  * });
  *
  * try {
- *   await c.get(DatabaseService);
+ *   await c.resolve(DatabaseService);
  * } catch (error) {
  *   if (error instanceof DependencyCreationError) {
  *     console.error('Failed to create:', error.message);
