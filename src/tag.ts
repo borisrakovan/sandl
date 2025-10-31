@@ -76,10 +76,6 @@ export interface ServiceTag<Id extends TagId, T> {
 	readonly [TagIdKey]: Id;
 }
 
-export type StripTagMeta<T> = T extends { [TagIdKey]: infer _ }
-	? Omit<T, typeof TagIdKey>
-	: T;
-
 /**
  * Utility type that extracts the service type from any dependency tag.
  *
@@ -126,8 +122,6 @@ export type TagType<TTag extends AnyTag> =
 			TTag extends ServiceTag<any, infer T>
 			? T
 			: never;
-
-export type PublicTagType<TTag extends AnyTag> = StripTagMeta<TagType<TTag>>;
 
 /**
  * Union type representing any valid dependency tag in the system.
