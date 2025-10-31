@@ -1,6 +1,6 @@
 import { DependencySpec, IContainer } from './container.js';
 import { Layer, layer } from './layer.js';
-import { AnyTag, ExtractInjectTag, ServiceTag, TagId } from './tag.js';
+import { AnyTag, ExtractInjectTag, ServiceTag, TagIdKey } from './tag.js';
 
 /**
  * Extracts constructor parameter types from a ServiceTag.
@@ -11,10 +11,10 @@ export type ConstructorParams<T extends ServiceTag<string | symbol, unknown>> =
 
 /**
  * Helper to convert a tagged instance type back to its constructor type.
- * This uses the fact that tagged classes have a specific structure with TagId property.
+ * This uses the fact that tagged classes have a specific structure with TagIdKey property.
  */
 export type InstanceToConstructorType<T> = T extends {
-	readonly [TagId]: infer Id;
+	readonly [TagIdKey]: infer Id;
 }
 	? Id extends string | symbol
 		? ServiceTag<Id, T>
@@ -30,7 +30,7 @@ export type FilterTags<T extends readonly unknown[]> = T extends readonly []
 	? never
 	: {
 			[K in keyof T]: T[K] extends {
-				readonly [TagId]: string | symbol;
+				readonly [TagIdKey]: string | symbol;
 			}
 				? InstanceToConstructorType<T[K]>
 				: ExtractInjectTag<T[K]> extends never
@@ -67,7 +67,7 @@ export type ServiceDependencies<
  *
  * @example Simple service without dependencies
  * ```typescript
- * class LoggerService extends Tag.Class('LoggerService') {
+ * class LoggerService extends Tag.Service('LoggerService') {
  *   log(message: string) { console.log(message); }
  * }
  *
@@ -76,11 +76,11 @@ export type ServiceDependencies<
  *
  * @example Service with dependencies
  * ```typescript
- * class DatabaseService extends Tag.Class('DatabaseService') {
+ * class DatabaseService extends Tag.Service('DatabaseService') {
  *   query() { return []; }
  * }
  *
- * class UserService extends Tag.Class('UserService') {
+ * class UserService extends Tag.Service('UserService') {
  *   constructor(private db: DatabaseService) {
  *     super();
  *   }

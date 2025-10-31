@@ -6,8 +6,8 @@ import { describe, expectTypeOf, it } from 'vitest';
 describe('Layer Type Safety', () => {
 	describe('basic layer types', () => {
 		it('should create layer with correct requirement and provision types', () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
 
 			const testLayer = layer<typeof ServiceA, typeof ServiceB>(
 				(container) =>
@@ -23,7 +23,7 @@ describe('Layer Type Safety', () => {
 		});
 
 		it('should create layer with no requirements', () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
 
 			const testLayer = layer<never, typeof ServiceA>((container) =>
 				container.register(ServiceA, () => new ServiceA())
@@ -35,8 +35,8 @@ describe('Layer Type Safety', () => {
 		});
 
 		it('should create layer with multiple provisions', () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
 
 			const testLayer = layer<never, typeof ServiceA | typeof ServiceB>(
 				(container) =>
@@ -51,10 +51,10 @@ describe('Layer Type Safety', () => {
 		});
 
 		it('should create layer with multiple requirements and provisions', () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
-			class ServiceC extends Tag.Class('ServiceC') {}
-			class ServiceD extends Tag.Class('ServiceD') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
+			class ServiceC extends Tag.Service('ServiceC') {}
+			class ServiceD extends Tag.Service('ServiceD') {}
 
 			const testLayer = layer<
 				typeof ServiceA | typeof ServiceB,
@@ -82,8 +82,8 @@ describe('Layer Type Safety', () => {
 
 	describe('layer composition with "provide"', () => {
 		it('should compose layers with correct type inference', () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
 
 			const layerA = layer<never, typeof ServiceA>((container) =>
 				container.register(ServiceA, () => new ServiceA())
@@ -107,9 +107,9 @@ describe('Layer Type Safety', () => {
 		});
 
 		it('should preserve external requirements in composition', () => {
-			class ExternalService extends Tag.Class('ExternalService') {}
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
+			class ExternalService extends Tag.Service('ExternalService') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
 
 			const layerA = layer<typeof ExternalService, typeof ServiceA>(
 				(container) =>
@@ -138,10 +138,10 @@ describe('Layer Type Safety', () => {
 		});
 
 		it('should handle partial requirement satisfaction', () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
-			class ServiceC extends Tag.Class('ServiceC') {}
-			class ServiceD extends Tag.Class('ServiceD') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
+			class ServiceC extends Tag.Service('ServiceC') {}
+			class ServiceD extends Tag.Service('ServiceD') {}
 
 			// Layer provides ServiceA and ServiceB
 			const providerLayer = layer<
@@ -181,8 +181,8 @@ describe('Layer Type Safety', () => {
 
 	describe('layer merging with "merge"', () => {
 		it('should merge independent layers correctly', () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
 
 			const layerA = layer<never, typeof ServiceA>((container) =>
 				container.register(ServiceA, () => new ServiceA())
@@ -200,10 +200,10 @@ describe('Layer Type Safety', () => {
 		});
 
 		it('should combine requirements from both layers', () => {
-			class ExternalA extends Tag.Class('ExternalA') {}
-			class ExternalB extends Tag.Class('ExternalB') {}
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
+			class ExternalA extends Tag.Service('ExternalA') {}
+			class ExternalB extends Tag.Service('ExternalB') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
 
 			const layerA = layer<typeof ExternalA, typeof ServiceA>(
 				(container) =>
@@ -232,9 +232,9 @@ describe('Layer Type Safety', () => {
 		});
 
 		it('should handle overlapping requirements', () => {
-			class SharedExternal extends Tag.Class('SharedExternal') {}
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
+			class SharedExternal extends Tag.Service('SharedExternal') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
 
 			const layerA = layer<typeof SharedExternal, typeof ServiceA>(
 				(container) =>
@@ -284,7 +284,7 @@ describe('Layer Type Safety', () => {
 
 		it('should mix service tags and value tags', () => {
 			const ConfigTag = Tag.of('config')<{ apiKey: string }>();
-			class ApiService extends Tag.Class('ApiService') {}
+			class ApiService extends Tag.Service('ApiService') {}
 
 			const configLayer = layer<never, typeof ConfigTag>((container) =>
 				container.register(ConfigTag, () => ({ apiKey: 'secret' }))
@@ -314,10 +314,10 @@ describe('Layer Type Safety', () => {
 		});
 
 		it('should type Layer.merge() correctly for two layers', () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
-			class ExternalA extends Tag.Class('ExternalA') {}
-			class ExternalB extends Tag.Class('ExternalB') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
+			class ExternalA extends Tag.Service('ExternalA') {}
+			class ExternalB extends Tag.Service('ExternalB') {}
 
 			const layerA = layer<typeof ExternalA, typeof ServiceA>(
 				(container) =>
@@ -346,11 +346,11 @@ describe('Layer Type Safety', () => {
 		});
 
 		it('should type Layer.mergeAll() correctly', () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
-			class ServiceC extends Tag.Class('ServiceC') {}
-			class ExternalA extends Tag.Class('ExternalA') {}
-			class ExternalC extends Tag.Class('ExternalC') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
+			class ServiceC extends Tag.Service('ServiceC') {}
+			class ExternalA extends Tag.Service('ExternalA') {}
+			class ExternalC extends Tag.Service('ExternalC') {}
 
 			const layerA = layer<typeof ExternalA, typeof ServiceA>(
 				(container) =>
@@ -385,8 +385,8 @@ describe('Layer Type Safety', () => {
 
 	describe('layer register method type constraints', () => {
 		it('should constrain layer register to require satisfied dependencies', () => {
-			class ExternalService extends Tag.Class('ExternalService') {}
-			class ProvidedService extends Tag.Class('ProvidedService') {}
+			class ExternalService extends Tag.Service('ExternalService') {}
+			class ProvidedService extends Tag.Service('ProvidedService') {}
 
 			const testLayer = layer<
 				typeof ExternalService,
@@ -417,10 +417,10 @@ describe('Layer Type Safety', () => {
 
 	describe('complex layer composition scenarios', () => {
 		it('should handle deep layer composition chains', () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
-			class ServiceC extends Tag.Class('ServiceC') {}
-			class ServiceD extends Tag.Class('ServiceD') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
+			class ServiceC extends Tag.Service('ServiceC') {}
+			class ServiceD extends Tag.Service('ServiceD') {}
 
 			const layerA = layer<never, typeof ServiceA>((container) =>
 				container.register(ServiceA, () => new ServiceA())
@@ -461,11 +461,11 @@ describe('Layer Type Safety', () => {
 		});
 
 		it('should handle complex mixed composition and merging', () => {
-			class BaseService extends Tag.Class('BaseService') {}
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
-			class ServiceC extends Tag.Class('ServiceC') {}
-			class CompositeService extends Tag.Class('CompositeService') {}
+			class BaseService extends Tag.Service('BaseService') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
+			class ServiceC extends Tag.Service('ServiceC') {}
+			class CompositeService extends Tag.Service('CompositeService') {}
 
 			const baseLayer = layer<never, typeof BaseService>((container) =>
 				container.register(BaseService, () => new BaseService())
@@ -519,9 +519,9 @@ describe('Layer Type Safety', () => {
 
 	describe('error prevention at type level', () => {
 		it('should prevent composition of incompatible layers at compile time', () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
-			class UnrelatedService extends Tag.Class('UnrelatedService') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
+			class UnrelatedService extends Tag.Service('UnrelatedService') {}
 
 			const providerLayer = layer<never, typeof ServiceA>((container) =>
 				container.register(ServiceA, () => new ServiceA())
@@ -549,8 +549,8 @@ describe('Layer Type Safety', () => {
 
 	describe('layer composition with "provideMerge"', () => {
 		it("should compose layers and expose both layers' provisions", () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
 
 			const layerA = layer<never, typeof ServiceA>((container) =>
 				container.register(ServiceA, () => new ServiceA())
@@ -574,9 +574,9 @@ describe('Layer Type Safety', () => {
 		});
 
 		it('should preserve external requirements and expose both provisions', () => {
-			class ExternalService extends Tag.Class('ExternalService') {}
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
+			class ExternalService extends Tag.Service('ExternalService') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
 
 			const layerA = layer<typeof ExternalService, typeof ServiceA>(
 				(container) =>
@@ -605,10 +605,10 @@ describe('Layer Type Safety', () => {
 		});
 
 		it('should handle partial requirement satisfaction with merged provisions', () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
-			class ServiceC extends Tag.Class('ServiceC') {}
-			class ServiceD extends Tag.Class('ServiceD') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
+			class ServiceC extends Tag.Service('ServiceC') {}
+			class ServiceD extends Tag.Service('ServiceD') {}
 
 			// Layer provides ServiceA and ServiceB
 			const providerLayer = layer<
@@ -649,8 +649,8 @@ describe('Layer Type Safety', () => {
 		});
 
 		it('should differ from .provide() in type signature', () => {
-			class ConfigService extends Tag.Class('ConfigService') {}
-			class DatabaseService extends Tag.Class('DatabaseService') {}
+			class ConfigService extends Tag.Service('ConfigService') {}
+			class DatabaseService extends Tag.Service('DatabaseService') {}
 
 			const configLayer = layer<never, typeof ConfigService>(
 				(container) =>
@@ -683,7 +683,7 @@ describe('Layer Type Safety', () => {
 
 		it('should work with value tags', () => {
 			const ConfigTag = Tag.of('config')<{ apiKey: string }>();
-			class ApiService extends Tag.Class('ApiService') {}
+			class ApiService extends Tag.Service('ApiService') {}
 
 			const configLayer = layer<never, typeof ConfigTag>((container) =>
 				container.register(ConfigTag, () => ({ apiKey: 'secret' }))
@@ -705,10 +705,10 @@ describe('Layer Type Safety', () => {
 		});
 
 		it('should handle deep composition chains with merged provisions', () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
-			class ServiceC extends Tag.Class('ServiceC') {}
-			class ServiceD extends Tag.Class('ServiceD') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
+			class ServiceC extends Tag.Service('ServiceC') {}
+			class ServiceD extends Tag.Service('ServiceD') {}
 
 			const layerA = layer<never, typeof ServiceA>((container) =>
 				container.register(ServiceA, () => new ServiceA())
@@ -755,9 +755,9 @@ describe('Layer Type Safety', () => {
 		});
 
 		it('should handle mixed .provide() and .provideMerge() composition', () => {
-			class ConfigService extends Tag.Class('ConfigService') {}
-			class DatabaseService extends Tag.Class('DatabaseService') {}
-			class UserService extends Tag.Class('UserService') {}
+			class ConfigService extends Tag.Service('ConfigService') {}
+			class DatabaseService extends Tag.Service('DatabaseService') {}
+			class UserService extends Tag.Service('UserService') {}
 
 			const configLayer = layer<never, typeof ConfigService>(
 				(container) =>
@@ -797,9 +797,9 @@ describe('Layer Type Safety', () => {
 
 	describe('layer variance', () => {
 		it('should support contravariance for TRequires and covariance for TProvides', () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
-			class ServiceC extends Tag.Class('ServiceC') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
+			class ServiceC extends Tag.Service('ServiceC') {}
 
 			// Create layers with specific types
 			const layerAB = layer<

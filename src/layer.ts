@@ -39,7 +39,7 @@ export const LayerTypeId: unique symbol = Symbol.for('sandly/Layer');
  * ```typescript
  * import { layer, Tag, container } from 'sandly';
  *
- * class DatabaseService extends Tag.Class('DatabaseService') {
+ * class DatabaseService extends Tag.Service('DatabaseService') {
  *   query() { return 'data'; }
  * }
  *
@@ -234,7 +234,7 @@ export interface Layer<
  * ```typescript
  * import { layer, Tag } from 'sandly';
  *
- * class DatabaseService extends Tag.Class('DatabaseService') {
+ * class DatabaseService extends Tag.Service('DatabaseService') {
  *   constructor(private url: string = 'sqlite://memory') {}
  *   query() { return 'data'; }
  * }

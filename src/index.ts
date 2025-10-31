@@ -25,8 +25,8 @@ export {
 	InjectSource,
 	Tag,
 	type AnyTag,
-	type ServiceTag,
 	type Inject,
+	type ServiceTag,
 	type TagType,
 	type ValueTag,
 } from './tag.js';

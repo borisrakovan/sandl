@@ -11,7 +11,7 @@ describe('DependencyContainer Type Safety', () => {
 		});
 
 		it('should add tag to union type when registering', () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
 
 			const c = Container.empty().register(
 				ServiceA,
@@ -22,8 +22,8 @@ describe('DependencyContainer Type Safety', () => {
 		});
 
 		it('should combine multiple tags in union type', () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
 
 			const c = Container.empty()
 				.register(ServiceA, () => new ServiceA())
@@ -37,8 +37,8 @@ describe('DependencyContainer Type Safety', () => {
 
 	describe('get method type constraints', () => {
 		it('should only allow getting registered dependencies', () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
 
 			const c = Container.empty()
 				.register(ServiceA, () => new ServiceA())
@@ -50,8 +50,8 @@ describe('DependencyContainer Type Safety', () => {
 		});
 
 		it('should prevent getting unregistered dependencies at compile time', () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class UnregisteredService extends Tag.Class(
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class UnregisteredService extends Tag.Service(
 				'UnregisteredService'
 			) {}
 
@@ -70,8 +70,8 @@ describe('DependencyContainer Type Safety', () => {
 
 	describe('factory function constraints', () => {
 		it('should provide correctly typed container to factory', () => {
-			class DatabaseService extends Tag.Class('DatabaseService') {}
-			class UserService extends Tag.Class('UserService') {}
+			class DatabaseService extends Tag.Service('DatabaseService') {}
+			class UserService extends Tag.Service('UserService') {}
 
 			const c = Container.empty()
 				.register(DatabaseService, () => new DatabaseService())
@@ -99,8 +99,8 @@ describe('DependencyContainer Type Safety', () => {
 		});
 
 		it('should enforce correct return type from factory', () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
 
 			// Should accept correct return type
 			const c1 = Container.empty().register(
@@ -120,7 +120,7 @@ describe('DependencyContainer Type Safety', () => {
 		});
 
 		it('should support async factories', () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
 
 			const c = Container.empty().register(ServiceA, async () => {
 				await Promise.resolve();
@@ -181,7 +181,7 @@ describe('DependencyContainer Type Safety', () => {
 
 	describe('mixed tag types', () => {
 		it('should handle mix of ServiceTag and ValueTag', () => {
-			class UserService extends Tag.Class('UserService') {
+			class UserService extends Tag.Service('UserService') {
 				constructor(private apiKey: string) {
 					super();
 				}
@@ -207,7 +207,7 @@ describe('DependencyContainer Type Safety', () => {
 
 	describe('inheritance and complex types', () => {
 		it('should handle class inheritance correctly', () => {
-			class BaseService extends Tag.Class('BaseService') {
+			class BaseService extends Tag.Service('BaseService') {
 				baseMethod(): string {
 					return 'base';
 				}
@@ -232,7 +232,7 @@ describe('DependencyContainer Type Safety', () => {
 		});
 
 		it('should handle generic service types', () => {
-			class Repository<T> extends Tag.Class('Repository') {
+			class Repository<T> extends Tag.Service('Repository') {
 				constructor(private entityType: new () => T) {
 					super();
 				}
@@ -258,7 +258,7 @@ describe('DependencyContainer Type Safety', () => {
 
 	describe('finalizer type constraints', () => {
 		it('should enforce correct finalizer parameter type', () => {
-			class ServiceWithCleanup extends Tag.Class('ServiceWithCleanup') {
+			class ServiceWithCleanup extends Tag.Service('ServiceWithCleanup') {
 				cleanup(): void {
 					return;
 				}
@@ -287,7 +287,7 @@ describe('DependencyContainer Type Safety', () => {
 		});
 
 		it('should support async finalizers', () => {
-			class ServiceWithAsyncCleanup extends Tag.Class(
+			class ServiceWithAsyncCleanup extends Tag.Service(
 				'ServiceWithAsyncCleanup'
 			) {
 				async cleanup(): Promise<void> {
@@ -313,8 +313,8 @@ describe('DependencyContainer Type Safety', () => {
 
 	describe('error type constraints', () => {
 		it('should maintain type safety even with errors', () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
 
 			const c = Container.empty()
 				.register(ServiceA, () => {
@@ -340,14 +340,14 @@ describe('DependencyContainer Type Safety', () => {
 
 	describe('complex dependency graphs', () => {
 		it('should handle multi-level dependency chains', () => {
-			class ConfigService extends Tag.Class('ConfigService') {}
-			class DatabaseService extends Tag.Class('DatabaseService') {}
-			class UserRepository extends Tag.Class('UserRepository') {}
-			class UserService extends Tag.Class('UserService') {}
-			class NotificationService extends Tag.Class(
+			class ConfigService extends Tag.Service('ConfigService') {}
+			class DatabaseService extends Tag.Service('DatabaseService') {}
+			class UserRepository extends Tag.Service('UserRepository') {}
+			class UserService extends Tag.Service('UserService') {}
+			class NotificationService extends Tag.Service(
 				'NotificationService'
 			) {}
-			class AppService extends Tag.Class('AppService') {}
+			class AppService extends Tag.Service('AppService') {}
 
 			const c = Container.empty()
 				.register(ConfigService, () => new ConfigService())
@@ -393,8 +393,8 @@ describe('DependencyContainer Type Safety', () => {
 
 	describe('merge method types', () => {
 		it('should preserve type union when merging containers', () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
 			const ApiKeyTag = Tag.of('apiKey')<string>();
 
 			const source = Container.empty()
@@ -412,9 +412,9 @@ describe('DependencyContainer Type Safety', () => {
 		});
 
 		it('should combine types when merging containers with existing registrations', () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
-			class ServiceC extends Tag.Class('ServiceC') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
+			class ServiceC extends Tag.Service('ServiceC') {}
 
 			const source = Container.empty()
 				.register(ServiceA, () => new ServiceA())
@@ -435,7 +435,7 @@ describe('DependencyContainer Type Safety', () => {
 		it('should work with ValueTag types', () => {
 			const StringTag = Tag.of('string')<string>();
 			const NumberTag = Tag.of('number')<number>();
-			class ServiceA extends Tag.Class('ServiceA') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
 
 			const source = Container.empty()
 				.register(StringTag, () => 'hello')
@@ -454,7 +454,7 @@ describe('DependencyContainer Type Safety', () => {
 		});
 
 		it('should work with empty source container', () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
 
 			const source = Container.empty();
 			const target = Container.empty().register(
@@ -468,8 +468,8 @@ describe('DependencyContainer Type Safety', () => {
 		});
 
 		it('should work with empty target container', () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
 
 			const source = Container.empty()
 				.register(ServiceA, () => new ServiceA())
@@ -486,8 +486,8 @@ describe('DependencyContainer Type Safety', () => {
 
 	describe('container variance', () => {
 		it('should support contravariance for both IContainer and Container', () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
 
 			// Create containers with specific types
 			const containerA = Container.empty().register(
@@ -546,9 +546,9 @@ describe('DependencyContainer Type Safety', () => {
 		});
 
 		it('should demonstrate practical contravariance usage', () => {
-			class ConfigService extends Tag.Class('ConfigService') {}
-			class DatabaseService extends Tag.Class('DatabaseService') {}
-			class LoggerService extends Tag.Class('LoggerService') {}
+			class ConfigService extends Tag.Service('ConfigService') {}
+			class DatabaseService extends Tag.Service('DatabaseService') {}
+			class LoggerService extends Tag.Service('LoggerService') {}
 
 			// Full application container with all services
 			const appContainer = Container.empty()

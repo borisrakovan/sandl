@@ -142,8 +142,8 @@ export class UnknownDependencyError extends ContainerError {
  *
  * @example Circular dependency scenario
  * ```typescript
- * class ServiceA extends Tag.Class('ServiceA') {}
- * class ServiceB extends Tag.Class('ServiceB') {}
+ * class ServiceA extends Tag.Service('ServiceA') {}
+ * class ServiceB extends Tag.Service('ServiceB') {}
  *
  * const c = Container.empty()
  *   .register(ServiceA, async (ctx) =>
@@ -193,7 +193,7 @@ export class CircularDependencyError extends ContainerError {
  *
  * @example Factory throwing error
  * ```typescript
- * class DatabaseService extends Tag.Class('DatabaseService') {}
+ * class DatabaseService extends Tag.Service('DatabaseService') {}
  *
  * const c = Container.empty().register(DatabaseService, () => {
  *   throw new Error('Database connection failed');

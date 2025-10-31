@@ -106,7 +106,7 @@ export type Finalizer<T> = (instance: T) => PromiseOrValue<void>;
  *
  * @example Using DependencyLifecycle for registration
  * ```typescript
- * class DatabaseConnection extends Tag.Class('DatabaseConnection') {
+ * class DatabaseConnection extends Tag.Service('DatabaseConnection') {
  *   async connect() { return; }
  *   async disconnect() { return; }
  * }
@@ -222,11 +222,11 @@ export interface IContainer<TReg extends AnyTag = never> {
  * ```typescript
  * import { container, Tag } from 'sandly';
  *
- * class DatabaseService extends Tag.Class('DatabaseService') {
+ * class DatabaseService extends Tag.Service('DatabaseService') {
  *   query() { return 'data'; }
  * }
  *
- * class UserService extends Tag.Class('UserService') {
+ * class UserService extends Tag.Service('UserService') {
  *   constructor(private db: DatabaseService) {}
  *   getUser() { return this.db.query(); }
  * }
@@ -255,7 +255,7 @@ export interface IContainer<TReg extends AnyTag = never> {
  *
  * @example With finalizers for cleanup
  * ```typescript
- * class DatabaseConnection extends Tag.Class('DatabaseConnection') {
+ * class DatabaseConnection extends Tag.Service('DatabaseConnection') {
  *   async connect() { return; }
  *   async disconnect() { return; }
  * }
@@ -329,7 +329,7 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 *
 	 * @example Registering a simple service
 	 * ```typescript
-	 * class LoggerService extends Tag.Class('LoggerService') {
+	 * class LoggerService extends Tag.Service('LoggerService') {
 	 *   log(message: string) { console.log(message); }
 	 * }
 	 *
@@ -341,7 +341,7 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 *
 	 * @example Registering with dependencies
 	 * ```typescript
-	 * class UserService extends Tag.Class('UserService') {
+	 * class UserService extends Tag.Service('UserService') {
 	 *   constructor(private db: DatabaseService, private logger: LoggerService) {}
 	 * }
 	 *
@@ -375,7 +375,7 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 *
 	 * @example With finalizer for cleanup
 	 * ```typescript
-	 * class DatabaseConnection extends Tag.Class('DatabaseConnection') {
+	 * class DatabaseConnection extends Tag.Service('DatabaseConnection') {
 	 *   async connect() { return; }
 	 *   async close() { return; }
 	 * }

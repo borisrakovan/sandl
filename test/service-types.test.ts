@@ -7,7 +7,7 @@ import { describe, expectTypeOf, it } from 'vitest';
 describe('Service Type Safety', () => {
 	describe('basic service types', () => {
 		it('should create service with correct layer type for simple service', () => {
-			class LoggerService extends Tag.Class('LoggerService') {
+			class LoggerService extends Tag.Service('LoggerService') {
 				log(message: string) {
 					return `Logged: ${message}`;
 				}
@@ -29,13 +29,13 @@ describe('Service Type Safety', () => {
 		});
 
 		it('should create service with correct dependency requirements', () => {
-			class DatabaseService extends Tag.Class('DatabaseService') {
+			class DatabaseService extends Tag.Service('DatabaseService') {
 				query() {
 					return [];
 				}
 			}
 
-			class UserService extends Tag.Class('UserService') {
+			class UserService extends Tag.Service('UserService') {
 				constructor(private _db: DatabaseService) {
 					super();
 				}
@@ -63,11 +63,11 @@ describe('Service Type Safety', () => {
 		});
 
 		it('should handle complex multi-dependency services', () => {
-			class DatabaseService extends Tag.Class('DatabaseService') {}
-			class CacheService extends Tag.Class('CacheService') {}
-			class LoggerService extends Tag.Class('LoggerService') {}
+			class DatabaseService extends Tag.Service('DatabaseService') {}
+			class CacheService extends Tag.Service('CacheService') {}
+			class LoggerService extends Tag.Service('LoggerService') {}
 
-			class UserService extends Tag.Class('UserService') {
+			class UserService extends Tag.Service('UserService') {
 				constructor(
 					private _db: DatabaseService,
 					private _cache: CacheService,
@@ -113,9 +113,9 @@ describe('Service Type Safety', () => {
 
 	describe('service composition', () => {
 		it('should compose services with .provide() correctly', () => {
-			class DatabaseService extends Tag.Class('DatabaseService') {}
+			class DatabaseService extends Tag.Service('DatabaseService') {}
 
-			class UserService extends Tag.Class('UserService') {
+			class UserService extends Tag.Service('UserService') {
 				constructor(private _db: DatabaseService) {
 					super();
 				}
@@ -140,8 +140,8 @@ describe('Service Type Safety', () => {
 		});
 
 		it('should merge services with .merge() correctly', () => {
-			class LoggerService extends Tag.Class('LoggerService') {}
-			class CacheService extends Tag.Class('CacheService') {}
+			class LoggerService extends Tag.Service('LoggerService') {}
+			class CacheService extends Tag.Service('CacheService') {}
 
 			const loggerService = service(
 				LoggerService,
@@ -160,13 +160,13 @@ describe('Service Type Safety', () => {
 		});
 
 		it('should handle partial dependency satisfaction in composition', () => {
-			class ExternalService extends Tag.Class('ExternalService') {}
-			class DatabaseService extends Tag.Class('DatabaseService') {
+			class ExternalService extends Tag.Service('ExternalService') {}
+			class DatabaseService extends Tag.Service('DatabaseService') {
 				constructor(private _external: ExternalService) {
 					super();
 				}
 			}
-			class UserService extends Tag.Class('UserService') {
+			class UserService extends Tag.Service('UserService') {
 				constructor(
 					private _db: DatabaseService,
 					private _external: ExternalService
@@ -201,21 +201,21 @@ describe('Service Type Safety', () => {
 
 	describe('complex service scenarios', () => {
 		it('should handle deep service dependency chains', () => {
-			class ConfigService extends Tag.Class('ConfigService') {}
+			class ConfigService extends Tag.Service('ConfigService') {}
 
-			class DatabaseService extends Tag.Class('DatabaseService') {
+			class DatabaseService extends Tag.Service('DatabaseService') {
 				constructor(private _config: ConfigService) {
 					super();
 				}
 			}
 
-			class UserRepository extends Tag.Class('UserRepository') {
+			class UserRepository extends Tag.Service('UserRepository') {
 				constructor(private _db: DatabaseService) {
 					super();
 				}
 			}
 
-			class UserService extends Tag.Class('UserService') {
+			class UserService extends Tag.Service('UserService') {
 				constructor(private _repo: UserRepository) {
 					super();
 				}
@@ -253,21 +253,21 @@ describe('Service Type Safety', () => {
 		});
 
 		it('should handle diamond dependency patterns', () => {
-			class ConfigService extends Tag.Class('ConfigService') {}
+			class ConfigService extends Tag.Service('ConfigService') {}
 
-			class DatabaseService extends Tag.Class('DatabaseService') {
+			class DatabaseService extends Tag.Service('DatabaseService') {
 				constructor(private _config: ConfigService) {
 					super();
 				}
 			}
 
-			class CacheService extends Tag.Class('CacheService') {
+			class CacheService extends Tag.Service('CacheService') {
 				constructor(private _config: ConfigService) {
 					super();
 				}
 			}
 
-			class UserService extends Tag.Class('UserService') {
+			class UserService extends Tag.Service('UserService') {
 				constructor(
 					private _db: DatabaseService,
 					private _cache: CacheService
@@ -313,7 +313,7 @@ describe('Service Type Safety', () => {
 
 	describe('service interface completeness', () => {
 		it('should maintain all Layer methods', () => {
-			class TestService extends Tag.Class('TestService') {}
+			class TestService extends Tag.Service('TestService') {}
 
 			const testService = service(TestService, () => new TestService());
 
@@ -338,9 +338,9 @@ describe('Service Type Safety', () => {
 
 	describe('integration with container', () => {
 		it('should integrate seamlessly with container registration', () => {
-			class DatabaseService extends Tag.Class('DatabaseService') {}
+			class DatabaseService extends Tag.Service('DatabaseService') {}
 
-			class UserService extends Tag.Class('UserService') {
+			class UserService extends Tag.Service('UserService') {
 				constructor(private _db: DatabaseService) {
 					super();
 				}
@@ -374,9 +374,9 @@ describe('Service Type Safety', () => {
 
 	describe('error prevention at type level', () => {
 		it('should prevent incorrect service composition at compile time', () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
-			class ServiceC extends Tag.Class('ServiceC') {
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
+			class ServiceC extends Tag.Service('ServiceC') {
 				constructor(private _b: ServiceB) {
 					super();
 				}
@@ -401,8 +401,8 @@ describe('Service Type Safety', () => {
 
 	describe('service composition with "provideMerge"', () => {
 		it("should compose services and expose both layers' provisions", () => {
-			class DatabaseService extends Tag.Class('DatabaseService') {}
-			class UserService extends Tag.Class('UserService') {
+			class DatabaseService extends Tag.Service('DatabaseService') {}
+			class UserService extends Tag.Service('UserService') {
 				constructor(private _db: DatabaseService) {
 					super();
 				}
@@ -427,13 +427,13 @@ describe('Service Type Safety', () => {
 		});
 
 		it('should preserve external requirements and expose both provisions', () => {
-			class ExternalService extends Tag.Class('ExternalService') {}
-			class DatabaseService extends Tag.Class('DatabaseService') {
+			class ExternalService extends Tag.Service('ExternalService') {}
+			class DatabaseService extends Tag.Service('DatabaseService') {
 				constructor(private _external: ExternalService) {
 					super();
 				}
 			}
-			class UserService extends Tag.Class('UserService') {
+			class UserService extends Tag.Service('UserService') {
 				constructor(
 					private _db: DatabaseService,
 					private _external: ExternalService
@@ -468,8 +468,8 @@ describe('Service Type Safety', () => {
 		});
 
 		it('should differ from .provide() in type signature', () => {
-			class ConfigService extends Tag.Class('ConfigService') {}
-			class DatabaseService extends Tag.Class('DatabaseService') {
+			class ConfigService extends Tag.Service('ConfigService') {}
+			class DatabaseService extends Tag.Service('DatabaseService') {
 				constructor(private _config: ConfigService) {
 					super();
 				}
@@ -498,18 +498,18 @@ describe('Service Type Safety', () => {
 		});
 
 		it('should handle deep service dependency chains with merged provisions', () => {
-			class ConfigService extends Tag.Class('ConfigService') {}
-			class DatabaseService extends Tag.Class('DatabaseService') {
+			class ConfigService extends Tag.Service('ConfigService') {}
+			class DatabaseService extends Tag.Service('DatabaseService') {
 				constructor(private _config: ConfigService) {
 					super();
 				}
 			}
-			class UserRepository extends Tag.Class('UserRepository') {
+			class UserRepository extends Tag.Service('UserRepository') {
 				constructor(private _db: DatabaseService) {
 					super();
 				}
 			}
-			class UserService extends Tag.Class('UserService') {
+			class UserService extends Tag.Service('UserService') {
 				constructor(private _repo: UserRepository) {
 					super();
 				}
@@ -548,13 +548,13 @@ describe('Service Type Safety', () => {
 		});
 
 		it('should handle mixed .provide() and .provideMerge() composition', () => {
-			class ConfigService extends Tag.Class('ConfigService') {}
-			class DatabaseService extends Tag.Class('DatabaseService') {
+			class ConfigService extends Tag.Service('ConfigService') {}
+			class DatabaseService extends Tag.Service('DatabaseService') {
 				constructor(private _config: ConfigService) {
 					super();
 				}
 			}
-			class UserService extends Tag.Class('UserService') {
+			class UserService extends Tag.Service('UserService') {
 				constructor(private _db: DatabaseService) {
 					super();
 				}
@@ -584,8 +584,8 @@ describe('Service Type Safety', () => {
 		});
 
 		it('should integrate with container correctly for merged provisions', () => {
-			class DatabaseService extends Tag.Class('DatabaseService') {}
-			class UserService extends Tag.Class('UserService') {
+			class DatabaseService extends Tag.Service('DatabaseService') {}
+			class UserService extends Tag.Service('UserService') {
 				constructor(private _db: DatabaseService) {
 					super();
 				}
@@ -623,7 +623,7 @@ describe('Service Type Safety', () => {
 
 	describe('service with DependencySpec support', () => {
 		it('should accept simple factory functions', () => {
-			class DatabaseService extends Tag.Class('DatabaseService') {}
+			class DatabaseService extends Tag.Service('DatabaseService') {}
 
 			const dbService = service(
 				DatabaseService,
@@ -636,7 +636,7 @@ describe('Service Type Safety', () => {
 		});
 
 		it('should accept DependencyLifecycle objects with factory and finalizer', () => {
-			class DatabaseConnection extends Tag.Class('DatabaseConnection') {
+			class DatabaseConnection extends Tag.Service('DatabaseConnection') {
 				disconnect() {
 					return;
 				}
@@ -655,7 +655,7 @@ describe('Service Type Safety', () => {
 		});
 
 		it('should support async factories and finalizers', () => {
-			class AsyncResource extends Tag.Class('AsyncResource') {
+			class AsyncResource extends Tag.Service('AsyncResource') {
 				cleanup() {
 					return Promise.resolve();
 				}
@@ -674,8 +674,8 @@ describe('Service Type Safety', () => {
 		});
 
 		it('should work with services that have dependencies', () => {
-			class Logger extends Tag.Class('Logger') {}
-			class DatabaseService extends Tag.Class('DatabaseService') {
+			class Logger extends Tag.Service('Logger') {}
+			class DatabaseService extends Tag.Service('DatabaseService') {
 				constructor(private logger: Logger) {
 					super();
 				}
@@ -705,7 +705,7 @@ describe('Service Type Safety', () => {
 		});
 
 		it('should maintain type safety in factory and finalizer parameters', () => {
-			class CustomService extends Tag.Class('CustomService') {
+			class CustomService extends Tag.Service('CustomService') {
 				private value = 'test';
 				getValue() {
 					return this.value;

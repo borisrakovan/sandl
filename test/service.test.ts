@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 describe('Service', () => {
 	describe('Basic service creation', () => {
 		it('should create a service layer for a simple class', async () => {
-			class LoggerService extends Tag.Class('LoggerService') {
+			class LoggerService extends Tag.Service('LoggerService') {
 				log(message: string) {
 					return `Logged: ${message}`;
 				}
@@ -30,13 +30,13 @@ describe('Service', () => {
 	describe('Service with dependencies', () => {
 		it('should create a service layer that requires dependencies', async () => {
 			// Define services
-			class DatabaseService extends Tag.Class('DatabaseService') {
+			class DatabaseService extends Tag.Service('DatabaseService') {
 				query(sql: string) {
 					return [`Result for: ${sql}`];
 				}
 			}
 
-			class UserService extends Tag.Class('UserService') {
+			class UserService extends Tag.Service('UserService') {
 				constructor(private db: DatabaseService) {
 					super();
 				}
@@ -73,13 +73,13 @@ describe('Service', () => {
 
 	describe('Service composition', () => {
 		it('should allow composing services with .provide()', async () => {
-			class ConfigService extends Tag.Class('ConfigService') {
+			class ConfigService extends Tag.Service('ConfigService') {
 				getConfig() {
 					return { dbUrl: 'postgresql://localhost:5432' };
 				}
 			}
 
-			class DatabaseService extends Tag.Class('DatabaseService') {
+			class DatabaseService extends Tag.Service('DatabaseService') {
 				constructor(private config: ConfigService) {
 					super();
 				}
@@ -110,13 +110,13 @@ describe('Service', () => {
 		});
 
 		it('should allow merging services with .merge()', async () => {
-			class LoggerService extends Tag.Class('LoggerService') {
+			class LoggerService extends Tag.Service('LoggerService') {
 				log(message: string) {
 					return `Logged: ${message}`;
 				}
 			}
 
-			class CacheService extends Tag.Class('CacheService') {
+			class CacheService extends Tag.Service('CacheService') {
 				get(key: string) {
 					return `Cached value for: ${key}`;
 				}
@@ -149,7 +149,7 @@ describe('Service', () => {
 		it('should create a service layer with a finalizer using DependencyLifecycle', async () => {
 			const cleanupCalls: string[] = [];
 
-			class DatabaseConnection extends Tag.Class('DatabaseConnection') {
+			class DatabaseConnection extends Tag.Service('DatabaseConnection') {
 				constructor(private url: string) {
 					super();
 				}
@@ -191,7 +191,7 @@ describe('Service', () => {
 		it('should work with async finalizers', async () => {
 			const cleanupCalls: string[] = [];
 
-			class AsyncResource extends Tag.Class('AsyncResource') {
+			class AsyncResource extends Tag.Service('AsyncResource') {
 				initialize() {
 					return 'initialized';
 				}
@@ -230,13 +230,13 @@ describe('Service', () => {
 		it('should support finalizers with service dependencies', async () => {
 			const cleanupCalls: string[] = [];
 
-			class Logger extends Tag.Class('Logger') {
+			class Logger extends Tag.Service('Logger') {
 				log(message: string) {
 					cleanupCalls.push(`Logger: ${message}`);
 				}
 			}
 
-			class DatabaseService extends Tag.Class('DatabaseService') {
+			class DatabaseService extends Tag.Service('DatabaseService') {
 				constructor(private logger: Logger) {
 					super();
 				}

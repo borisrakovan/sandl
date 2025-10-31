@@ -18,7 +18,7 @@ export const InjectSource = Symbol('InjectSource');
  * ```typescript
  * const ApiKeyTag = Tag.of('apiKey')<string>();
  *
- * class UserService extends Tag.Class('UserService') {
+ * class UserService extends Tag.Service('UserService') {
  *   constructor(
  *     private db: DatabaseService,        // ServiceTag - works automatically
  *     private apiKey: Inject<typeof ApiKeyTag>  // ValueTag - type is string, tag preserved
@@ -46,11 +46,23 @@ export type ExtractInjectTag<T> = T extends {
 	: never;
 
 /**
- * Internal symbol used to identify tagged types within the dependency injection system.
+ * Symbol used to identify tagged types within the dependency injection system.
  * This symbol is used as a property key to attach metadata to both value tags and service tags.
+ *
+ * Note: We can't use a symbol here becuase it produced the following TS error:
+ *  error TS4020: 'extends' clause of exported class 'NotificationService' has or is using private name 'TagIdKey'.
+ *
  * @internal
  */
-export const TagId = '__tag_id__' as const;
+export const TagIdKey = '__sandly/TagIdKey__';
+
+/**
+ * Internal symbol used to identify the type of a tagged type within the dependency injection system.
+ * This symbol is used as a property key to attach metadata to both value tags and service tags.
+ * It is used to carry the type of the tagged type and should not be used directly.
+ * @internal
+ */
+export const TagTypeKey: unique symbol = Symbol.for('sandly/TagTypeKey');
 
 /**
  * Type representing a value-based dependency tag.
@@ -72,25 +84,24 @@ export const TagId = '__tag_id__' as const;
  * ```
  */
 export interface ValueTag<Id extends string | symbol, T> {
-	readonly [TagId]: Id;
-	/** @internal Phantom type to carry T */
-	readonly __type: T;
+	readonly [TagIdKey]: Id;
+	readonly [TagTypeKey]: T;
 }
 
 /**
  * Type representing a class-based dependency tag.
  *
- * Tagged classes are created by Tag.Class() and serve as both the dependency identifier
+ * Tagged classes are created by Tag.Service() and serve as both the dependency identifier
  * and the constructor for the service. They extend regular classes with tag metadata
  * that the DI system uses for identification and type safety.
  *
- * @template T - The type of instances created by this tagged class
  * @template Id - The unique identifier for this tag (string or symbol)
+ * @template T - The type of instances created by this tagged class
  *
  * @example
  * ```typescript
  * // Creates a tagged class
- * class UserService extends Tag.Class('UserService') {
+ * class UserService extends Tag.Service('UserService') {
  *   getUsers() { return []; }
  * }
  *
@@ -98,12 +109,12 @@ export interface ValueTag<Id extends string | symbol, T> {
  * container.register(UserService, () => new UserService());
  * ```
  *
- * @internal - Users should use Tag.Class() instead of working with this type directly
+ * @internal - Users should use Tag.Service() instead of working with this type directly
  */
 export interface ServiceTag<Id extends string | symbol, T> {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	new (...args: any[]): T & { readonly [TagId]: Id };
-	readonly [TagId]: Id;
+	new (...args: any[]): T & { readonly [TagIdKey]: Id };
+	readonly [TagIdKey]: Id;
 }
 
 /**
@@ -127,7 +138,7 @@ export interface ServiceTag<Id extends string | symbol, T> {
  *
  * @example With service tags
  * ```typescript
- * class UserService extends Tag.Class('UserService') {
+ * class UserService extends Tag.Service('UserService') {
  *   getUsers() { return []; }
  * }
  *
@@ -168,7 +179,7 @@ export type TagType<TTag extends AnyTag> =
  *
  * @example Class tag
  * ```typescript
- * class DatabaseService extends Tag.Class('DatabaseService') {}
+ * class DatabaseService extends Tag.Service('DatabaseService') {}
  * // DatabaseService satisfies AnyTag
  * ```
  */
@@ -243,8 +254,8 @@ export const Tag = {
 	 */
 	of: <Id extends string | symbol>(id: Id) => {
 		return <T>(): ValueTag<Id, T> => ({
-			[TagId]: id,
-			__type: undefined as T,
+			[TagIdKey]: id,
+			[TagTypeKey]: undefined as T,
 		});
 	},
 
@@ -283,8 +294,8 @@ export const Tag = {
 	 */
 	for: <T>(): ValueTag<symbol, T> => {
 		return {
-			[TagId]: Symbol(),
-			__type: undefined as T,
+			[TagIdKey]: Symbol(),
+			[TagTypeKey]: undefined as T,
 		};
 	},
 
@@ -301,7 +312,7 @@ export const Tag = {
 	 *
 	 * @example Basic service class
 	 * ```typescript
-	 * class UserService extends Tag.Class('UserService') {
+	 * class UserService extends Tag.Service('UserService') {
 	 *   getUsers() {
 	 *     return ['alice', 'bob'];
 	 *   }
@@ -312,11 +323,11 @@ export const Tag = {
 	 *
 	 * @example Service with dependencies
 	 * ```typescript
-	 * class DatabaseService extends Tag.Class('DatabaseService') {
+	 * class DatabaseService extends Tag.Service('DatabaseService') {
 	 *   query(sql: string) { return []; }
 	 * }
 	 *
-	 * class UserRepository extends Tag.Class('UserRepository') {
+	 * class UserRepository extends Tag.Service('UserRepository') {
 	 *   constructor(private db: DatabaseService) {
 	 *     super();
 	 *   }
@@ -337,15 +348,15 @@ export const Tag = {
 	 * ```typescript
 	 * const SERVICE_ID = Symbol('InternalService');
 	 *
-	 * class InternalService extends Tag.Class(SERVICE_ID) {
+	 * class InternalService extends Tag.Service(SERVICE_ID) {
 	 *   doInternalWork() { return 'work'; }
 	 * }
 	 * ```
 	 */
-	Class: <Id extends string | symbol>(id: Id) => {
+	Service: <Id extends string | symbol>(id: Id) => {
 		class Tagged {
-			static readonly [TagId]: Id = id;
-			readonly [TagId]: Id = id;
+			static readonly [TagIdKey]: Id = id;
+			readonly [TagIdKey]: Id = id;
 		}
 		return Tagged as ServiceTag<Id, Tagged>;
 	},
@@ -364,7 +375,7 @@ export const Tag = {
 	 * ```typescript
 	 * const StringTag = Tag.of('myString')<string>();
 	 * const SymbolTag = Tag.for<number>();
-	 * class ServiceClass extends Tag.Class('MyService') {}
+	 * class ServiceClass extends Tag.Service('MyService') {}
 	 *
 	 * console.log(Tag.id(StringTag)); // "myString"
 	 * console.log(Tag.id(SymbolTag)); // "Symbol()"
@@ -374,15 +385,7 @@ export const Tag = {
 	 * @internal - Primarily for internal use in error messages and debugging
 	 */
 	id: (tag: AnyTag): string => {
-		// For class constructors (ServiceTag), get the TagId from the static property
-		if (typeof tag === 'function') {
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-			const id = (tag as any)[TagId];
-			return typeof id === 'symbol' ? id.toString() : String(id);
-		}
-
-		// For value tags, get the TagId directly
-		const id = tag[TagId] as string | symbol;
+		const id = tag[TagIdKey] as string | symbol;
 		return typeof id === 'symbol' ? id.toString() : String(id);
 	},
 };

@@ -26,7 +26,7 @@ describe('DependencyContainer', () => {
 
 	describe('register', () => {
 		it('should register a simple class constructor', () => {
-			class TestService extends Tag.Class('TestService') {
+			class TestService extends Tag.Service('TestService') {
 				getValue() {
 					return 'test';
 				}
@@ -41,7 +41,7 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should register with sync factory', () => {
-			class TestService extends Tag.Class('TestService') {
+			class TestService extends Tag.Service('TestService') {
 				constructor(public value: string) {
 					super();
 				}
@@ -56,7 +56,7 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should register with async factory', () => {
-			class TestService extends Tag.Class('TestService') {
+			class TestService extends Tag.Service('TestService') {
 				constructor(public value: string) {
 					super();
 				}
@@ -71,7 +71,7 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should register with finalizer', () => {
-			class TestService extends Tag.Class('TestService') {
+			class TestService extends Tag.Service('TestService') {
 				cleanup = vi.fn() as () => void;
 			}
 
@@ -86,7 +86,7 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should allow overriding registration before instantiation', () => {
-			class TestService extends Tag.Class('TestService') {
+			class TestService extends Tag.Service('TestService') {
 				constructor(public value: string) {
 					super();
 				}
@@ -100,8 +100,8 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should preserve container chain for multiple registrations', () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
 
 			const c = Container.empty()
 				.register(ServiceA, () => new ServiceA())
@@ -111,7 +111,7 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should throw error when trying to register after instantiation', async () => {
-			class TestService extends Tag.Class('TestService') {
+			class TestService extends Tag.Service('TestService') {
 				constructor(public value: string) {
 					super();
 				}
@@ -132,7 +132,7 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should throw error when registering on destroyed container', async () => {
-			class TestService extends Tag.Class('TestService') {}
+			class TestService extends Tag.Service('TestService') {}
 
 			const c = Container.empty().register(
 				TestService,
@@ -149,7 +149,7 @@ describe('DependencyContainer', () => {
 
 	describe('has', () => {
 		it('should return false for unregistered dependency', () => {
-			class TestService extends Tag.Class('TestService') {}
+			class TestService extends Tag.Service('TestService') {}
 
 			const c = Container.empty();
 
@@ -157,7 +157,7 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should return true for registered dependency', () => {
-			class TestService extends Tag.Class('TestService') {}
+			class TestService extends Tag.Service('TestService') {}
 
 			const c = Container.empty().register(
 				TestService,
@@ -168,7 +168,7 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should return true for instantiated dependency', async () => {
-			class TestService extends Tag.Class('TestService') {}
+			class TestService extends Tag.Service('TestService') {}
 
 			const c = Container.empty().register(
 				TestService,
@@ -183,7 +183,7 @@ describe('DependencyContainer', () => {
 
 	describe('get', () => {
 		it('should create and return instance for sync factory', async () => {
-			class TestService extends Tag.Class('TestService') {
+			class TestService extends Tag.Service('TestService') {
 				getValue() {
 					return 'test';
 				}
@@ -201,7 +201,7 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should create and return instance for async factory', async () => {
-			class TestService extends Tag.Class('TestService') {
+			class TestService extends Tag.Service('TestService') {
 				constructor(public value: string) {
 					super();
 				}
@@ -219,7 +219,7 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should return cached instance on subsequent calls', async () => {
-			class TestService extends Tag.Class('TestService') {}
+			class TestService extends Tag.Service('TestService') {}
 
 			const factory = vi.fn(() => new TestService());
 			const c = Container.empty().register(TestService, factory);
@@ -232,7 +232,7 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should throw UnknownDependencyError for unregistered dependency', async () => {
-			class TestService extends Tag.Class('TestService') {}
+			class TestService extends Tag.Service('TestService') {}
 
 			const c = Container.empty();
 
@@ -243,7 +243,7 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should wrap factory errors in DependencyCreationError', async () => {
-			class TestService extends Tag.Class('TestService') {}
+			class TestService extends Tag.Service('TestService') {}
 
 			const c = Container.empty().register(TestService, () => {
 				throw new Error('Factory error');
@@ -255,7 +255,7 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should handle async factory errors', async () => {
-			class TestService extends Tag.Class('TestService') {}
+			class TestService extends Tag.Service('TestService') {}
 
 			const c = Container.empty().register(TestService, async () => {
 				await Promise.resolve();
@@ -268,7 +268,7 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should remove failed promise from cache and allow retry', async () => {
-			class TestService extends Tag.Class('TestService') {}
+			class TestService extends Tag.Service('TestService') {}
 
 			let shouldFail = true;
 			const c = Container.empty().register(TestService, () => {
@@ -293,7 +293,7 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should handle concurrent calls properly', async () => {
-			class TestService extends Tag.Class('TestService') {}
+			class TestService extends Tag.Service('TestService') {}
 
 			const factory = vi.fn(() => new TestService());
 			const c = Container.empty().register(TestService, factory);
@@ -311,7 +311,7 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should throw error when getting from destroyed container', async () => {
-			class TestService extends Tag.Class('TestService') {}
+			class TestService extends Tag.Service('TestService') {}
 
 			const c = Container.empty().register(
 				TestService,
@@ -328,13 +328,13 @@ describe('DependencyContainer', () => {
 
 	describe('dependency injection', () => {
 		it('should inject dependencies through factory function', async () => {
-			class DatabaseService extends Tag.Class('DatabaseService') {
+			class DatabaseService extends Tag.Service('DatabaseService') {
 				query() {
 					return 'db-result';
 				}
 			}
 
-			class UserService extends Tag.Class('UserService') {
+			class UserService extends Tag.Service('UserService') {
 				constructor(private db: DatabaseService) {
 					super();
 				}
@@ -358,13 +358,13 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should handle complex dependency graphs', async () => {
-			class ConfigService extends Tag.Class('ConfigService') {
+			class ConfigService extends Tag.Service('ConfigService') {
 				getDbUrl() {
 					return 'db://localhost';
 				}
 			}
 
-			class DatabaseService extends Tag.Class('DatabaseService') {
+			class DatabaseService extends Tag.Service('DatabaseService') {
 				constructor(private config: ConfigService) {
 					super();
 				}
@@ -374,9 +374,9 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			class CacheService extends Tag.Class('CacheService') {}
+			class CacheService extends Tag.Service('CacheService') {}
 
-			class UserService extends Tag.Class('UserService') {
+			class UserService extends Tag.Service('UserService') {
 				constructor(
 					private db: DatabaseService,
 					private _cache: CacheService
@@ -414,13 +414,13 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should detect and throw CircularDependencyError', async () => {
-			class ServiceA extends Tag.Class('ServiceA') {
+			class ServiceA extends Tag.Service('ServiceA') {
 				constructor(private _serviceB: ServiceB) {
 					super();
 				}
 			}
 
-			class ServiceB extends Tag.Class('ServiceB') {
+			class ServiceB extends Tag.Service('ServiceB') {
 				constructor(private _serviceA: ServiceA) {
 					super();
 				}
@@ -477,7 +477,7 @@ describe('DependencyContainer', () => {
 
 	describe('destroy', () => {
 		it('should call finalizers for instantiated dependencies', async () => {
-			class TestService extends Tag.Class('TestService') {
+			class TestService extends Tag.Service('TestService') {
 				cleanup = vi.fn();
 			}
 
@@ -500,7 +500,7 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should not call finalizers for non-instantiated dependencies', async () => {
-			class TestService extends Tag.Class('TestService') {}
+			class TestService extends Tag.Service('TestService') {}
 
 			const finalizer = vi.fn();
 
@@ -516,9 +516,9 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should call finalizers concurrently', async () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
-			class ServiceC extends Tag.Class('ServiceC') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
+			class ServiceC extends Tag.Service('ServiceC') {}
 
 			const finalizationOrder: string[] = [];
 
@@ -557,7 +557,7 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should handle async finalizers', async () => {
-			class TestService extends Tag.Class('TestService') {
+			class TestService extends Tag.Service('TestService') {
 				asyncCleanup = vi
 					.fn()
 					.mockResolvedValue(undefined) as () => Promise<void>;
@@ -582,8 +582,8 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should collect finalizer errors and throw DependencyContainerFinalizationError', async () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
 
 			const c = Container.empty()
 				.register(ServiceA, {
@@ -609,7 +609,7 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should clear instance cache even if finalization fails', async () => {
-			class TestService extends Tag.Class('TestService') {}
+			class TestService extends Tag.Service('TestService') {}
 
 			const c = Container.empty().register(TestService, {
 				factory: () => new TestService(),
@@ -628,8 +628,8 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should make container unusable after destroy', async () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
 
 			const c = Container.empty()
 				.register(ServiceA, () => new ServiceA())
@@ -661,7 +661,7 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should throw error when trying to use destroyed container multiple times', async () => {
-			class TestService extends Tag.Class('TestService') {
+			class TestService extends Tag.Service('TestService') {
 				constructor(public id: number) {
 					super();
 				}
@@ -688,7 +688,7 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should verify finalizers are called but container becomes unusable', async () => {
-			class TestService extends Tag.Class('TestService') {
+			class TestService extends Tag.Service('TestService') {
 				cleanup = vi.fn();
 			}
 
@@ -743,7 +743,7 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should mix ServiceTag and ValueTag dependencies', async () => {
-			class UserService extends Tag.Class('UserService') {
+			class UserService extends Tag.Service('UserService') {
 				constructor(private apiKey: string) {
 					super();
 				}
@@ -770,7 +770,7 @@ describe('DependencyContainer', () => {
 
 	describe('error handling', () => {
 		it('should preserve error context in DependencyCreationError', async () => {
-			class TestService extends Tag.Class('TestService') {}
+			class TestService extends Tag.Service('TestService') {}
 
 			const originalError = new Error('Original error');
 			const c = Container.empty().register(TestService, () => {
@@ -789,8 +789,8 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should handle nested dependency creation errors', async () => {
-			class DatabaseService extends Tag.Class('DatabaseService') {}
-			class UserService extends Tag.Class('UserService') {}
+			class DatabaseService extends Tag.Service('DatabaseService') {}
+			class UserService extends Tag.Service('UserService') {}
 
 			const c = Container.empty()
 				.register(DatabaseService, () => {
@@ -814,7 +814,7 @@ describe('DependencyContainer', () => {
 
 	describe('type safety edge cases', () => {
 		it('should maintain type safety with complex inheritance', async () => {
-			class BaseService extends Tag.Class('BaseService') {
+			class BaseService extends Tag.Service('BaseService') {
 				baseMethod() {
 					return 'base';
 				}
@@ -844,12 +844,12 @@ describe('DependencyContainer', () => {
 
 	describe('merge method', () => {
 		it('should merge registrations from two containers', async () => {
-			class ServiceA extends Tag.Class('ServiceA') {
+			class ServiceA extends Tag.Service('ServiceA') {
 				getValue() {
 					return 'A';
 				}
 			}
-			class ServiceB extends Tag.Class('ServiceB') {
+			class ServiceB extends Tag.Service('ServiceB') {
 				getValue() {
 					return 'B';
 				}
@@ -871,7 +871,7 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should preserve finalizers when merging', async () => {
-			class TestService extends Tag.Class('TestService') {
+			class TestService extends Tag.Service('TestService') {
 				cleanup = vi.fn();
 			}
 
@@ -917,9 +917,9 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should combine registrations from both containers', async () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
-			class ServiceC extends Tag.Class('ServiceC') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
+			class ServiceC extends Tag.Service('ServiceC') {}
 
 			const source = Container.empty()
 				.register(ServiceA, () => new ServiceA())
@@ -943,7 +943,7 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should let source override target registrations', async () => {
-			class TestService extends Tag.Class('TestService') {
+			class TestService extends Tag.Service('TestService') {
 				constructor(public value: string) {
 					super();
 				}
@@ -966,7 +966,7 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should create new container with separate instance cache', async () => {
-			class TestService extends Tag.Class('TestService') {
+			class TestService extends Tag.Service('TestService') {
 				constructor(public id: string = Math.random().toString()) {
 					super();
 				}
@@ -992,7 +992,7 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should work with empty source container', () => {
-			class TestService extends Tag.Class('TestService') {}
+			class TestService extends Tag.Service('TestService') {}
 
 			const source = Container.empty();
 			const target = Container.empty().register(
@@ -1005,7 +1005,7 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should work with empty target container', () => {
-			class TestService extends Tag.Class('TestService') {}
+			class TestService extends Tag.Service('TestService') {}
 
 			const source = Container.empty().register(
 				TestService,
@@ -1018,7 +1018,7 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should throw error when merging from destroyed container', async () => {
-			class TestService extends Tag.Class('TestService') {}
+			class TestService extends Tag.Service('TestService') {}
 
 			const source = Container.empty().register(
 				TestService,
@@ -1032,13 +1032,13 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should work with complex dependency graphs', async () => {
-			class ConfigService extends Tag.Class('ConfigService') {
+			class ConfigService extends Tag.Service('ConfigService') {
 				getDbUrl() {
 					return 'db://localhost';
 				}
 			}
 
-			class DatabaseService extends Tag.Class('DatabaseService') {
+			class DatabaseService extends Tag.Service('DatabaseService') {
 				constructor(private config: ConfigService) {
 					super();
 				}

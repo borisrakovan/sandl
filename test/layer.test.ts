@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 describe('Layer', () => {
 	describe('layer factory', () => {
 		it('should create a simple layer without parameters', () => {
-			class TestService extends Tag.Class('TestService') {
+			class TestService extends Tag.Service('TestService') {
 				getValue() {
 					return 'test';
 				}
@@ -24,7 +24,7 @@ describe('Layer', () => {
 		});
 
 		it('should register services correctly', async () => {
-			class TestService extends Tag.Class('TestService') {
+			class TestService extends Tag.Service('TestService') {
 				getValue() {
 					return 'test';
 				}
@@ -45,13 +45,13 @@ describe('Layer', () => {
 
 	describe('layer composition with "provide"', () => {
 		it('should compose layers where source provides dependencies to target', async () => {
-			class DatabaseService extends Tag.Class('DatabaseService') {
+			class DatabaseService extends Tag.Service('DatabaseService') {
 				query() {
 					return 'db-result';
 				}
 			}
 
-			class UserService extends Tag.Class('UserService') {
+			class UserService extends Tag.Service('UserService') {
 				constructor(private db: DatabaseService) {
 					super();
 				}
@@ -88,13 +88,13 @@ describe('Layer', () => {
 		});
 
 		it('should handle multi-level composition', async () => {
-			class ConfigService extends Tag.Class('ConfigService') {
+			class ConfigService extends Tag.Service('ConfigService') {
 				getDbUrl() {
 					return 'db://localhost';
 				}
 			}
 
-			class DatabaseService extends Tag.Class('DatabaseService') {
+			class DatabaseService extends Tag.Service('DatabaseService') {
 				constructor(private config: ConfigService) {
 					super();
 				}
@@ -104,7 +104,7 @@ describe('Layer', () => {
 				}
 			}
 
-			class UserService extends Tag.Class('UserService') {
+			class UserService extends Tag.Service('UserService') {
 				constructor(private db: DatabaseService) {
 					super();
 				}
@@ -153,9 +153,9 @@ describe('Layer', () => {
 		it('should handle external dependencies in composition', async () => {
 			const ApiKeyTag = Tag.of('apiKey')<string>();
 
-			class DatabaseService extends Tag.Class('DatabaseService') {}
+			class DatabaseService extends Tag.Service('DatabaseService') {}
 
-			class UserService extends Tag.Class('UserService') {
+			class UserService extends Tag.Service('UserService') {
 				constructor(
 					private apiKey: string,
 					private _db: DatabaseService
@@ -203,13 +203,13 @@ describe('Layer', () => {
 
 	describe('layer composition with "provideMerge"', () => {
 		it("should compose layers and expose both layers' provisions", async () => {
-			class ConfigService extends Tag.Class('ConfigService') {
+			class ConfigService extends Tag.Service('ConfigService') {
 				getConfig() {
 					return 'config-value';
 				}
 			}
 
-			class DatabaseService extends Tag.Class('DatabaseService') {
+			class DatabaseService extends Tag.Service('DatabaseService') {
 				constructor(private config: ConfigService) {
 					super();
 				}
@@ -249,13 +249,13 @@ describe('Layer', () => {
 		});
 
 		it('should differ from .provide() by exposing source layer provisions', async () => {
-			class ConfigService extends Tag.Class('ConfigService') {
+			class ConfigService extends Tag.Service('ConfigService') {
 				getValue() {
 					return 'config';
 				}
 			}
 
-			class DatabaseService extends Tag.Class('DatabaseService') {
+			class DatabaseService extends Tag.Service('DatabaseService') {
 				constructor(private config: ConfigService) {
 					super();
 				}
@@ -306,13 +306,13 @@ describe('Layer', () => {
 
 	describe('layer merging with "merge"', () => {
 		it('should merge two independent layers', async () => {
-			class ServiceA extends Tag.Class('ServiceA') {
+			class ServiceA extends Tag.Service('ServiceA') {
 				getValue() {
 					return 'A';
 				}
 			}
 
-			class ServiceB extends Tag.Class('ServiceB') {
+			class ServiceB extends Tag.Service('ServiceB') {
 				getValue() {
 					return 'B';
 				}
@@ -339,13 +339,13 @@ describe('Layer', () => {
 		});
 
 		it('should merge layers with shared dependencies', async () => {
-			class ConfigService extends Tag.Class('ConfigService') {
+			class ConfigService extends Tag.Service('ConfigService') {
 				getConfig() {
 					return 'config';
 				}
 			}
 
-			class ServiceA extends Tag.Class('ServiceA') {
+			class ServiceA extends Tag.Service('ServiceA') {
 				constructor(private config: ConfigService) {
 					super();
 				}
@@ -355,7 +355,7 @@ describe('Layer', () => {
 				}
 			}
 
-			class ServiceB extends Tag.Class('ServiceB') {
+			class ServiceB extends Tag.Service('ServiceB') {
 				constructor(private config: ConfigService) {
 					super();
 				}
@@ -404,10 +404,10 @@ describe('Layer', () => {
 		});
 
 		it('should handle complex merging scenarios', async () => {
-			class DatabaseService extends Tag.Class('DatabaseService') {}
-			class CacheService extends Tag.Class('CacheService') {}
-			class EmailService extends Tag.Class('EmailService') {}
-			class LoggingService extends Tag.Class('LoggingService') {}
+			class DatabaseService extends Tag.Service('DatabaseService') {}
+			class CacheService extends Tag.Service('CacheService') {}
+			class EmailService extends Tag.Service('EmailService') {}
+			class LoggingService extends Tag.Service('LoggingService') {}
 
 			const persistenceLayer = layer<
 				never,
@@ -461,9 +461,9 @@ describe('Layer', () => {
 		});
 
 		it('should merge multiple layers with Layer.mergeAll', async () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
-			class ServiceC extends Tag.Class('ServiceC') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
+			class ServiceC extends Tag.Service('ServiceC') {}
 
 			const layerA = layer<never, typeof ServiceA>((container) =>
 				container.register(ServiceA, () => new ServiceA())
@@ -492,8 +492,8 @@ describe('Layer', () => {
 		});
 
 		it('should merge two layers with Layer.merge', async () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
 
 			const layerA = layer<never, typeof ServiceA>((container) =>
 				container.register(ServiceA, () => new ServiceA())
@@ -518,7 +518,7 @@ describe('Layer', () => {
 
 	describe('layer with finalizers', () => {
 		it('should handle finalizers in layers', async () => {
-			class ServiceWithCleanup extends Tag.Class('ServiceWithCleanup') {
+			class ServiceWithCleanup extends Tag.Service('ServiceWithCleanup') {
 				cleanup = vi.fn() as () => void;
 			}
 
@@ -544,11 +544,11 @@ describe('Layer', () => {
 		});
 
 		it('should preserve finalizers through composition', async () => {
-			class ServiceA extends Tag.Class('ServiceA') {
+			class ServiceA extends Tag.Service('ServiceA') {
 				cleanup = vi.fn();
 			}
 
-			class ServiceB extends Tag.Class('ServiceB') {
+			class ServiceB extends Tag.Service('ServiceB') {
 				cleanup = vi.fn();
 			}
 
@@ -615,7 +615,7 @@ describe('Layer', () => {
 		it('should mix value tags and service tags', async () => {
 			const ApiKeyTag = Tag.of('apiKey')<string>();
 
-			class ApiService extends Tag.Class('ApiService') {
+			class ApiService extends Tag.Service('ApiService') {
 				constructor(private apiKey: string) {
 					super();
 				}
@@ -649,7 +649,7 @@ describe('Layer', () => {
 
 	describe('error scenarios', () => {
 		it('should propagate container errors through layers', async () => {
-			class FailingService extends Tag.Class('FailingService') {}
+			class FailingService extends Tag.Service('FailingService') {}
 
 			const failingLayer = layer<never, typeof FailingService>(
 				(container) =>
@@ -665,13 +665,13 @@ describe('Layer', () => {
 		});
 
 		it('should handle circular dependencies across layers', async () => {
-			class ServiceA extends Tag.Class('ServiceA') {
+			class ServiceA extends Tag.Service('ServiceA') {
 				constructor(private _serviceB: ServiceB) {
 					super();
 				}
 			}
 
-			class ServiceB extends Tag.Class('ServiceB') {
+			class ServiceB extends Tag.Service('ServiceB') {
 				constructor(private _serviceA: ServiceA) {
 					super();
 				}
@@ -721,7 +721,7 @@ describe('Layer', () => {
 			);
 
 			// Infrastructure layer
-			class DatabaseService extends Tag.Class('DatabaseService') {
+			class DatabaseService extends Tag.Service('DatabaseService') {
 				constructor(private dbUrl: string) {
 					super();
 				}
@@ -731,7 +731,7 @@ describe('Layer', () => {
 				}
 			}
 
-			class CacheService extends Tag.Class('CacheService') {
+			class CacheService extends Tag.Service('CacheService') {
 				constructor(private redisUrl: string) {
 					super();
 				}
@@ -757,7 +757,7 @@ describe('Layer', () => {
 			);
 
 			// Service layer
-			class UserService extends Tag.Class('UserService') {
+			class UserService extends Tag.Service('UserService') {
 				constructor(
 					private db: DatabaseService,
 					private cache: CacheService,

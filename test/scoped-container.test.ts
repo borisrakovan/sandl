@@ -71,7 +71,7 @@ describe('ScopedContainer', () => {
 
 	describe('dependency registration', () => {
 		it('should register dependencies in scoped container', () => {
-			class TestService extends Tag.Class('TestService') {
+			class TestService extends Tag.Service('TestService') {
 				getValue() {
 					return 'test';
 				}
@@ -86,7 +86,7 @@ describe('ScopedContainer', () => {
 		});
 
 		it('should allow overriding registration in same scope before instantiation', () => {
-			class TestService extends Tag.Class('TestService') {
+			class TestService extends Tag.Service('TestService') {
 				constructor(public value: string) {
 					super();
 				}
@@ -100,7 +100,7 @@ describe('ScopedContainer', () => {
 		});
 
 		it('should allow registering dependency that exists in parent scope if not instantiated', () => {
-			class TestService extends Tag.Class('TestService') {
+			class TestService extends Tag.Service('TestService') {
 				constructor(public value: string) {
 					super();
 				}
@@ -122,7 +122,7 @@ describe('ScopedContainer', () => {
 		});
 
 		it('should throw error when trying to register dependency that is instantiated in parent scope', async () => {
-			class TestService extends Tag.Class('TestService') {}
+			class TestService extends Tag.Service('TestService') {}
 
 			const parent = ScopedContainer.empty('parent').register(
 				TestService,
@@ -142,14 +142,14 @@ describe('ScopedContainer', () => {
 
 	describe('has method', () => {
 		it('should return false for unregistered dependency', () => {
-			class TestService extends Tag.Class('TestService') {}
+			class TestService extends Tag.Service('TestService') {}
 
 			const c = ScopedContainer.empty('test');
 			expect(c.has(TestService)).toBe(false);
 		});
 
 		it('should return true for dependency registered in current scope', () => {
-			class TestService extends Tag.Class('TestService') {}
+			class TestService extends Tag.Service('TestService') {}
 
 			const c = ScopedContainer.empty('test').register(
 				TestService,
@@ -160,7 +160,7 @@ describe('ScopedContainer', () => {
 		});
 
 		it('should return true for dependency registered in parent scope', () => {
-			class TestService extends Tag.Class('TestService') {}
+			class TestService extends Tag.Service('TestService') {}
 
 			const parent = ScopedContainer.empty('parent').register(
 				TestService,
@@ -172,7 +172,7 @@ describe('ScopedContainer', () => {
 		});
 
 		it('should return true for dependency registered in grandparent scope', () => {
-			class TestService extends Tag.Class('TestService') {}
+			class TestService extends Tag.Service('TestService') {}
 
 			const grandparent = ScopedContainer.empty('grandparent').register(
 				TestService,
@@ -187,7 +187,7 @@ describe('ScopedContainer', () => {
 
 	describe('get method and dependency resolution', () => {
 		it('should resolve dependency from current scope', async () => {
-			class TestService extends Tag.Class('TestService') {
+			class TestService extends Tag.Service('TestService') {
 				getValue() {
 					return 'current-scope';
 				}
@@ -204,7 +204,7 @@ describe('ScopedContainer', () => {
 		});
 
 		it('should resolve dependency from parent scope', async () => {
-			class TestService extends Tag.Class('TestService') {
+			class TestService extends Tag.Service('TestService') {
 				getValue() {
 					return 'parent-scope';
 				}
@@ -222,7 +222,7 @@ describe('ScopedContainer', () => {
 		});
 
 		it('should resolve from parent scope when not overridden', async () => {
-			class TestService extends Tag.Class('TestService') {
+			class TestService extends Tag.Service('TestService') {
 				constructor(public value: string) {
 					super();
 				}
@@ -244,7 +244,7 @@ describe('ScopedContainer', () => {
 		});
 
 		it('should cache instances per scope', async () => {
-			class TestService extends Tag.Class('TestService') {}
+			class TestService extends Tag.Service('TestService') {}
 
 			const factory = vi.fn(() => new TestService());
 			const parent = ScopedContainer.empty('parent').register(
@@ -273,7 +273,7 @@ describe('ScopedContainer', () => {
 		});
 
 		it('should allow child to override parent dependency before instantiation', async () => {
-			class TestService extends Tag.Class('TestService') {
+			class TestService extends Tag.Service('TestService') {
 				constructor(public value: string) {
 					super();
 				}
@@ -297,7 +297,7 @@ describe('ScopedContainer', () => {
 		});
 
 		it('should throw UnknownDependencyError for unregistered dependency', async () => {
-			class TestService extends Tag.Class('TestService') {}
+			class TestService extends Tag.Service('TestService') {}
 
 			const c = ScopedContainer.empty('test');
 
@@ -308,19 +308,19 @@ describe('ScopedContainer', () => {
 		});
 
 		it('should handle complex dependency injection across scopes', async () => {
-			class DatabaseService extends Tag.Class('DatabaseService') {
+			class DatabaseService extends Tag.Service('DatabaseService') {
 				query() {
 					return 'db-result';
 				}
 			}
 
-			class CacheService extends Tag.Class('CacheService') {
+			class CacheService extends Tag.Service('CacheService') {
 				get() {
 					return 'cached-result';
 				}
 			}
 
-			class UserService extends Tag.Class('UserService') {
+			class UserService extends Tag.Service('UserService') {
 				constructor(
 					private db: DatabaseService,
 					private cache: CacheService
@@ -357,7 +357,7 @@ describe('ScopedContainer', () => {
 		});
 
 		it('should throw error when getting from destroyed container', async () => {
-			class TestService extends Tag.Class('TestService') {}
+			class TestService extends Tag.Service('TestService') {}
 
 			const c = ScopedContainer.empty('test').register(
 				TestService,
@@ -374,7 +374,7 @@ describe('ScopedContainer', () => {
 
 	describe('destroy method', () => {
 		it('should call finalizers for instantiated dependencies', async () => {
-			class TestService extends Tag.Class('TestService') {
+			class TestService extends Tag.Service('TestService') {
 				cleanup = vi.fn();
 			}
 
@@ -397,8 +397,8 @@ describe('ScopedContainer', () => {
 		it('should destroy children before parent', async () => {
 			const destructionOrder: string[] = [];
 
-			class ParentService extends Tag.Class('ParentService') {}
-			class ChildService extends Tag.Class('ChildService') {}
+			class ParentService extends Tag.Service('ParentService') {}
+			class ChildService extends Tag.Service('ChildService') {}
 
 			const parent = ScopedContainer.empty('parent').register(
 				ParentService,
@@ -430,9 +430,9 @@ describe('ScopedContainer', () => {
 		it('should destroy multiple children before parent', async () => {
 			const destructionOrder: string[] = [];
 
-			class ParentService extends Tag.Class('ParentService') {}
-			class Child1Service extends Tag.Class('Child1Service') {}
-			class Child2Service extends Tag.Class('Child2Service') {}
+			class ParentService extends Tag.Service('ParentService') {}
+			class Child1Service extends Tag.Service('Child1Service') {}
+			class Child2Service extends Tag.Service('Child2Service') {}
 
 			const parent = ScopedContainer.empty('parent').register(
 				ParentService,
@@ -477,9 +477,11 @@ describe('ScopedContainer', () => {
 		it('should handle nested child destruction', async () => {
 			const destructionOrder: string[] = [];
 
-			class GrandparentService extends Tag.Class('GrandparentService') {}
-			class ParentService extends Tag.Class('ParentService') {}
-			class ChildService extends Tag.Class('ChildService') {}
+			class GrandparentService extends Tag.Service(
+				'GrandparentService'
+			) {}
+			class ParentService extends Tag.Service('ParentService') {}
+			class ChildService extends Tag.Service('ChildService') {}
 
 			const grandparent = ScopedContainer.empty('grandparent').register(
 				GrandparentService,
@@ -521,8 +523,8 @@ describe('ScopedContainer', () => {
 		});
 
 		it('should handle child destruction errors', async () => {
-			class ParentService extends Tag.Class('ParentService') {}
-			class ChildService extends Tag.Class('ChildService') {}
+			class ParentService extends Tag.Service('ParentService') {}
+			class ChildService extends Tag.Service('ChildService') {}
 
 			const parent = ScopedContainer.empty('parent').register(
 				ParentService,
@@ -558,7 +560,7 @@ describe('ScopedContainer', () => {
 		});
 
 		it('should make container unusable after destroy', async () => {
-			class TestService extends Tag.Class('TestService') {}
+			class TestService extends Tag.Service('TestService') {}
 
 			const c = ScopedContainer.empty('test').register(
 				TestService,
@@ -587,7 +589,7 @@ describe('ScopedContainer', () => {
 
 			// Create child and let it go out of scope
 			{
-				class ChildService extends Tag.Class('ChildService') {}
+				class ChildService extends Tag.Service('ChildService') {}
 				const child = parent
 					.child('child')
 					.register(ChildService, () => new ChildService());
@@ -607,7 +609,7 @@ describe('ScopedContainer', () => {
 
 	describe('error handling', () => {
 		it('should wrap factory errors in DependencyCreationError', async () => {
-			class TestService extends Tag.Class('TestService') {}
+			class TestService extends Tag.Service('TestService') {}
 
 			const c = ScopedContainer.empty('test').register(
 				TestService,
@@ -622,8 +624,8 @@ describe('ScopedContainer', () => {
 		});
 
 		it('should handle circular dependencies', async () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
 
 			const c = ScopedContainer.empty('test')
 				.register(
@@ -651,8 +653,8 @@ describe('ScopedContainer', () => {
 		});
 
 		it('should handle cross-scope circular dependencies', async () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
 
 			const parent = ScopedContainer.empty('parent').register(
 				ServiceA,
@@ -741,8 +743,8 @@ describe('ScopedContainer', () => {
 
 	describe('scoped function', () => {
 		it('should convert regular container to scoped container', async () => {
-			class ServiceA extends Tag.Class('ServiceA') {}
-			class ServiceB extends Tag.Class('ServiceB') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
 
 			const regularContainer = Container.empty()
 				.register(ServiceA, () => new ServiceA())
@@ -766,7 +768,7 @@ describe('ScopedContainer', () => {
 		});
 
 		it('should preserve finalizers when converting', async () => {
-			class TestService extends Tag.Class('TestService') {
+			class TestService extends Tag.Service('TestService') {
 				cleanup = vi.fn();
 			}
 
@@ -789,7 +791,7 @@ describe('ScopedContainer', () => {
 		});
 
 		it('should not share instances with original container', async () => {
-			class TestService extends Tag.Class('TestService') {
+			class TestService extends Tag.Service('TestService') {
 				constructor(public id: string = Math.random().toString()) {
 					super();
 				}
@@ -820,7 +822,7 @@ describe('ScopedContainer', () => {
 		});
 
 		it('should accept symbol scope identifiers', () => {
-			class TestService extends Tag.Class('TestService') {}
+			class TestService extends Tag.Service('TestService') {}
 			const symbolScope = Symbol('test-scope');
 
 			const regularContainer = Container.empty().register(
@@ -834,7 +836,7 @@ describe('ScopedContainer', () => {
 		});
 
 		it('should throw error when converting destroyed container', async () => {
-			class TestService extends Tag.Class('TestService') {}
+			class TestService extends Tag.Service('TestService') {}
 
 			const regularContainer = Container.empty().register(
 				TestService,

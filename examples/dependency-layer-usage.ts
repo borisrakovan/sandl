@@ -6,7 +6,7 @@ import { value } from '@/value.js';
 // Real-world services with proper dependencies
 
 // Database layer - provides database connection
-export class DatabaseConnection extends Tag.Class('DatabaseConnection') {
+export class DatabaseConnection extends Tag.Service('DatabaseConnection') {
 	constructor(private connectionString: string) {
 		super();
 	}
@@ -18,7 +18,7 @@ export class DatabaseConnection extends Tag.Class('DatabaseConnection') {
 }
 
 // Cache layer - provides Redis client
-export class CacheService extends Tag.Class('CacheService') {
+export class CacheService extends Tag.Service('CacheService') {
 	constructor(
 		private redisUrl: string,
 		private redisPassword: string
@@ -38,7 +38,7 @@ export class CacheService extends Tag.Class('CacheService') {
 }
 
 // User repository - requires database connection
-export class UserRepository extends Tag.Class('UserRepository') {
+export class UserRepository extends Tag.Service('UserRepository') {
 	constructor(private db: DatabaseConnection) {
 		super();
 	}
@@ -55,7 +55,7 @@ export class UserRepository extends Tag.Class('UserRepository') {
 }
 
 // User service - requires both user repo and cache
-export class UserService extends Tag.Class('UserService') {
+export class UserService extends Tag.Service('UserService') {
 	constructor(
 		private userRepo: UserRepository,
 		private cache: CacheService
@@ -86,7 +86,7 @@ export class UserService extends Tag.Class('UserService') {
 }
 
 // Email service - independent, no dependencies
-export class EmailService extends Tag.Class('EmailService') {
+export class EmailService extends Tag.Service('EmailService') {
 	constructor(private apiKey: string) {
 		super();
 	}
@@ -100,7 +100,7 @@ export class EmailService extends Tag.Class('EmailService') {
 }
 
 // Notification service - requires email service
-export class NotificationService extends Tag.Class('NotificationService') {
+export class NotificationService extends Tag.Service('NotificationService') {
 	constructor(private emailService: EmailService) {
 		super();
 	}
@@ -115,7 +115,7 @@ export class NotificationService extends Tag.Class('NotificationService') {
 }
 
 // Application service - requires user service and notification service
-export class AppService extends Tag.Class('AppService') {
+export class AppService extends Tag.Service('AppService') {
 	constructor(
 		private userService: UserService,
 		private notificationService: NotificationService

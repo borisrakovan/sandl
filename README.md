@@ -17,7 +17,7 @@ A dependency injection framework for TypeScript that emphasizes complete type sa
 ```typescript
 import { container, Tag } from 'sandly';
 
-class DatabaseService extends Tag.Class('DatabaseService') {
+class DatabaseService extends Tag.Service('DatabaseService') {
 	query() {
 		return ['data'];
 	}
@@ -92,13 +92,13 @@ export const handler = async (event, context) => {
 ```typescript
 import { container, Tag } from 'sandly';
 
-class EmailService extends Tag.Class('EmailService') {
+class EmailService extends Tag.Service('EmailService') {
 	sendEmail(to: string, subject: string) {
 		return { messageId: 'msg-123' };
 	}
 }
 
-class UserService extends Tag.Class('UserService') {
+class UserService extends Tag.Service('UserService') {
 	constructor(private emailService: EmailService) {
 		super();
 	}
@@ -140,7 +140,7 @@ const app = emailService().provide(userService()).register(container());
 const ApiKeyTag = Tag.of('apiKey')<string>();
 const ConfigTag = Tag.of('config')<{ dbUrl: string }>();
 
-class DatabaseService extends Tag.Class('DatabaseService') {
+class DatabaseService extends Tag.Service('DatabaseService') {
 	constructor(
 		private config: Inject<typeof ConfigTag>,
 		private apiKey: Inject<typeof ApiKeyTag>
