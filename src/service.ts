@@ -4,8 +4,8 @@ import {
 	AnyTag,
 	ExtractInjectTag,
 	ServiceTag,
+	ServiceTagIdKey,
 	TagId,
-	TagIdKey,
 } from './tag.js';
 
 /**
@@ -16,18 +16,6 @@ export type ConstructorParams<T extends ServiceTag<TagId, unknown>> =
 	T extends new (...args: infer A) => unknown ? A : never;
 
 /**
- * Helper to convert a tagged instance type back to its constructor type.
- * This uses the fact that tagged classes have a specific structure with TagIdKey property.
- */
-export type InstanceToConstructorType<T> = T extends {
-	readonly [TagIdKey]: infer Id;
-}
-	? Id extends TagId
-		? ServiceTag<Id, T>
-		: never
-	: never;
-
-/**
  * Extracts constructor-typed dependencies from constructor parameters.
  * Converts instance types to their corresponding constructor types.
  * Handles both ServiceTag dependencies (automatic) and ValueTag dependencies (via Inject helper).
@@ -36,10 +24,14 @@ export type FilterTags<T extends readonly unknown[]> = T extends readonly []
 	? never
 	: {
 			[K in keyof T]: T[K] extends {
-				readonly [TagIdKey]: TagId;
+				readonly [ServiceTagIdKey]: infer Id;
 			}
-				? InstanceToConstructorType<T[K]>
-				: ExtractInjectTag<T[K]> extends never
+				? // Service tag
+					Id extends TagId
+					? ServiceTag<Id, T[K]>
+					: never
+				: // Value tag
+					ExtractInjectTag<T[K]> extends never
 					? never
 					: ExtractInjectTag<T[K]>;
 		}[number];

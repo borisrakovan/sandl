@@ -13,7 +13,9 @@ export type TagId = string | symbol;
  *
  * @internal
  */
-export const TagIdKey = '__sandly/TagIdKey__';
+export const ValueTagIdKey = '__sandly/ValueTagIdKey__';
+
+export const ServiceTagIdKey = '__sandly/ServiceTagIdKey__';
 
 /**
  * Internal symbol used to identify the type of a tagged type within the dependency injection system.
@@ -43,7 +45,7 @@ export const TagTypeKey: unique symbol = Symbol.for('sandly/TagTypeKey');
  * ```
  */
 export interface ValueTag<Id extends TagId, T> {
-	readonly [TagIdKey]: Id;
+	readonly [ValueTagIdKey]: Id;
 	readonly [TagTypeKey]: T;
 }
 
@@ -72,8 +74,8 @@ export interface ValueTag<Id extends TagId, T> {
  */
 export interface ServiceTag<Id extends TagId, T> {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	new (...args: any[]): T & { readonly [TagIdKey]: Id };
-	readonly [TagIdKey]: Id;
+	new (...args: any[]): T;
+	readonly [ServiceTagIdKey]: Id;
 }
 
 /**
@@ -213,7 +215,7 @@ export const Tag = {
 	 */
 	of: <Id extends TagId>(id: Id) => {
 		return <T>(): ValueTag<Id, T> => ({
-			[TagIdKey]: id,
+			[ValueTagIdKey]: id,
 			[TagTypeKey]: undefined as T,
 		});
 	},
@@ -253,7 +255,7 @@ export const Tag = {
 	 */
 	for: <T>(): ValueTag<symbol, T> => {
 		return {
-			[TagIdKey]: Symbol(),
+			[ValueTagIdKey]: Symbol(),
 			[TagTypeKey]: undefined as T,
 		};
 	},
@@ -314,8 +316,8 @@ export const Tag = {
 	 */
 	Service: <Id extends TagId>(id: Id) => {
 		class Tagged {
-			static readonly [TagIdKey]: Id = id;
-			readonly [TagIdKey]: Id = id;
+			static readonly [ServiceTagIdKey]: Id = id;
+			readonly [ServiceTagIdKey]: Id = id;
 		}
 		return Tagged as ServiceTag<Id, Tagged>;
 	},
@@ -344,7 +346,9 @@ export const Tag = {
 	 * @internal - Primarily for internal use in error messages and debugging
 	 */
 	id: (tag: AnyTag): TagId => {
-		return tag[TagIdKey];
+		return typeof tag === 'function'
+			? tag[ServiceTagIdKey]
+			: tag[ValueTagIdKey];
 	},
 };
 
