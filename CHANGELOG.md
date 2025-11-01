@@ -1,5 +1,11 @@
 # lambdaverse
 
+## 0.2.0
+
+### Minor Changes
+
+- dcd3397: Design improvement, bug fixes and autoService layer
+
 ## 0.1.0
 
 ### Minor Changes
