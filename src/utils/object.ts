@@ -8,7 +8,7 @@ export function hasKey<T extends PropertyKey>(
 	return (
 		obj !== undefined &&
 		obj !== null &&
-		typeof obj === 'object' &&
+		(typeof obj === 'object' || typeof obj === 'function') &&
 		key in obj
 	);
 }

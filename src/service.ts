@@ -1,50 +1,92 @@
-import { DependencySpec, IContainer } from './container.js';
+import {
+	DependencySpec,
+	Finalizer,
+	IContainer,
+	ResolutionContext,
+} from './container.js';
 import { Layer, layer } from './layer.js';
 import {
 	AnyTag,
 	ExtractInjectTag,
 	ServiceTag,
 	ServiceTagIdKey,
+	Tag,
 	TagId,
+	TagType,
 } from './tag.js';
 
 /**
  * Extracts constructor parameter types from a ServiceTag.
  * Only parameters that extend AnyTag are considered as dependencies.
+ * @internal
  */
 export type ConstructorParams<T extends ServiceTag<TagId, unknown>> =
 	T extends new (...args: infer A) => unknown ? A : never;
 
 /**
- * Extracts constructor-typed dependencies from constructor parameters.
- * Converts instance types to their corresponding constructor types.
- * Handles both ServiceTag dependencies (automatic) and ValueTag dependencies (via Inject helper).
+ * Extracts only dependency tags from a constructor parameter list.
+ * Filters out non‑DI parameters.
+ *
+ * Example:
+ *   [DatabaseService, Inject<typeof ConfigTag>, number]
+ *     → typeof DatabaseService | typeof ConfigTag
+ * @internal
  */
-export type FilterTags<T extends readonly unknown[]> = T extends readonly []
-	? never
-	: {
-			[K in keyof T]: T[K] extends {
-				readonly [ServiceTagIdKey]: infer Id;
-			}
-				? // Service tag
-					Id extends TagId
-					? ServiceTag<Id, T[K]>
-					: never
-				: // Value tag
-					ExtractInjectTag<T[K]> extends never
-					? never
-					: ExtractInjectTag<T[K]>;
-		}[number];
+export type ExtractConstructorDeps<T extends readonly unknown[]> =
+	T extends readonly []
+		? never
+		: {
+				[K in keyof T]: T[K] extends {
+					readonly [ServiceTagIdKey]: infer Id;
+				}
+					? // Service tag
+						Id extends TagId
+						? ServiceTag<Id, T[K]>
+						: never
+					: // Value tag
+						ExtractInjectTag<T[K]> extends never
+						? never
+						: ExtractInjectTag<T[K]>;
+			}[number];
 
 /**
- * Extracts only the dependency tags from a constructor's parameters for ServiceTag services,
- * or returns never for ValueTag services (which have no constructor dependencies).
- * This is used to determine what dependencies a service requires.
+ * Produces an ordered tuple of constructor parameters
+ * where dependency parameters are replaced with their tag types,
+ * while non‑DI parameters are preserved as‑is.
+ * @internal
+ */
+export type InferConstructorDepsTuple<T extends readonly unknown[]> =
+	T extends readonly []
+		? never
+		: {
+				[K in keyof T]: T[K] extends {
+					readonly [ServiceTagIdKey]: infer Id;
+				}
+					? // Service tag
+						Id extends TagId
+						? ServiceTag<Id, T[K]>
+						: never
+					: // Value tag
+						ExtractInjectTag<T[K]> extends never
+						? T[K] // non-tag value
+						: ExtractInjectTag<T[K]>;
+			};
+
+/**
+ * Union of all dependency tags a ServiceTag constructor requires.
+ * Filters out non‑DI parameters.
  */
 export type ServiceDependencies<T extends ServiceTag<TagId, unknown>> =
-	FilterTags<ConstructorParams<T>> extends AnyTag
-		? FilterTags<ConstructorParams<T>>
+	ExtractConstructorDeps<ConstructorParams<T>> extends AnyTag
+		? ExtractConstructorDeps<ConstructorParams<T>>
 		: never;
+
+/**
+ * Ordered tuple of dependency tags (and other constructor params)
+ * inferred from a ServiceTag’s constructor.
+ */
+export type ServiceDepsTuple<T extends ServiceTag<TagId, unknown>> =
+	InferConstructorDepsTuple<ConstructorParams<T>>;
 
 /**
  * Creates a service layer from any tag type (ServiceTag or ValueTag) with optional parameters.
@@ -100,4 +142,139 @@ export function service<T extends ServiceTag<TagId, unknown>>(
 			return container.register(tag, spec);
 		}
 	);
+}
+
+/**
+ * Creates a service layer with automatic dependency injection by inferring constructor parameters.
+ *
+ * This is a convenience function that automatically resolves constructor dependencies and passes
+ * both DI-managed dependencies and static values to the service constructor in the correct order.
+ * It eliminates the need to manually write factory functions for services with constructor dependencies.
+ *
+ * @template T - The ServiceTag representing the service class
+ * @param tag - The service tag (must be a ServiceTag, not a ValueTag)
+ * @param deps - Tuple of constructor parameters in order - mix of dependency tags and static values
+ * @param finalizer - Optional cleanup function called when the container is destroyed
+ * @returns A service layer that automatically handles dependency injection
+ *
+ * @example Simple service with dependencies
+ * ```typescript
+ * class DatabaseService extends Tag.Service('DatabaseService') {
+ *   constructor(private url: string) {
+ *     super();
+ *   }
+ *   connect() { return `Connected to ${this.url}`; }
+ * }
+ *
+ * class UserService extends Tag.Service('UserService') {
+ *   constructor(private db: DatabaseService, private timeout: number) {
+ *     super();
+ *   }
+ *   getUsers() { return this.db.query('SELECT * FROM users'); }
+ * }
+ *
+ * // Automatically inject DatabaseService and pass static timeout value
+ * const userService = autoService(UserService, [DatabaseService, 5000]);
+ * ```
+ *
+ * @example Mixed dependencies and static values
+ * ```typescript
+ * class NotificationService extends Tag.Service('NotificationService') {
+ *   constructor(
+ *     private logger: LoggerService,
+ *     private apiKey: string,
+ *     private retries: number,
+ *     private cache: CacheService
+ *   ) {
+ *     super();
+ *   }
+ * }
+ *
+ * // Mix of DI tags and static values in constructor order
+ * const notificationService = autoService(NotificationService, [
+ *   LoggerService,    // Will be resolved from container
+ *   'secret-api-key', // Static string value
+ *   3,                // Static number value
+ *   CacheService      // Will be resolved from container
+ * ]);
+ * ```
+ *
+ * @example Compared to manual service creation
+ * ```typescript
+ * // Manual approach (more verbose)
+ * const userServiceManual = service(UserService, async (ctx) => {
+ *   const db = await ctx.resolve(DatabaseService);
+ *   return new UserService(db, 5000);
+ * });
+ *
+ * // Auto approach (concise)
+ * const userServiceAuto = autoService(UserService, [DatabaseService, 5000]);
+ * ```
+ *
+ * @example With finalizer for cleanup
+ * ```typescript
+ * class DatabaseService extends Tag.Service('DatabaseService') {
+ *   constructor(private connectionString: string) {
+ *     super();
+ *   }
+ *
+ *   private connection: Connection | null = null;
+ *
+ *   async connect() {
+ *     this.connection = await createConnection(this.connectionString);
+ *   }
+ *
+ *   async disconnect() {
+ *     if (this.connection) {
+ *       await this.connection.close();
+ *       this.connection = null;
+ *     }
+ *   }
+ * }
+ *
+ * // Service with automatic cleanup
+ * const dbService = autoService(
+ *   DatabaseService,
+ *   ['postgresql://localhost:5432/mydb'],
+ *   (service) => service.disconnect() // Finalizer for cleanup
+ * );
+ * ```
+ */
+export function autoService<T extends ServiceTag<TagId, unknown>>(
+	tag: T,
+	deps: ServiceDepsTuple<T>,
+	finalizer?: Finalizer<TagType<T>>
+): Layer<ServiceDependencies<T>, T> {
+	const factory = async (ctx: ResolutionContext<ServiceDependencies<T>>) => {
+		// Split out the DI-managed tags from the static params
+		const diDeps: AnyTag[] = [];
+		for (const dep of deps) {
+			if (Tag.isTag(dep)) diDeps.push(dep);
+		}
+
+		// Resolve only those tags
+		const resolved = await ctx.resolveAll(
+			...(diDeps as ServiceDependencies<T>[])
+		);
+
+		// Reassemble constructor args in correct order
+		const args: unknown[] = [];
+		let resolvedIndex = 0;
+
+		for (const dep of deps) {
+			if (Tag.isTag(dep)) {
+				args.push(resolved[resolvedIndex++]);
+			} else {
+				args.push(dep); // pass non-tag values directly
+			}
+		}
+
+		// Instantiate service with both resolved and static deps
+		return new tag(...args) as TagType<T>;
+	};
+
+	// If finalizer provided, use DependencyLifecycle, otherwise just the factory
+	const spec = finalizer ? { factory, finalizer } : factory;
+
+	return service(tag, spec);
 }

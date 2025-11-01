@@ -1,3 +1,5 @@
+import { getKey } from './utils/object.js';
+
 /**
  * Type representing a tag identifier (string or symbol).
  * @internal
@@ -74,7 +76,7 @@ export interface ValueTag<Id extends TagId, T> {
  */
 export interface ServiceTag<Id extends TagId, T> {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	new (...args: any[]): T;
+	new (...args: any[]): T & { readonly [ServiceTagIdKey]: Id };
 	readonly [ServiceTagIdKey]: Id;
 }
 
@@ -349,6 +351,12 @@ export const Tag = {
 		return typeof tag === 'function'
 			? tag[ServiceTagIdKey]
 			: tag[ValueTagIdKey];
+	},
+
+	isTag: (tag: unknown): tag is AnyTag => {
+		return typeof tag === 'function'
+			? getKey(tag, ServiceTagIdKey) !== undefined
+			: getKey(tag, ValueTagIdKey) !== undefined;
 	},
 };
 

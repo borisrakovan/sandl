@@ -1,6 +1,6 @@
 import { Container, IContainer, ResolutionContext } from '@/container.js';
 import { Layer } from '@/layer.js';
-import { service } from '@/service.js';
+import { autoService, service } from '@/service.js';
 import { Tag } from '@/tag.js';
 import { describe, expectTypeOf, it } from 'vitest';
 
@@ -736,6 +736,181 @@ describe('Service Type Safety', () => {
 
 			expectTypeOf(customService).toEqualTypeOf<
 				Layer<never, typeof CustomService>
+			>();
+		});
+	});
+
+	describe('AutoService Type Safety', () => {
+		it('should enforce correct parameter types and order', () => {
+			class DatabaseService extends Tag.Service('DatabaseService') {
+				constructor(private url: string) {
+					super();
+				}
+			}
+
+			class UserService extends Tag.Service('UserService') {
+				constructor(
+					private db: DatabaseService,
+					private timeout: number,
+					private apiKey: string
+				) {
+					super();
+				}
+			}
+
+			// ✅ Correct types and order
+			const correctService = autoService(UserService, [
+				DatabaseService,
+				5000,
+				'api-key-123',
+			]);
+			expectTypeOf(correctService).toExtend<
+				Layer<typeof DatabaseService, typeof UserService>
+			>();
+
+			// These should cause TypeScript errors:
+			autoService(UserService, [
+				DatabaseService,
+				// @ts-expect-error - number expected
+				'wrong-type',
+				'api-key',
+			]);
+			// @ts-expect-error - missing parameter
+			autoService(UserService, [DatabaseService, 5000]);
+			// @ts-expect-error - wrong order
+			autoService(UserService, [5000, DatabaseService, 'api-key']);
+		});
+
+		it('should require all constructor parameters', () => {
+			class ComplexService extends Tag.Service('ComplexService') {
+				constructor(
+					private prefix: string,
+					private db: DatabaseService,
+					private retries: number
+				) {
+					super();
+				}
+			}
+
+			class DatabaseService extends Tag.Service('DatabaseService') {}
+
+			// ✅ All parameters provided
+			const completeService = autoService(ComplexService, [
+				'prefix',
+				DatabaseService,
+				3,
+			]);
+			expectTypeOf(completeService).branded.toEqualTypeOf<
+				Layer<typeof DatabaseService, typeof ComplexService>
+			>();
+
+			// These should fail:
+			// @ts-expect-error - missing retries
+			autoService(ComplexService, ['prefix', DatabaseService]);
+			// @ts-expect-error - missing db and retries
+			autoService(ComplexService, ['prefix']);
+		});
+
+		it('should correctly infer dependencies from mixed parameters', () => {
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
+
+			class MixedService extends Tag.Service('MixedService') {
+				constructor(
+					private config: string,
+					private serviceA: ServiceA,
+					private timeout: number,
+					private serviceB: ServiceB
+				) {
+					super();
+				}
+			}
+
+			const mixedService = autoService(MixedService, [
+				'config-value',
+				ServiceA,
+				1000,
+				ServiceB,
+			]);
+
+			// Should require both ServiceA and ServiceB
+			expectTypeOf(mixedService).toExtend<
+				Layer<typeof ServiceA | typeof ServiceB, typeof MixedService>
+			>();
+		});
+
+		it('should handle services with no dependencies', () => {
+			class SimpleService extends Tag.Service('SimpleService') {
+				constructor(
+					private value: string,
+					private count: number
+				) {
+					super();
+				}
+			}
+
+			const simpleService = autoService(SimpleService, ['test', 42]);
+			expectTypeOf(simpleService).toEqualTypeOf<
+				Layer<never, typeof SimpleService>
+			>();
+
+			// Should reject extra parameters:
+			// @ts-expect-error - extra parameter
+			autoService(SimpleService, ['test', 42, 'extra']);
+		});
+
+		it('should prevent wrong service types in dependency positions', () => {
+			class DatabaseService extends Tag.Service('DatabaseService') {}
+			class CacheService extends Tag.Service('CacheService') {}
+			class UserService extends Tag.Service('UserService') {
+				constructor(private db: DatabaseService) {
+					super();
+				}
+			}
+
+			// ✅ Correct service type
+			const correctService = autoService(UserService, [DatabaseService]);
+			expectTypeOf(correctService).toExtend<
+				Layer<typeof DatabaseService, typeof UserService>
+			>();
+
+			// These should fail at compile time:
+			// @ts-expect-error - Wrong service type
+			autoService(UserService, [CacheService]);
+			// @ts-expect-error - String instead of service tag
+			autoService(UserService, ['DatabaseService']);
+		});
+
+		it('should compose correctly with other layers', () => {
+			class ConfigService extends Tag.Service('ConfigService') {}
+			class DatabaseService extends Tag.Service('DatabaseService') {
+				constructor(private config: ConfigService) {
+					super();
+				}
+			}
+			class UserService extends Tag.Service('UserService') {
+				constructor(
+					private db: DatabaseService,
+					private timeout: number
+				) {
+					super();
+				}
+			}
+
+			const configService = autoService(ConfigService, []);
+			const dbService = autoService(DatabaseService, [ConfigService]);
+			const userService = autoService(UserService, [
+				DatabaseService,
+				5000,
+			]);
+
+			const composedService = userService
+				.provide(dbService)
+				.provide(configService);
+
+			// All dependencies should be satisfied
+			expectTypeOf(composedService).toEqualTypeOf<
+				Layer<never, typeof UserService>
 			>();
 		});
 	});
