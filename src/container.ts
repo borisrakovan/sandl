@@ -551,6 +551,9 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 				throw error;
 			});
 
+		// Cache the promise immediately to prevent race conditions during concurrent access.
+		// Multiple concurrent resolve() calls will share the same promise, ensuring singleton behavior
+		// even when the factory is async and takes time to complete.
 		this.cache.set(tag, instancePromise);
 		return instancePromise;
 	}
