@@ -21,6 +21,11 @@ export class ScopedContainer<TReg extends AnyTag> extends Container<TReg> {
 		this.scope = scope;
 	}
 
+	/**
+	 * Creates a new empty scoped container instance.
+	 * @param scope - The scope identifier for this container
+	 * @returns A new empty ScopedContainer instance with no registered dependencies
+	 */
 	static override empty(scope: Scope): ScopedContainer<never> {
 		return new ScopedContainer<never>(null, scope);
 	}

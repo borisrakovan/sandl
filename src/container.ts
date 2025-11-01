@@ -283,6 +283,11 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 		readonly _TReg: Contravariant<TReg>;
 	};
 
+	// Make the constructor protected to prevent direct instantiation
+	// and force the use of the static empty() method.
+	// eslint-disable-next-line @typescript-eslint/no-empty-function
+	protected constructor() {}
+
 	/**
 	 * Cache of instantiated dependencies as promises.
 	 * Ensures singleton behavior and supports concurrent access.
@@ -309,6 +314,10 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 */
 	protected isDestroyed = false;
 
+	/**
+	 * Creates a new empty container instance.
+	 * @returns A new empty Container instance with no registered dependencies.
+	 */
 	static empty(): Container<never> {
 		return new Container();
 	}

@@ -15,17 +15,17 @@ export type TagId = string | symbol;
  *
  * @internal
  */
-export const ValueTagIdKey = '__sandly/ValueTagIdKey__';
+export const ValueTagIdKey = 'sandly/ValueTagIdKey';
 
-export const ServiceTagIdKey = '__sandly/ServiceTagIdKey__';
+export const ServiceTagIdKey = 'sandly/ServiceTagIdKey';
 
 /**
- * Internal symbol used to identify the type of a tagged type within the dependency injection system.
- * This symbol is used as a property key to attach metadata to both value tags and service tags.
+ * Internal string used to identify the type of a tagged type within the dependency injection system.
+ * This string is used as a property key to attach metadata to both value tags and service tags.
  * It is used to carry the type of the tagged type and should not be used directly.
  * @internal
  */
-export const TagTypeKey: unique symbol = Symbol.for('sandly/TagTypeKey');
+export const TagTypeKey = 'sandly/TagTypeKey';
 
 /**
  * Type representing a value-based dependency tag.
@@ -361,10 +361,10 @@ export const Tag = {
 };
 
 /**
- * Unique symbol used to store the original ValueTag in Inject<T> types.
+ * String used to store the original ValueTag in Inject<T> types.
  * This prevents property name collisions while allowing type-level extraction.
  */
-export const InjectSource = Symbol('InjectSource');
+export const InjectSource = 'sandly/InjectSource';
 
 /**
  * Helper type for injecting ValueTag dependencies in constructor parameters.
