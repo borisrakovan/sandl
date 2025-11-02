@@ -235,7 +235,7 @@ export interface IContainer<TReg extends AnyTag = never> {
  *   getUser() { return this.db.query(); }
  * }
  *
- * const c = Container.empty()
+ * const container = Container.empty()
  *   .register(DatabaseService, () => new DatabaseService())
  *   .register(UserService, async (ctx) =>
  *     new UserService(await ctx.resolve(DatabaseService))
@@ -249,7 +249,7 @@ export interface IContainer<TReg extends AnyTag = never> {
  * const ApiKeyTag = Tag.of('apiKey')<string>();
  * const ConfigTag = Tag.of('config')<{ dbUrl: string }>();
  *
- * const c = Container.empty()
+ * const container = Container.empty()
  *   .register(ApiKeyTag, () => process.env.API_KEY!)
  *   .register(ConfigTag, () => ({ dbUrl: 'postgresql://localhost:5432' }));
  *
@@ -264,7 +264,7 @@ export interface IContainer<TReg extends AnyTag = never> {
  *   async disconnect() { return; }
  * }
  *
- * const c = Container.empty().register(
+ * const container = Container.empty().register(
  *   DatabaseConnection,
  *   async () => {
  *     const conn = new DatabaseConnection();
@@ -346,7 +346,7 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 *   log(message: string) { console.log(message); }
 	 * }
 	 *
-	 * const c = Container.empty().register(
+	 * const container = Container.empty().register(
 	 *   LoggerService,
 	 *   () => new LoggerService()
 	 * );
@@ -358,7 +358,7 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 *   constructor(private db: DatabaseService, private logger: LoggerService) {}
 	 * }
 	 *
-	 * const c = Container.empty()
+	 * const container = Container.empty()
 	 *   .register(DatabaseService, () => new DatabaseService())
 	 *   .register(LoggerService, () => new LoggerService())
 	 *   .register(UserService, async (ctx) =>
@@ -371,7 +371,7 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 *
 	 * @example Overriding a dependency
 	 * ```typescript
-	 * const c = Container.empty()
+	 * const container = Container.empty()
 	 *   .register(DatabaseService, () => new DatabaseService())
 	 *   .register(DatabaseService, () => new MockDatabaseService()); // Overrides the previous registration
 	 * ```
@@ -380,7 +380,7 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 * ```typescript
 	 * const ConfigTag = Tag.of('config')<{ apiUrl: string }>();
 	 *
-	 * const c = Container.empty().register(
+	 * const container = Container.empty().register(
 	 *   ConfigTag,
 	 *   () => ({ apiUrl: 'https://api.example.com' })
 	 * );
@@ -393,7 +393,7 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 *   async close() { return; }
 	 * }
 	 *
-	 * const c = Container.empty().register(
+	 * const container = Container.empty().register(
 	 *   DatabaseConnection,
 	 *   async () => {
 	 *     const conn = new DatabaseConnection();
@@ -447,7 +447,7 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 *
 	 * @example
 	 * ```typescript
-	 * const c = Container.empty().register(DatabaseService, () => new DatabaseService());
+	 * const container = Container.empty().register(DatabaseService, () => new DatabaseService());
 	 * console.log(c.has(DatabaseService)); // true
 	 * ```
 	 */
@@ -484,7 +484,7 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 *
 	 * @example Basic usage
 	 * ```typescript
-	 * const c = Container.empty()
+	 * const container = Container.empty()
 	 *   .register(DatabaseService, () => new DatabaseService());
 	 *
 	 * const db = await c.resolve(DatabaseService);
@@ -505,7 +505,7 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 *
 	 * @example Dependency injection in factories
 	 * ```typescript
-	 * const c = Container.empty()
+	 * const container = Container.empty()
 	 *   .register(DatabaseService, () => new DatabaseService())
 	 *   .register(UserService, async (ctx) => {
 	 *     const db = await ctx.resolve(DatabaseService);
@@ -585,7 +585,7 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 *
 	 * @example Basic usage
 	 * ```typescript
-	 * const c = Container.empty()
+	 * const container = Container.empty()
 	 *   .register(DatabaseService, () => new DatabaseService())
 	 *   .register(LoggerService, () => new LoggerService());
 	 *
@@ -595,7 +595,7 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 * @example Mixed tag types
 	 * ```typescript
 	 * const ApiKeyTag = Tag.of('apiKey')<string>();
-	 * const c = Container.empty()
+	 * const container = Container.empty()
 	 *   .register(ApiKeyTag, () => 'secret-key')
 	 *   .register(UserService, () => new UserService());
 	 *
@@ -716,7 +716,7 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 *
 	 * @example Basic cleanup
 	 * ```typescript
-	 * const c = Container.empty()
+	 * const container = Container.empty()
 	 *   .register(DatabaseConnection,
 	 *     async () => {
 	 *       const conn = new DatabaseConnection();

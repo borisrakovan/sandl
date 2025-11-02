@@ -18,8 +18,8 @@ describe('Service', () => {
 			);
 
 			// Apply the service to a container
-			const c = Container.empty();
-			const finalContainer = loggerService.register(c);
+			const container = Container.empty();
+			const finalContainer = loggerService.register(container);
 
 			// Get the service instance
 			const logger = await finalContainer.resolve(LoggerService);
@@ -60,8 +60,8 @@ describe('Service', () => {
 			const appLayer = userService.provide(dbService);
 
 			// Apply to container
-			const c = Container.empty();
-			const finalContainer = appLayer.register(c);
+			const container = Container.empty();
+			const finalContainer = appLayer.register(container);
 
 			// Test the composed services
 			const users = await finalContainer.resolve(UserService);
@@ -100,8 +100,8 @@ describe('Service', () => {
 			// Compose services
 			const infraLayer = dbService.provide(configService);
 
-			const c = Container.empty();
-			const finalContainer = infraLayer.register(c);
+			const container = Container.empty();
+			const finalContainer = infraLayer.register(container);
 
 			const db = await finalContainer.resolve(DatabaseService);
 			expect(db.connect()).toBe(
@@ -134,8 +134,8 @@ describe('Service', () => {
 			// Merge independent services
 			const utilsLayer = loggerService.merge(cacheService);
 
-			const c = Container.empty();
-			const finalContainer = utilsLayer.register(c);
+			const container = Container.empty();
+			const finalContainer = utilsLayer.register(container);
 
 			const logger = await finalContainer.resolve(LoggerService);
 			const cache = await finalContainer.resolve(CacheService);
@@ -172,8 +172,8 @@ describe('Service', () => {
 				},
 			});
 
-			const c = Container.empty();
-			const finalContainer = dbService.register(c);
+			const container = Container.empty();
+			const finalContainer = dbService.register(container);
 
 			// Use the service
 			const db = await finalContainer.resolve(DatabaseConnection);
@@ -213,8 +213,8 @@ describe('Service', () => {
 				},
 			});
 
-			const c = Container.empty();
-			const finalContainer = resourceService.register(c);
+			const container = Container.empty();
+			const finalContainer = resourceService.register(container);
 
 			// Use the service
 			const resource = await finalContainer.resolve(AsyncResource);
@@ -266,8 +266,8 @@ describe('Service', () => {
 			// Compose services
 			const appLayer = dbService.provide(loggerService);
 
-			const c = Container.empty();
-			const finalContainer = appLayer.register(c);
+			const container = Container.empty();
+			const finalContainer = appLayer.register(container);
 
 			// Use the services
 			const db = await finalContainer.resolve(DatabaseService);
@@ -325,8 +325,8 @@ describe('Service', () => {
 			const appLayer = userService.provide(dbService);
 
 			// Apply to container
-			const c = Container.empty();
-			const finalContainer = appLayer.register(c);
+			const container = Container.empty();
+			const finalContainer = appLayer.register(container);
 
 			// Test the services
 			const users = await finalContainer.resolve(UserService);
@@ -383,8 +383,8 @@ describe('Service', () => {
 				loggerService.merge(cacheService)
 			);
 
-			const c = Container.empty();
-			const finalContainer = appLayer.register(c);
+			const container = Container.empty();
+			const finalContainer = appLayer.register(container);
 
 			const notifications =
 				await finalContainer.resolve(NotificationService);
@@ -403,8 +403,8 @@ describe('Service', () => {
 
 			const simpleService = autoService(SimpleService, []);
 
-			const c = Container.empty();
-			const finalContainer = simpleService.register(c);
+			const container = Container.empty();
+			const finalContainer = simpleService.register(container);
 
 			const service = await finalContainer.resolve(SimpleService);
 			expect(service.getValue()).toBe('simple');
@@ -432,8 +432,8 @@ describe('Service', () => {
 				true,
 			]);
 
-			const c = Container.empty();
-			const finalContainer = configService.register(c);
+			const container = Container.empty();
+			const finalContainer = configService.register(container);
 
 			const config = await finalContainer.resolve(ConfigService);
 			expect(config.getConnectionString()).toBe('https://localhost:8080');
@@ -496,8 +496,8 @@ describe('Service', () => {
 				dbService.merge(cacheService)
 			);
 
-			const c = Container.empty();
-			const finalContainer = appLayer.register(c);
+			const container = Container.empty();
+			const finalContainer = appLayer.register(container);
 
 			const complex = await finalContainer.resolve(ComplexService);
 			expect(complex.getInfo()).toEqual({
@@ -568,8 +568,8 @@ describe('Service', () => {
 			const appLayer = userService.provideMerge(dbService);
 
 			// Apply to container
-			const c = Container.empty();
-			const finalContainer = appLayer.register(c);
+			const container = Container.empty();
+			const finalContainer = appLayer.register(container);
 
 			// Test the services work
 			const users = await finalContainer.resolve(UserService);
@@ -639,8 +639,8 @@ describe('Service', () => {
 			);
 
 			const appLayer = service1.merge(service2);
-			const c = Container.empty();
-			const finalContainer = appLayer.register(c);
+			const container = Container.empty();
+			const finalContainer = appLayer.register(container);
 
 			// Create instances
 			await finalContainer.resolve(AsyncService1);

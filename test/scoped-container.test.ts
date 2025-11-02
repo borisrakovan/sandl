@@ -13,16 +13,16 @@ import { describe, expect, it, vi } from 'vitest';
 describe('ScopedContainer', () => {
 	describe('constructor and factory', () => {
 		it('should create an empty scoped container', () => {
-			const c = ScopedContainer.empty('test-scope');
-			expect(c).toBeInstanceOf(ScopedContainer);
-			expect(c.scope).toBe('test-scope');
+			const container = ScopedContainer.empty('test-scope');
+			expect(container).toBeInstanceOf(ScopedContainer);
+			expect(container.scope).toBe('test-scope');
 		});
 
 		it('should create scoped container with symbol scope', () => {
 			const scope = Symbol('test-scope');
-			const c = ScopedContainer.empty(scope);
-			expect(c).toBeInstanceOf(ScopedContainer);
-			expect(c.scope).toBe(scope);
+			const container = ScopedContainer.empty(scope);
+			expect(container).toBeInstanceOf(ScopedContainer);
+			expect(container.scope).toBe(scope);
 		});
 	});
 
@@ -77,12 +77,12 @@ describe('ScopedContainer', () => {
 				}
 			}
 
-			const c = ScopedContainer.empty('test').register(
+			const container = ScopedContainer.empty('test').register(
 				TestService,
 				() => new TestService()
 			);
 
-			expect(c.has(TestService)).toBe(true);
+			expect(container.has(TestService)).toBe(true);
 		});
 
 		it('should allow overriding registration in same scope before instantiation', () => {
@@ -92,11 +92,11 @@ describe('ScopedContainer', () => {
 				}
 			}
 
-			const c = ScopedContainer.empty('test')
+			const container = ScopedContainer.empty('test')
 				.register(TestService, () => new TestService('original'))
 				.register(TestService, () => new TestService('overridden'));
 
-			expect(c).toBeDefined();
+			expect(container).toBeDefined();
 		});
 
 		it('should allow registering dependency that exists in parent scope if not instantiated', () => {
@@ -144,19 +144,19 @@ describe('ScopedContainer', () => {
 		it('should return false for unregistered dependency', () => {
 			class TestService extends Tag.Service('TestService') {}
 
-			const c = ScopedContainer.empty('test');
-			expect(c.has(TestService)).toBe(false);
+			const container = ScopedContainer.empty('test');
+			expect(container.has(TestService)).toBe(false);
 		});
 
 		it('should return true for dependency registered in current scope', () => {
 			class TestService extends Tag.Service('TestService') {}
 
-			const c = ScopedContainer.empty('test').register(
+			const container = ScopedContainer.empty('test').register(
 				TestService,
 				() => new TestService()
 			);
 
-			expect(c.has(TestService)).toBe(true);
+			expect(container.has(TestService)).toBe(true);
 		});
 
 		it('should return true for dependency registered in parent scope', () => {
@@ -193,12 +193,12 @@ describe('ScopedContainer', () => {
 				}
 			}
 
-			const c = ScopedContainer.empty('test').register(
+			const container = ScopedContainer.empty('test').register(
 				TestService,
 				() => new TestService()
 			);
 
-			const instance = await c.resolve(TestService);
+			const instance = await container.resolve(TestService);
 			expect(instance).toBeInstanceOf(TestService);
 			expect(instance.getValue()).toBe('current-scope');
 		});
@@ -299,10 +299,10 @@ describe('ScopedContainer', () => {
 		it('should throw UnknownDependencyError for unregistered dependency', async () => {
 			class TestService extends Tag.Service('TestService') {}
 
-			const c = ScopedContainer.empty('test');
+			const container = ScopedContainer.empty('test');
 
 			// @ts-expect-error - TestService is not registered
-			await expect(c.resolve(TestService)).rejects.toThrow(
+			await expect(container.resolve(TestService)).rejects.toThrow(
 				UnknownDependencyError
 			);
 		});
@@ -359,14 +359,14 @@ describe('ScopedContainer', () => {
 		it('should throw error when getting from destroyed container', async () => {
 			class TestService extends Tag.Service('TestService') {}
 
-			const c = ScopedContainer.empty('test').register(
+			const container = ScopedContainer.empty('test').register(
 				TestService,
 				() => new TestService()
 			);
 
-			await c.destroy();
+			await container.destroy();
 
-			await expect(c.resolve(TestService)).rejects.toThrow(
+			await expect(container.resolve(TestService)).rejects.toThrow(
 				ContainerDestroyedError
 			);
 		});
@@ -382,13 +382,16 @@ describe('ScopedContainer', () => {
 				instance.cleanup();
 			});
 
-			const c = ScopedContainer.empty('test').register(TestService, {
-				factory: () => new TestService(),
-				finalizer,
-			});
+			const container = ScopedContainer.empty('test').register(
+				TestService,
+				{
+					factory: () => new TestService(),
+					finalizer,
+				}
+			);
 
-			const instance = await c.resolve(TestService);
-			await c.destroy();
+			const instance = await container.resolve(TestService);
+			await container.destroy();
 
 			expect(finalizer).toHaveBeenCalledWith(instance);
 			expect(instance.cleanup).toHaveBeenCalled();
@@ -552,35 +555,35 @@ describe('ScopedContainer', () => {
 		});
 
 		it('should be idempotent', async () => {
-			const c = ScopedContainer.empty('test');
+			const container = ScopedContainer.empty('test');
 
-			await c.destroy();
-			await expect(c.destroy()).resolves.toBeUndefined();
-			await expect(c.destroy()).resolves.toBeUndefined();
+			await container.destroy();
+			await expect(container.destroy()).resolves.toBeUndefined();
+			await expect(container.destroy()).resolves.toBeUndefined();
 		});
 
 		it('should make container unusable after destroy', async () => {
 			class TestService extends Tag.Service('TestService') {}
 
-			const c = ScopedContainer.empty('test').register(
+			const container = ScopedContainer.empty('test').register(
 				TestService,
 				() => new TestService()
 			);
 
-			await c.resolve(TestService);
-			await c.destroy();
+			await container.resolve(TestService);
+			await container.destroy();
 
 			// Should still report as having the service
-			expect(c.has(TestService)).toBe(true);
+			expect(container.has(TestService)).toBe(true);
 
 			// But should throw when trying to get it
-			await expect(c.resolve(TestService)).rejects.toThrow(
+			await expect(container.resolve(TestService)).rejects.toThrow(
 				ContainerDestroyedError
 			);
 
 			// And should throw when trying to register
 			expect(() =>
-				c.register(TestService, () => new TestService())
+				container.register(TestService, () => new TestService())
 			).toThrow(ContainerDestroyedError);
 		});
 
@@ -611,14 +614,14 @@ describe('ScopedContainer', () => {
 		it('should wrap factory errors in DependencyCreationError', async () => {
 			class TestService extends Tag.Service('TestService') {}
 
-			const c = ScopedContainer.empty('test').register(
+			const container = ScopedContainer.empty('test').register(
 				TestService,
 				() => {
 					throw new Error('Factory error');
 				}
 			);
 
-			await expect(c.resolve(TestService)).rejects.toThrow(
+			await expect(container.resolve(TestService)).rejects.toThrow(
 				DependencyCreationError
 			);
 		});
@@ -627,7 +630,7 @@ describe('ScopedContainer', () => {
 			class ServiceA extends Tag.Service('ServiceA') {}
 			class ServiceB extends Tag.Service('ServiceB') {}
 
-			const c = ScopedContainer.empty('test')
+			const container = ScopedContainer.empty('test')
 				.register(
 					ServiceA,
 					async (ctx) =>
@@ -640,7 +643,7 @@ describe('ScopedContainer', () => {
 				);
 
 			try {
-				await c.resolve(ServiceA);
+				await container.resolve(ServiceA);
 				expect.fail('Should have thrown');
 			} catch (error) {
 				expect(error).toBeInstanceOf(DependencyCreationError);
@@ -754,11 +757,14 @@ describe('ScopedContainer', () => {
 				}
 			}
 
-			const c = ScopedContainer.empty('test')
+			const container = ScopedContainer.empty('test')
 				.register(ServiceA, () => new ServiceA())
 				.register(ServiceB, () => new ServiceB());
 
-			const [serviceA, serviceB] = await c.resolveAll(ServiceA, ServiceB);
+			const [serviceA, serviceB] = await container.resolveAll(
+				ServiceA,
+				ServiceB
+			);
 
 			expect(serviceA).toBeInstanceOf(ServiceA);
 			expect(serviceB).toBeInstanceOf(ServiceB);
@@ -824,9 +830,9 @@ describe('ScopedContainer', () => {
 		});
 
 		it('should handle empty array', async () => {
-			const c = ScopedContainer.empty('test');
+			const container = ScopedContainer.empty('test');
 
-			const results = await c.resolveAll();
+			const results = await container.resolveAll();
 
 			expect(results).toEqual([]);
 		});
@@ -855,15 +861,15 @@ describe('ScopedContainer', () => {
 			class ServiceA extends Tag.Service('ServiceA') {}
 			class ServiceB extends Tag.Service('ServiceB') {}
 
-			const c = ScopedContainer.empty('test')
+			const container = ScopedContainer.empty('test')
 				.register(ServiceA, () => new ServiceA())
 				.register(ServiceB, () => new ServiceB());
 
-			await c.destroy();
+			await container.destroy();
 
-			await expect(c.resolveAll(ServiceA, ServiceB)).rejects.toThrow(
-				ContainerDestroyedError
-			);
+			await expect(
+				container.resolveAll(ServiceA, ServiceB)
+			).rejects.toThrow(ContainerDestroyedError);
 		});
 	});
 

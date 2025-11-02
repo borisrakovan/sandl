@@ -13,14 +13,14 @@ import { describe, expect, it, vi } from 'vitest';
 describe('DependencyContainer', () => {
 	describe('constructor and factory', () => {
 		it('should create an empty container', () => {
-			const c = Container.empty();
-			expect(c).toBeInstanceOf(Container);
+			const container = Container.empty();
+			expect(container).toBeInstanceOf(Container);
 		});
 
 		it('should create a container with proper typing', () => {
-			const c = Container.empty();
+			const container = Container.empty();
 			// Type check - should be DependencyContainer<never>
-			expect(c).toBeDefined();
+			expect(container).toBeDefined();
 		});
 	});
 
@@ -32,12 +32,15 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			const c = Container.empty();
-			const registered = c.register(TestService, () => new TestService());
+			const container = Container.empty();
+			const registered = container.register(
+				TestService,
+				() => new TestService()
+			);
 
 			expect(registered).toBeInstanceOf(Container);
 			// Should return the same container instance with updated type
-			expect(registered).toBe(c);
+			expect(registered).toBe(container);
 		});
 
 		it('should register with sync factory', () => {
@@ -47,12 +50,12 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			const c = Container.empty().register(
+			const container = Container.empty().register(
 				TestService,
 				() => new TestService('sync')
 			);
 
-			expect(c).toBeDefined();
+			expect(container).toBeDefined();
 		});
 
 		it('should register with async factory', () => {
@@ -62,12 +65,12 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			const c = Container.empty().register(
+			const container = Container.empty().register(
 				TestService,
 				() => new TestService('async')
 			);
 
-			expect(c).toBeDefined();
+			expect(container).toBeDefined();
 		});
 
 		it('should register with finalizer', () => {
@@ -75,14 +78,14 @@ describe('DependencyContainer', () => {
 				cleanup = vi.fn() as () => void;
 			}
 
-			const c = Container.empty().register(TestService, {
+			const container = Container.empty().register(TestService, {
 				factory: () => new TestService(),
 				finalizer: (instance) => {
 					instance.cleanup();
 				},
 			});
 
-			expect(c).toBeDefined();
+			expect(container).toBeDefined();
 		});
 
 		it('should allow overriding registration before instantiation', () => {
@@ -92,22 +95,22 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			const c = Container.empty()
+			const container = Container.empty()
 				.register(TestService, () => new TestService('original'))
 				.register(TestService, () => new TestService('overridden'));
 
-			expect(c).toBeDefined();
+			expect(container).toBeDefined();
 		});
 
 		it('should preserve container chain for multiple registrations', () => {
 			class ServiceA extends Tag.Service('ServiceA') {}
 			class ServiceB extends Tag.Service('ServiceB') {}
 
-			const c = Container.empty()
+			const container = Container.empty()
 				.register(ServiceA, () => new ServiceA())
 				.register(ServiceB, () => new ServiceB());
 
-			expect(c).toBeDefined();
+			expect(container).toBeDefined();
 		});
 
 		it('should throw error when trying to register after instantiation', async () => {
@@ -117,32 +120,35 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			const c = Container.empty().register(
+			const container = Container.empty().register(
 				TestService,
 				() => new TestService('original')
 			);
 
 			// Instantiate the service
-			await c.resolve(TestService);
+			await container.resolve(TestService);
 
 			// Now try to register again - should throw
 			expect(() =>
-				c.register(TestService, () => new TestService('overridden'))
+				container.register(
+					TestService,
+					() => new TestService('overridden')
+				)
 			).toThrow(DependencyAlreadyInstantiatedError);
 		});
 
 		it('should throw error when registering on destroyed container', async () => {
 			class TestService extends Tag.Service('TestService') {}
 
-			const c = Container.empty().register(
+			const container = Container.empty().register(
 				TestService,
 				() => new TestService()
 			);
 
-			await c.destroy();
+			await container.destroy();
 
 			expect(() =>
-				c.register(TestService, () => new TestService())
+				container.register(TestService, () => new TestService())
 			).toThrow(ContainerDestroyedError);
 		});
 	});
@@ -151,33 +157,33 @@ describe('DependencyContainer', () => {
 		it('should return false for unregistered dependency', () => {
 			class TestService extends Tag.Service('TestService') {}
 
-			const c = Container.empty();
+			const container = Container.empty();
 
-			expect(c.has(TestService)).toBe(false);
+			expect(container.has(TestService)).toBe(false);
 		});
 
 		it('should return true for registered dependency', () => {
 			class TestService extends Tag.Service('TestService') {}
 
-			const c = Container.empty().register(
+			const container = Container.empty().register(
 				TestService,
 				() => new TestService()
 			);
 
-			expect(c.has(TestService)).toBe(true);
+			expect(container.has(TestService)).toBe(true);
 		});
 
 		it('should return true for instantiated dependency', async () => {
 			class TestService extends Tag.Service('TestService') {}
 
-			const c = Container.empty().register(
+			const container = Container.empty().register(
 				TestService,
 				() => new TestService()
 			);
 
-			await c.resolve(TestService);
+			await container.resolve(TestService);
 
-			expect(c.has(TestService)).toBe(true);
+			expect(container.has(TestService)).toBe(true);
 		});
 	});
 
@@ -189,12 +195,12 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			const c = Container.empty().register(
+			const container = Container.empty().register(
 				TestService,
 				() => new TestService()
 			);
 
-			const instance = await c.resolve(TestService);
+			const instance = await container.resolve(TestService);
 
 			expect(instance).toBeInstanceOf(TestService);
 			expect(instance.getValue()).toBe('test');
@@ -207,12 +213,15 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			const c = Container.empty().register(TestService, async () => {
-				await Promise.resolve();
-				return new TestService('async');
-			});
+			const container = Container.empty().register(
+				TestService,
+				async () => {
+					await Promise.resolve();
+					return new TestService('async');
+				}
+			);
 
-			const instance = await c.resolve(TestService);
+			const instance = await container.resolve(TestService);
 
 			expect(instance).toBeInstanceOf(TestService);
 			expect(instance.value).toBe('async');
@@ -222,10 +231,10 @@ describe('DependencyContainer', () => {
 			class TestService extends Tag.Service('TestService') {}
 
 			const factory = vi.fn(() => new TestService());
-			const c = Container.empty().register(TestService, factory);
+			const container = Container.empty().register(TestService, factory);
 
-			const instance1 = await c.resolve(TestService);
-			const instance2 = await c.resolve(TestService);
+			const instance1 = await container.resolve(TestService);
+			const instance2 = await container.resolve(TestService);
 
 			expect(instance1).toBe(instance2);
 			expect(factory).toHaveBeenCalledTimes(1);
@@ -234,10 +243,10 @@ describe('DependencyContainer', () => {
 		it('should throw UnknownDependencyError for unregistered dependency', async () => {
 			class TestService extends Tag.Service('TestService') {}
 
-			const c = Container.empty();
+			const container = Container.empty();
 
 			// @ts-expect-error - TestService is not registered
-			await expect(c.resolve(TestService)).rejects.toThrow(
+			await expect(container.resolve(TestService)).rejects.toThrow(
 				UnknownDependencyError
 			);
 		});
@@ -245,11 +254,11 @@ describe('DependencyContainer', () => {
 		it('should wrap factory errors in DependencyCreationError', async () => {
 			class TestService extends Tag.Service('TestService') {}
 
-			const c = Container.empty().register(TestService, () => {
+			const container = Container.empty().register(TestService, () => {
 				throw new Error('Factory error');
 			});
 
-			await expect(c.resolve(TestService)).rejects.toThrow(
+			await expect(container.resolve(TestService)).rejects.toThrow(
 				DependencyCreationError
 			);
 		});
@@ -257,12 +266,15 @@ describe('DependencyContainer', () => {
 		it('should handle async factory errors', async () => {
 			class TestService extends Tag.Service('TestService') {}
 
-			const c = Container.empty().register(TestService, async () => {
-				await Promise.resolve();
-				throw new Error('Async factory error');
-			});
+			const container = Container.empty().register(
+				TestService,
+				async () => {
+					await Promise.resolve();
+					throw new Error('Async factory error');
+				}
+			);
 
-			await expect(c.resolve(TestService)).rejects.toThrow(
+			await expect(container.resolve(TestService)).rejects.toThrow(
 				DependencyCreationError
 			);
 		});
@@ -271,7 +283,7 @@ describe('DependencyContainer', () => {
 			class TestService extends Tag.Service('TestService') {}
 
 			let shouldFail = true;
-			const c = Container.empty().register(TestService, () => {
+			const container = Container.empty().register(TestService, () => {
 				if (shouldFail) {
 					throw new Error('Factory error');
 				}
@@ -279,16 +291,16 @@ describe('DependencyContainer', () => {
 			});
 
 			// First call should fail
-			await expect(c.resolve(TestService)).rejects.toThrow(
+			await expect(container.resolve(TestService)).rejects.toThrow(
 				DependencyCreationError
 			);
 
 			// Service should still be registered even after failure
-			expect(c.has(TestService)).toBe(true);
+			expect(container.has(TestService)).toBe(true);
 
 			// Second call should succeed
 			shouldFail = false;
-			const instance = await c.resolve(TestService);
+			const instance = await container.resolve(TestService);
 			expect(instance).toBeInstanceOf(TestService);
 		});
 
@@ -296,13 +308,13 @@ describe('DependencyContainer', () => {
 			class TestService extends Tag.Service('TestService') {}
 
 			const factory = vi.fn(() => new TestService());
-			const c = Container.empty().register(TestService, factory);
+			const container = Container.empty().register(TestService, factory);
 
 			// Make concurrent calls
 			const [instance1, instance2, instance3] = await Promise.all([
-				c.resolve(TestService),
-				c.resolve(TestService),
-				c.resolve(TestService),
+				container.resolve(TestService),
+				container.resolve(TestService),
+				container.resolve(TestService),
 			]);
 
 			expect(instance1).toBe(instance2);
@@ -313,14 +325,14 @@ describe('DependencyContainer', () => {
 		it('should throw error when getting from destroyed container', async () => {
 			class TestService extends Tag.Service('TestService') {}
 
-			const c = Container.empty().register(
+			const container = Container.empty().register(
 				TestService,
 				() => new TestService()
 			);
 
-			await c.destroy();
+			await container.destroy();
 
-			await expect(c.resolve(TestService)).rejects.toThrow(
+			await expect(container.resolve(TestService)).rejects.toThrow(
 				ContainerDestroyedError
 			);
 		});
@@ -339,11 +351,14 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			const c = Container.empty()
+			const container = Container.empty()
 				.register(ServiceA, () => new ServiceA())
 				.register(ServiceB, () => new ServiceB());
 
-			const [serviceA, serviceB] = await c.resolveAll(ServiceA, ServiceB);
+			const [serviceA, serviceB] = await container.resolveAll(
+				ServiceA,
+				ServiceB
+			);
 
 			expect(serviceA).toBeInstanceOf(ServiceA);
 			expect(serviceB).toBeInstanceOf(ServiceB);
@@ -352,9 +367,9 @@ describe('DependencyContainer', () => {
 		});
 
 		it('should resolve empty array', async () => {
-			const c = Container.empty();
+			const container = Container.empty();
 
-			const results = await c.resolveAll();
+			const results = await container.resolveAll();
 
 			expect(results).toEqual([]);
 		});
@@ -366,12 +381,12 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			const c = Container.empty().register(
+			const container = Container.empty().register(
 				TestService,
 				() => new TestService()
 			);
 
-			const [service] = await c.resolveAll(TestService);
+			const [service] = await container.resolveAll(TestService);
 
 			expect(service).toBeInstanceOf(TestService);
 			expect(service.getValue()).toBe('test');
@@ -381,14 +396,14 @@ describe('DependencyContainer', () => {
 			class TestService extends Tag.Service('TestService') {}
 
 			const factory = vi.fn(() => new TestService());
-			const c = Container.empty().register(TestService, factory);
+			const container = Container.empty().register(TestService, factory);
 
 			// First call
-			const [instance1] = await c.resolveAll(TestService);
+			const [instance1] = await container.resolveAll(TestService);
 			// Second call
-			const [instance2] = await c.resolveAll(TestService);
+			const [instance2] = await container.resolveAll(TestService);
 			// Call with resolve for comparison
-			const instance3 = await c.resolve(TestService);
+			const instance3 = await container.resolve(TestService);
 
 			expect(instance1).toBe(instance2);
 			expect(instance1).toBe(instance3);
@@ -400,16 +415,13 @@ describe('DependencyContainer', () => {
 			const NumberTag = Tag.of('number')<number>();
 			class ServiceA extends Tag.Service('ServiceA') {}
 
-			const c = Container.empty()
+			const container = Container.empty()
 				.register(StringTag, () => 'hello')
 				.register(NumberTag, () => 42)
 				.register(ServiceA, () => new ServiceA());
 
-			const [stringValue, numberValue, serviceA] = await c.resolveAll(
-				StringTag,
-				NumberTag,
-				ServiceA
-			);
+			const [stringValue, numberValue, serviceA] =
+				await container.resolveAll(StringTag, NumberTag, ServiceA);
 
 			expect(stringValue).toBe('hello');
 			expect(numberValue).toBe(42);
@@ -433,13 +445,13 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			const c = Container.empty()
+			const container = Container.empty()
 				.register(ServiceA, () => new ServiceA())
 				.register(ServiceB, () => new ServiceB())
 				.register(ServiceC, () => new ServiceC());
 
 			// Test different orders
-			const [a1, b1, c1] = await c.resolveAll(
+			const [a1, b1, c1] = await container.resolveAll(
 				ServiceA,
 				ServiceB,
 				ServiceC
@@ -448,7 +460,7 @@ describe('DependencyContainer', () => {
 			expect(b1.getValue()).toBe('B');
 			expect(c1.getValue()).toBe('C');
 
-			const [c2, a2, b2] = await c.resolveAll(
+			const [c2, a2, b2] = await container.resolveAll(
 				ServiceC,
 				ServiceA,
 				ServiceB
@@ -470,7 +482,7 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			const c = Container.empty()
+			const container = Container.empty()
 				.register(ServiceA, async () => {
 					await Promise.resolve();
 					return new ServiceA('async-A');
@@ -480,7 +492,10 @@ describe('DependencyContainer', () => {
 					return new ServiceB(123);
 				});
 
-			const [serviceA, serviceB] = await c.resolveAll(ServiceA, ServiceB);
+			const [serviceA, serviceB] = await container.resolveAll(
+				ServiceA,
+				ServiceB
+			);
 
 			expect(serviceA.value).toBe('async-A');
 			expect(serviceB.value).toBe(123);
@@ -492,14 +507,14 @@ describe('DependencyContainer', () => {
 				'UnregisteredService'
 			) {}
 
-			const c = Container.empty().register(
+			const container = Container.empty().register(
 				RegisteredService,
 				() => new RegisteredService()
 			);
 
 			await expect(
 				// @ts-expect-error - UnregisteredService is not registered
-				c.resolveAll(RegisteredService, UnregisteredService)
+				container.resolveAll(RegisteredService, UnregisteredService)
 			).rejects.toThrow(UnknownDependencyError);
 		});
 
@@ -507,30 +522,30 @@ describe('DependencyContainer', () => {
 			class ServiceA extends Tag.Service('ServiceA') {}
 			class ServiceB extends Tag.Service('ServiceB') {}
 
-			const c = Container.empty()
+			const container = Container.empty()
 				.register(ServiceA, () => new ServiceA())
 				.register(ServiceB, () => {
 					throw new Error('Factory B failed');
 				});
 
-			await expect(c.resolveAll(ServiceA, ServiceB)).rejects.toThrow(
-				DependencyCreationError
-			);
+			await expect(
+				container.resolveAll(ServiceA, ServiceB)
+			).rejects.toThrow(DependencyCreationError);
 		});
 
 		it('should throw error when resolving from destroyed container', async () => {
 			class ServiceA extends Tag.Service('ServiceA') {}
 			class ServiceB extends Tag.Service('ServiceB') {}
 
-			const c = Container.empty()
+			const container = Container.empty()
 				.register(ServiceA, () => new ServiceA())
 				.register(ServiceB, () => new ServiceB());
 
-			await c.destroy();
+			await container.destroy();
 
-			await expect(c.resolveAll(ServiceA, ServiceB)).rejects.toThrow(
-				ContainerDestroyedError
-			);
+			await expect(
+				container.resolveAll(ServiceA, ServiceB)
+			).rejects.toThrow(ContainerDestroyedError);
 		});
 
 		it('should handle concurrent resolveAll calls properly', async () => {
@@ -540,15 +555,15 @@ describe('DependencyContainer', () => {
 			const factoryA = vi.fn(() => new ServiceA());
 			const factoryB = vi.fn(() => new ServiceB());
 
-			const c = Container.empty()
+			const container = Container.empty()
 				.register(ServiceA, factoryA)
 				.register(ServiceB, factoryB);
 
 			// Make concurrent resolveAll calls
 			const [result1, result2, result3] = await Promise.all([
-				c.resolveAll(ServiceA, ServiceB),
-				c.resolveAll(ServiceA, ServiceB),
-				c.resolveAll(ServiceB, ServiceA),
+				container.resolveAll(ServiceA, ServiceB),
+				container.resolveAll(ServiceA, ServiceB),
+				container.resolveAll(ServiceB, ServiceA),
 			]);
 
 			// All results should have the same instances
@@ -571,16 +586,16 @@ describe('DependencyContainer', () => {
 			const factoryB = vi.fn(() => new ServiceB());
 			const factoryC = vi.fn(() => new ServiceC());
 
-			const c = Container.empty()
+			const container = Container.empty()
 				.register(ServiceA, factoryA)
 				.register(ServiceB, factoryB)
 				.register(ServiceC, factoryC);
 
 			// Resolve ServiceA first to cache it
-			const cachedA = await c.resolve(ServiceA);
+			const cachedA = await container.resolve(ServiceA);
 
 			// Now resolve all three - A should be from cache, B and C should be new
-			const [serviceA, serviceB, serviceC] = await c.resolveAll(
+			const [serviceA, serviceB, serviceC] = await container.resolveAll(
 				ServiceA,
 				ServiceB,
 				ServiceC
@@ -615,7 +630,7 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			const c = Container.empty()
+			const container = Container.empty()
 				.register(DatabaseService, () => new DatabaseService())
 				.register(
 					UserService,
@@ -623,7 +638,7 @@ describe('DependencyContainer', () => {
 						new UserService(await ctx.resolve(DatabaseService))
 				);
 
-			const userService = await c.resolve(UserService);
+			const userService = await container.resolve(UserService);
 
 			expect(userService.getUser()).toBe('db-result');
 		});
@@ -660,7 +675,7 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			const c = Container.empty()
+			const container = Container.empty()
 				.register(ConfigService, () => new ConfigService())
 				.register(
 					DatabaseService,
@@ -677,7 +692,7 @@ describe('DependencyContainer', () => {
 						)
 				);
 
-			const userService = await c.resolve(UserService);
+			const userService = await container.resolve(UserService);
 
 			expect(userService.getUser()).toBe(
 				'Connected to db://localhost with cache'
@@ -697,7 +712,7 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			const c = Container.empty()
+			const container = Container.empty()
 				.register(
 					ServiceA,
 					async (ctx) =>
@@ -711,7 +726,7 @@ describe('DependencyContainer', () => {
 
 			// Should throw DependencyCreationError with nested error chain leading to CircularDependencyError
 			try {
-				await c.resolve(ServiceA);
+				await container.resolve(ServiceA);
 				expect.fail('Should have thrown');
 			} catch (error) {
 				expect(error).toBeInstanceOf(DependencyCreationError);
@@ -728,7 +743,7 @@ describe('DependencyContainer', () => {
 			}
 
 			try {
-				await c.resolve(ServiceB);
+				await container.resolve(ServiceB);
 				expect.fail('Should have thrown');
 			} catch (error) {
 				expect(error).toBeInstanceOf(DependencyCreationError);
@@ -756,15 +771,15 @@ describe('DependencyContainer', () => {
 				instance.cleanup();
 			});
 
-			const c = Container.empty().register(TestService, {
+			const container = Container.empty().register(TestService, {
 				factory: () => new TestService(),
 				finalizer,
 			});
 
 			// Instantiate the service
-			const instance = await c.resolve(TestService);
+			const instance = await container.resolve(TestService);
 
-			await c.destroy();
+			await container.destroy();
 
 			expect(finalizer).toHaveBeenCalledWith(instance);
 			expect(instance.cleanup).toHaveBeenCalled();
@@ -775,13 +790,13 @@ describe('DependencyContainer', () => {
 
 			const finalizer = vi.fn();
 
-			const c = Container.empty().register(TestService, {
+			const container = Container.empty().register(TestService, {
 				factory: () => new TestService(),
 				finalizer,
 			});
 
 			// Do not instantiate the service
-			await c.destroy();
+			await container.destroy();
 
 			expect(finalizer).not.toHaveBeenCalled();
 		});
@@ -793,7 +808,7 @@ describe('DependencyContainer', () => {
 
 			const finalizationOrder: string[] = [];
 
-			const c = Container.empty()
+			const container = Container.empty()
 				.register(ServiceA, {
 					factory: () => new ServiceA(),
 					finalizer: () => {
@@ -814,11 +829,11 @@ describe('DependencyContainer', () => {
 				});
 
 			// Instantiate all services
-			await c.resolve(ServiceA);
-			await c.resolve(ServiceB);
-			await c.resolve(ServiceC);
+			await container.resolve(ServiceA);
+			await container.resolve(ServiceB);
+			await container.resolve(ServiceC);
 
-			await c.destroy();
+			await container.destroy();
 
 			// Finalizers run concurrently, so we just verify all were called
 			expect(finalizationOrder).toHaveLength(3);
@@ -840,14 +855,14 @@ describe('DependencyContainer', () => {
 					return instance.asyncCleanup();
 				});
 
-			const c = Container.empty().register(TestService, {
+			const container = Container.empty().register(TestService, {
 				factory: () => new TestService(),
 				finalizer,
 			});
 
-			const instance = await c.resolve(TestService);
+			const instance = await container.resolve(TestService);
 
-			await c.destroy();
+			await container.destroy();
 
 			expect(instance.asyncCleanup).toHaveBeenCalled();
 		});
@@ -856,7 +871,7 @@ describe('DependencyContainer', () => {
 			class ServiceA extends Tag.Service('ServiceA') {}
 			class ServiceB extends Tag.Service('ServiceB') {}
 
-			const c = Container.empty()
+			const container = Container.empty()
 				.register(ServiceA, {
 					factory: () => new ServiceA(),
 					finalizer: () => {
@@ -871,10 +886,10 @@ describe('DependencyContainer', () => {
 				});
 
 			// Instantiate services
-			await c.resolve(ServiceA);
-			await c.resolve(ServiceB);
+			await container.resolve(ServiceA);
+			await container.resolve(ServiceB);
 
-			await expect(c.destroy()).rejects.toThrow(
+			await expect(container.destroy()).rejects.toThrow(
 				DependencyFinalizationError
 			);
 		});
@@ -882,53 +897,53 @@ describe('DependencyContainer', () => {
 		it('should clear instance cache even if finalization fails', async () => {
 			class TestService extends Tag.Service('TestService') {}
 
-			const c = Container.empty().register(TestService, {
+			const container = Container.empty().register(TestService, {
 				factory: () => new TestService(),
 				finalizer: () => {
 					throw new Error('Finalizer error');
 				},
 			});
 
-			await c.resolve(TestService);
+			await container.resolve(TestService);
 
 			// Should throw due to finalizer error
-			await expect(c.destroy()).rejects.toThrow();
+			await expect(container.destroy()).rejects.toThrow();
 
 			// Service should still be registered even after destroy fails
-			expect(c.has(TestService)).toBe(true);
+			expect(container.has(TestService)).toBe(true);
 		});
 
 		it('should make container unusable after destroy', async () => {
 			class ServiceA extends Tag.Service('ServiceA') {}
 			class ServiceB extends Tag.Service('ServiceB') {}
 
-			const c = Container.empty()
+			const container = Container.empty()
 				.register(ServiceA, () => new ServiceA())
 				.register(ServiceB, () => new ServiceB());
 
-			await c.resolve(ServiceA);
-			await c.resolve(ServiceB);
+			await container.resolve(ServiceA);
+			await container.resolve(ServiceB);
 
-			expect(c.has(ServiceA)).toBe(true);
-			expect(c.has(ServiceB)).toBe(true);
+			expect(container.has(ServiceA)).toBe(true);
+			expect(container.has(ServiceB)).toBe(true);
 
-			await c.destroy();
+			await container.destroy();
 
 			// Services should still be registered even after destroy
-			expect(c.has(ServiceA)).toBe(true);
-			expect(c.has(ServiceB)).toBe(true);
+			expect(container.has(ServiceA)).toBe(true);
+			expect(container.has(ServiceB)).toBe(true);
 
 			// Container should now be unusable
-			await expect(c.resolve(ServiceA)).rejects.toThrow(
+			await expect(container.resolve(ServiceA)).rejects.toThrow(
 				'Cannot resolve dependencies from a destroyed container'
 			);
 
-			expect(() => c.register(ServiceA, () => new ServiceA())).toThrow(
-				'Cannot register dependencies on a destroyed container'
-			);
+			expect(() =>
+				container.register(ServiceA, () => new ServiceA())
+			).toThrow('Cannot register dependencies on a destroyed container');
 
 			// Subsequent destroy calls should be safe (idempotent)
-			await expect(c.destroy()).resolves.toBeUndefined();
+			await expect(container.destroy()).resolves.toBeUndefined();
 		});
 
 		it('should throw error when trying to use destroyed container multiple times', async () => {
@@ -939,23 +954,23 @@ describe('DependencyContainer', () => {
 			}
 
 			let instanceCount = 0;
-			const c = Container.empty().register(TestService, () => {
+			const container = Container.empty().register(TestService, () => {
 				return new TestService(++instanceCount);
 			});
 
 			// First cycle
-			const instance1 = await c.resolve(TestService);
+			const instance1 = await container.resolve(TestService);
 			expect(instance1.id).toBe(1);
-			await c.destroy();
+			await container.destroy();
 
 			// Container should now be unusable
-			await expect(c.resolve(TestService)).rejects.toThrow(
+			await expect(container.resolve(TestService)).rejects.toThrow(
 				'Cannot resolve dependencies from a destroyed container'
 			);
 
 			// Multiple destroy calls should be safe
-			await expect(c.destroy()).resolves.toBeUndefined();
-			await expect(c.destroy()).resolves.toBeUndefined();
+			await expect(container.destroy()).resolves.toBeUndefined();
+			await expect(container.destroy()).resolves.toBeUndefined();
 		});
 
 		it('should verify finalizers are called but container becomes unusable', async () => {
@@ -967,19 +982,19 @@ describe('DependencyContainer', () => {
 				instance.cleanup();
 			});
 
-			const c = Container.empty().register(TestService, {
+			const container = Container.empty().register(TestService, {
 				factory: () => new TestService(),
 				finalizer,
 			});
 
 			// First cycle
-			const instance1 = await c.resolve(TestService);
-			await c.destroy();
+			const instance1 = await container.resolve(TestService);
+			await container.destroy();
 			expect(finalizer).toHaveBeenCalledTimes(1);
 			expect(instance1.cleanup).toHaveBeenCalledTimes(1);
 
 			// Container should now be unusable
-			await expect(c.resolve(TestService)).rejects.toThrow(
+			await expect(container.resolve(TestService)).rejects.toThrow(
 				'Cannot resolve dependencies from a destroyed container'
 			);
 		});
@@ -990,12 +1005,12 @@ describe('DependencyContainer', () => {
 			const StringTag = Tag.of('string')<string>();
 			const NumberTag = Tag.of('number')<number>();
 
-			const c = Container.empty()
+			const container = Container.empty()
 				.register(StringTag, () => 'hello')
 				.register(NumberTag, () => 42);
 
-			const stringValue = await c.resolve(StringTag);
-			const numberValue = await c.resolve(NumberTag);
+			const stringValue = await container.resolve(StringTag);
+			const numberValue = await container.resolve(NumberTag);
 
 			expect(stringValue).toBe('hello');
 			expect(numberValue).toBe(42);
@@ -1004,11 +1019,11 @@ describe('DependencyContainer', () => {
 		it('should work with anonymous ValueTags', async () => {
 			const ConfigTag = Tag.for<{ apiKey: string }>();
 
-			const c = Container.empty().register(ConfigTag, () => ({
+			const container = Container.empty().register(ConfigTag, () => ({
 				apiKey: 'secret',
 			}));
 
-			const config = await c.resolve(ConfigTag);
+			const config = await container.resolve(ConfigTag);
 
 			expect(config.apiKey).toBe('secret');
 		});
@@ -1026,14 +1041,14 @@ describe('DependencyContainer', () => {
 
 			const ApiKeyTag = Tag.of('apiKey')<string>();
 
-			const c = Container.empty()
+			const container = Container.empty()
 				.register(ApiKeyTag, () => 'secret-key')
 				.register(
 					UserService,
 					async (ctx) => new UserService(await ctx.resolve(ApiKeyTag))
 				);
 
-			const userService = await c.resolve(UserService);
+			const userService = await container.resolve(UserService);
 
 			expect(userService.getApiKey()).toBe('secret-key');
 		});
@@ -1044,12 +1059,12 @@ describe('DependencyContainer', () => {
 			class TestService extends Tag.Service('TestService') {}
 
 			const originalError = new Error('Original error');
-			const c = Container.empty().register(TestService, () => {
+			const container = Container.empty().register(TestService, () => {
 				throw originalError;
 			});
 
 			try {
-				await c.resolve(TestService);
+				await container.resolve(TestService);
 				expect.fail('Should have thrown');
 			} catch (error) {
 				expect(error).toBeInstanceOf(DependencyCreationError);
@@ -1063,7 +1078,7 @@ describe('DependencyContainer', () => {
 			class DatabaseService extends Tag.Service('DatabaseService') {}
 			class UserService extends Tag.Service('UserService') {}
 
-			const c = Container.empty()
+			const container = Container.empty()
 				.register(DatabaseService, () => {
 					throw new Error('Database connection failed');
 				})
@@ -1074,7 +1089,7 @@ describe('DependencyContainer', () => {
 				);
 
 			try {
-				await c.resolve(UserService);
+				await container.resolve(UserService);
 				expect.fail('Should have thrown');
 			} catch (error) {
 				expect(error).toBeInstanceOf(DependencyCreationError);
@@ -1097,12 +1112,12 @@ describe('DependencyContainer', () => {
 				}
 			}
 
-			const c = Container.empty().register(
+			const container = Container.empty().register(
 				BaseService,
 				() => new ExtendedService()
 			);
 
-			const instance = await c.resolve(BaseService);
+			const instance = await container.resolve(BaseService);
 
 			// Should be able to call base method
 			expect(instance.baseMethod()).toBe('base');

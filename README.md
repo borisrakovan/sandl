@@ -23,13 +23,13 @@ class DatabaseService extends Tag.Service('DatabaseService') {
 	}
 }
 
-const c = container().register(DatabaseService, () => new DatabaseService());
+const container = Container.empty().register(DatabaseService, () => new DatabaseService());
 
 // ✅ TypeScript knows DatabaseService is available
-const db = await c.resolve(DatabaseService);
+const db = await container.resolve(DatabaseService);
 
 // ❌ Compile error - UserService not registered
-const user = await c.resolve(UserService); // Type error
+const user = await container.resolve(UserService); // Type error
 ```
 
 ### Modular Architecture with Layers

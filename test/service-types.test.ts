@@ -358,8 +358,8 @@ describe('Service Type Safety', () => {
 			const appService = userService.provide(dbService);
 
 			// Should be able to apply to a container
-			const c = Container.empty();
-			const finalContainer = appService.register(c);
+			const container = Container.empty();
+			const finalContainer = appService.register(container);
 
 			expectTypeOf(finalContainer).toEqualTypeOf<
 				IContainer<typeof UserService>
@@ -603,8 +603,8 @@ describe('Service Type Safety', () => {
 			const appService = userService.provideMerge(dbService);
 
 			// Should be able to apply to a container
-			const c = Container.empty();
-			const finalContainer = appService.register(c);
+			const container = Container.empty();
+			const finalContainer = appService.register(container);
 
 			// Both services should be available in the final container
 			expectTypeOf(finalContainer).toEqualTypeOf<
