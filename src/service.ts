@@ -145,6 +145,17 @@ export function service<T extends ServiceTag<TagId, unknown>>(
 }
 
 /**
+ * Specification for autoService.
+ * Can be either a tuple of constructor parameters or an object with dependencies and finalizer.
+ */
+export type AutoServiceSpec<T extends ServiceTag<TagId, unknown>> =
+	| ServiceDepsTuple<T>
+	| {
+			dependencies: ServiceDepsTuple<T>;
+			finalizer?: Finalizer<TagType<T>>;
+	  };
+
+/**
  * Creates a service layer with automatic dependency injection by inferring constructor parameters.
  *
  * This is a convenience function that automatically resolves constructor dependencies and passes
@@ -235,20 +246,25 @@ export function service<T extends ServiceTag<TagId, unknown>>(
  * // Service with automatic cleanup
  * const dbService = autoService(
  *   DatabaseService,
- *   ['postgresql://localhost:5432/mydb'],
- *   (service) => service.disconnect() // Finalizer for cleanup
+ * 	 {
+ * 		dependencies: ['postgresql://localhost:5432/mydb'],
+ * 		finalizer: (service) => service.disconnect() // Finalizer for cleanup
+ * 	 }
  * );
  * ```
  */
 export function autoService<T extends ServiceTag<TagId, unknown>>(
 	tag: T,
-	deps: ServiceDepsTuple<T>,
-	finalizer?: Finalizer<TagType<T>>
+	spec: AutoServiceSpec<T>
 ): Layer<ServiceDependencies<T>, T> {
+	if (Array.isArray(spec)) {
+		spec = { dependencies: spec };
+	}
+
 	const factory = async (ctx: ResolutionContext<ServiceDependencies<T>>) => {
 		// Split out the DI-managed tags from the static params
 		const diDeps: AnyTag[] = [];
-		for (const dep of deps) {
+		for (const dep of spec.dependencies) {
 			if (Tag.isTag(dep)) diDeps.push(dep);
 		}
 
@@ -261,7 +277,7 @@ export function autoService<T extends ServiceTag<TagId, unknown>>(
 		const args: unknown[] = [];
 		let resolvedIndex = 0;
 
-		for (const dep of deps) {
+		for (const dep of spec.dependencies) {
 			if (Tag.isTag(dep)) {
 				args.push(resolved[resolvedIndex++]);
 			} else {
@@ -274,7 +290,9 @@ export function autoService<T extends ServiceTag<TagId, unknown>>(
 	};
 
 	// If finalizer provided, use DependencyLifecycle, otherwise just the factory
-	const spec = finalizer ? { factory, finalizer } : factory;
+	const finalSpec = spec.finalizer
+		? { factory, finalizer: spec.finalizer }
+		: factory;
 
-	return service(tag, spec);
+	return service(tag, finalSpec);
 }

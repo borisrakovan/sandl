@@ -552,17 +552,15 @@ describe('Service', () => {
 			}
 
 			// Create services with finalizers
-			const dbService = autoService(
-				DatabaseService,
-				['postgresql://localhost:5432'],
-				(service) => service.disconnect()
-			);
+			const dbService = autoService(DatabaseService, {
+				dependencies: ['postgresql://localhost:5432'],
+				finalizer: (service) => service.disconnect(),
+			});
 
-			const userService = autoService(
-				UserService,
-				[DatabaseService, 5000],
-				(service) => service.cleanup()
-			);
+			const userService = autoService(UserService, {
+				dependencies: [DatabaseService, 5000],
+				finalizer: (service) => service.cleanup(),
+			});
 
 			// Compose layers
 			const appLayer = userService.provideMerge(dbService);
@@ -626,17 +624,15 @@ describe('Service', () => {
 				}
 			}
 
-			const service1 = autoService(
-				AsyncService1,
-				['service1', 10],
-				(service) => service.cleanup()
-			);
+			const service1 = autoService(AsyncService1, {
+				dependencies: ['service1', 10],
+				finalizer: (service) => service.cleanup(),
+			});
 
-			const service2 = autoService(
-				AsyncService2,
-				['service2', 5],
-				(service) => service.cleanup()
-			);
+			const service2 = autoService(AsyncService2, {
+				dependencies: ['service2', 5],
+				finalizer: (service) => service.cleanup(),
+			});
 
 			const appLayer = service1.merge(service2);
 			const container = Container.empty();
