@@ -76,8 +76,8 @@ export interface ValueTag<Id extends TagId, T> {
  */
 export interface ServiceTag<Id extends TagId, T> {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	new (...args: any[]): T & { readonly [ServiceTagIdKey]: Id };
-	readonly [ServiceTagIdKey]: Id;
+	new (...args: any[]): T & { readonly [ServiceTagIdKey]?: Id };
+	readonly [ServiceTagIdKey]?: Id;
 }
 
 /**
@@ -318,8 +318,8 @@ export const Tag = {
 	 */
 	Service: <Id extends TagId>(id: Id) => {
 		class Tagged {
-			static readonly [ServiceTagIdKey]: Id = id;
-			readonly [ServiceTagIdKey]: Id = id;
+			static readonly [ServiceTagIdKey]?: Id = id;
+			readonly [ServiceTagIdKey]?: Id = id;
 		}
 		return Tagged as ServiceTag<Id, Tagged>;
 	},
@@ -347,7 +347,7 @@ export const Tag = {
 	 *
 	 * @internal - Primarily for internal use in error messages and debugging
 	 */
-	id: (tag: AnyTag): TagId => {
+	id: (tag: AnyTag): TagId | undefined => {
 		return typeof tag === 'function'
 			? tag[ServiceTagIdKey]
 			: tag[ValueTagIdKey];

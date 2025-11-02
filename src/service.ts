@@ -37,7 +37,7 @@ export type ExtractConstructorDeps<T extends readonly unknown[]> =
 		? never
 		: {
 				[K in keyof T]: T[K] extends {
-					readonly [ServiceTagIdKey]: infer Id;
+					readonly [ServiceTagIdKey]?: infer Id;
 				}
 					? // Service tag
 						Id extends TagId
@@ -60,7 +60,7 @@ export type InferConstructorDepsTuple<T extends readonly unknown[]> =
 		? never
 		: {
 				[K in keyof T]: T[K] extends {
-					readonly [ServiceTagIdKey]: infer Id;
+					readonly [ServiceTagIdKey]?: infer Id;
 				}
 					? // Service tag
 						Id extends TagId
