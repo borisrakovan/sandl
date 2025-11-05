@@ -1,5 +1,11 @@
 # lambdaverse
 
+## 0.3.0
+
+### Minor Changes
+
+- f4c2712: Small fixes and improvements
+
 ## 0.2.0
 
 ### Minor Changes
