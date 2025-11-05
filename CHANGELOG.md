@@ -1,5 +1,11 @@
 # lambdaverse
 
+## 0.3.2
+
+### Patch Changes
+
+- 84c3fa8: Fix type annotation in value
+
 ## 0.3.1
 
 ### Patch Changes
