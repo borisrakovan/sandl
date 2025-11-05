@@ -1,5 +1,11 @@
 # lambdaverse
 
+## 0.3.1
+
+### Patch Changes
+
+- c00bbeb: Value layer type fix
+
 ## 0.3.0
 
 ### Minor Changes
