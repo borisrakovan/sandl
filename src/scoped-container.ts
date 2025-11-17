@@ -86,12 +86,24 @@ export class ScopedContainer<TReg extends AnyTag> extends Container<TReg> {
 	 * 4. If no parent or parent doesn't have it, throw UnknownDependencyError
 	 */
 	override async resolve<T extends TReg>(tag: T): Promise<TagType<T>> {
+		return this.resolveInternal(tag, []);
+	}
+
+	/**
+	 * Internal resolution with delegation logic for scoped containers.
+	 * @internal
+	 */
+	protected override resolveInternal<T extends TReg>(
+		tag: T,
+		chain: AnyTag[]
+	): Promise<TagType<T>> {
 		// If this scope has a factory, resolve here (uses this scope's cache)
 		if (this.factories.has(tag)) {
-			return super.resolve(tag);
+			return super.resolveInternal(tag, chain);
 		}
 
 		// Otherwise delegate to parent scope if available
+		// Start fresh chain in parent scope (type system prevents parent->child cycles)
 		if (this.parent !== null) {
 			return this.parent.resolve(tag);
 		}

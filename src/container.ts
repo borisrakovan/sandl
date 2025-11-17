@@ -1,4 +1,3 @@
-import { AsyncLocalStorage } from 'node:async_hooks';
 import {
 	CircularDependencyError,
 	ContainerDestroyedError,
@@ -9,13 +8,6 @@ import {
 } from './errors.js';
 import { AnyTag, Tag, TagType } from './tag.js';
 import { Contravariant, PromiseOrValue } from './types.js';
-
-/**
- * AsyncLocalStorage instance used to track the dependency resolution chain.
- * This enables detection of circular dependencies during async dependency resolution.
- * @internal
- */
-const resolutionChain = new AsyncLocalStorage<AnyTag[]>();
 
 /**
  * Type representing a factory function used to create dependency instances.
@@ -175,6 +167,31 @@ export type ResolutionContext<TReg extends AnyTag> = Pick<
 	'resolve' | 'resolveAll'
 >;
 
+/**
+ * Internal implementation of ResolutionContext that carries the resolution chain
+ * for circular dependency detection.
+ * @internal
+ */
+class ResolutionContextImpl<TReg extends AnyTag>
+	implements ResolutionContext<TReg>
+{
+	constructor(
+		private readonly resolveFn: (tag: AnyTag) => Promise<unknown>
+	) {}
+
+	async resolve<T extends TReg>(tag: T): Promise<TagType<T>> {
+		return this.resolveFn(tag) as Promise<TagType<T>>;
+	}
+
+	async resolveAll<const T extends readonly TReg[]>(
+		...tags: T
+	): Promise<{ [K in keyof T]: TagType<T[K]> }> {
+		const promises = tags.map((tag) => this.resolve(tag));
+		const results = await Promise.all(promises);
+		return results as { [K in keyof T]: TagType<T[K]> };
+	}
+}
+
 export const ContainerTypeId: unique symbol = Symbol.for('sandly/Container');
 
 /**
@@ -204,8 +221,6 @@ export interface IContainer<TReg extends AnyTag = never> {
 
 	destroy(): Promise<void>;
 }
-
-// declare const ContainerBrand: unique symbol;
 
 /**
  * A type-safe dependency injection container that manages service instantiation,
@@ -468,8 +483,8 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 * and cached for subsequent calls. The method is async-safe and handles concurrent
 	 * requests for the same dependency correctly.
 	 *
-	 * The method performs circular dependency detection using AsyncLocalStorage to track
-	 * the resolution chain across async boundaries.
+	 * The method performs circular dependency detection by tracking the resolution chain
+	 * through the resolution context.
 	 *
 	 * @template T - The dependency tag type (must be registered in this container)
 	 * @param tag - The dependency tag to retrieve
@@ -512,6 +527,18 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 * ```
 	 */
 	async resolve<T extends TReg>(tag: T): Promise<TagType<T>> {
+		return this.resolveInternal(tag, []);
+	}
+
+	/**
+	 * Internal resolution method that tracks the dependency chain for circular dependency detection.
+	 * Can be overridden by subclasses (e.g., ScopedContainer) to implement custom resolution logic.
+	 * @internal
+	 */
+	protected resolveInternal<T extends TReg>(
+		tag: T,
+		chain: AnyTag[]
+	): Promise<TagType<T>> {
 		if (this.isDestroyed) {
 			throw new ContainerDestroyedError(
 				'Cannot resolve dependencies from a destroyed container'
@@ -524,10 +551,9 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 			return cached;
 		}
 
-		// Check for circular dependency using AsyncLocalStorage
-		const currentChain = resolutionChain.getStore() ?? [];
-		if (currentChain.includes(tag)) {
-			throw new CircularDependencyError(tag, currentChain);
+		// Check for circular dependency
+		if (chain.includes(tag)) {
+			throw new CircularDependencyError(tag, chain);
 		}
 
 		// Get factory
@@ -539,22 +565,26 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 			throw new UnknownDependencyError(tag);
 		}
 
+		// Create resolution context with updated chain
+		const newChain = [...chain, tag];
+		const context = new ResolutionContextImpl((tag: AnyTag) =>
+			this.resolveInternal(tag as TReg, newChain)
+		);
+
 		// Create and cache the promise
-		const instancePromise: Promise<TagType<T>> = resolutionChain
-			.run([...currentChain, tag], async () => {
-				try {
-					const instance = await factory(this);
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-return
-					return instance as TagType<T>;
-				} catch (error) {
-					throw new DependencyCreationError(tag, error);
-				}
-			})
-			.catch((error: unknown) => {
-				// Remove failed promise from cache on any error
-				this.cache.delete(tag);
-				throw error;
-			});
+		const instancePromise: Promise<TagType<T>> = (async () => {
+			try {
+				const instance = await factory(context);
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+				return instance as TagType<T>;
+			} catch (error) {
+				throw new DependencyCreationError(tag, error);
+			}
+		})().catch((error: unknown) => {
+			// Remove failed promise from cache on any error
+			this.cache.delete(tag);
+			throw error;
+		});
 
 		// Cache the promise immediately to prevent race conditions during concurrent access.
 		// Multiple concurrent resolve() calls will share the same promise, ensuring singleton behavior
