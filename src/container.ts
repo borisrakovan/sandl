@@ -89,21 +89,27 @@ export type Finalizer<T> = (instance: T) => PromiseOrValue<void>;
 /**
  * Type representing a complete dependency lifecycle with both factory and finalizer.
  *
- * This type is used when registering dependencies that need cleanup. Instead of
+ * This interface is used when registering dependencies that need cleanup. Instead of
  * passing separate factory and finalizer parameters, you can pass an object
  * containing both.
  *
- * @template T - The dependency tag type
+ * Since this is an interface, you can also implement it as a class for better
+ * organization and reuse. This is particularly useful when you have complex
+ * lifecycle logic or want to share lifecycle definitions across multiple services.
+ *
+ * @template T - The instance type
  * @template TReg - Union type of all dependencies available in the container
  *
- * @example Using DependencyLifecycle for registration
+ * @example Using DependencyLifecycle as an object
  * ```typescript
+ * import { Container, Tag } from 'sandly';
+ *
  * class DatabaseConnection extends Tag.Service('DatabaseConnection') {
  *   async connect() { return; }
  *   async disconnect() { return; }
  * }
  *
- * const lifecycle: DependencyLifecycle<typeof DatabaseConnection, never> = {
+ * const lifecycle: DependencyLifecycle<DatabaseConnection, never> = {
  *   create: async () => {
  *     const conn = new DatabaseConnection();
  *     await conn.connect();
@@ -115,6 +121,59 @@ export type Finalizer<T> = (instance: T) => PromiseOrValue<void>;
  * };
  *
  * Container.empty().register(DatabaseConnection, lifecycle);
+ * ```
+ *
+ * @example Implementing DependencyLifecycle as a class with dependencies
+ * ```typescript
+ * import { Container, Tag, type ResolutionContext } from 'sandly';
+ *
+ * class Logger extends Tag.Service('Logger') {
+ *   log(message: string) { console.log(message); }
+ * }
+ *
+ * class DatabaseConnection extends Tag.Service('DatabaseConnection') {
+ *   constructor(private logger: Logger, private url: string) { super(); }
+ *   async connect() { this.logger.log('Connected'); }
+ *   async disconnect() { this.logger.log('Disconnected'); }
+ * }
+ *
+ * class DatabaseLifecycle implements DependencyLifecycle<DatabaseConnection, typeof Logger> {
+ *   constructor(private url: string) {}
+ *
+ *   async create(ctx: ResolutionContext<typeof Logger>): Promise<DatabaseConnection> {
+ *     const logger = await ctx.resolve(Logger);
+ *     const conn = new DatabaseConnection(logger, this.url);
+ *     await conn.connect();
+ *     return conn;
+ *   }
+ *
+ *   async cleanup(conn: DatabaseConnection): Promise<void> {
+ *     await conn.disconnect();
+ *   }
+ * }
+ *
+ * const container = Container.empty()
+ *   .register(Logger, () => new Logger())
+ *   .register(DatabaseConnection, new DatabaseLifecycle('postgresql://localhost:5432'));
+ * ```
+ *
+ * @example Class with only factory (no cleanup)
+ * ```typescript
+ * import { Container, Tag } from 'sandly';
+ *
+ * class SimpleService extends Tag.Service('SimpleService') {}
+ *
+ * class SimpleServiceLifecycle implements DependencyLifecycle<SimpleService, never> {
+ *   create(): SimpleService {
+ *     return new SimpleService();
+ *   }
+ *   // cleanup is optional, so it can be omitted
+ * }
+ *
+ * const container = Container.empty().register(
+ *   SimpleService,
+ *   new SimpleServiceLifecycle()
+ * );
  * ```
  */
 export interface DependencyLifecycle<T, TReg extends AnyTag> {
@@ -440,10 +499,12 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 			// Remove any existing finalizer when registering with just a factory
 			this.finalizers.delete(tag);
 		} else {
-			this.factories.set(tag, spec.create);
+			// Bind the create method to preserve 'this' context for class instances
+			this.factories.set(tag, spec.create.bind(spec));
 
 			if (spec.cleanup) {
-				this.finalizers.set(tag, spec.cleanup);
+				// Bind the cleanup method to preserve 'this' context for class instances
+				this.finalizers.set(tag, spec.cleanup.bind(spec));
 			} else {
 				// Remove any existing finalizer when registering with just a create function
 				this.finalizers.delete(tag);

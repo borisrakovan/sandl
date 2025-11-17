@@ -1,4 +1,8 @@
-import { Container } from '@/container.js';
+import {
+	Container,
+	type DependencyLifecycle,
+	type ResolutionContext,
+} from '@/container.js';
 import {
 	CircularDependencyError,
 	ContainerDestroyedError,
@@ -86,6 +90,102 @@ describe('DependencyContainer', () => {
 			});
 
 			expect(container).toBeDefined();
+		});
+
+		it('should register with class implementing DependencyLifecycle with create and cleanup', async () => {
+			class TestService extends Tag.Service('TestService') {
+				cleanup = vi.fn() as () => void;
+			}
+
+			class TestServiceLifecycle
+				implements DependencyLifecycle<TestService, never>
+			{
+				create(): TestService {
+					return new TestService();
+				}
+
+				cleanup(instance: TestService): void {
+					instance.cleanup();
+				}
+			}
+
+			const container = Container.empty().register(
+				TestService,
+				new TestServiceLifecycle()
+			);
+
+			const instance = await container.resolve(TestService);
+			expect(instance).toBeInstanceOf(TestService);
+
+			await container.destroy();
+			expect(instance.cleanup).toHaveBeenCalled();
+		});
+
+		it('should register with class implementing DependencyLifecycle with only create', async () => {
+			class TestService extends Tag.Service('TestService') {
+				getValue() {
+					return 'test';
+				}
+			}
+
+			class SimpleServiceLifecycle
+				implements DependencyLifecycle<TestService, never>
+			{
+				create(): TestService {
+					return new TestService();
+				}
+				// cleanup is optional, so it can be omitted
+			}
+
+			const container = Container.empty().register(
+				TestService,
+				new SimpleServiceLifecycle()
+			);
+
+			const instance = await container.resolve(TestService);
+			expect(instance).toBeInstanceOf(TestService);
+			expect(instance.getValue()).toBe('test');
+		});
+
+		it('should register with class implementing DependencyLifecycle with dependencies', async () => {
+			class Logger extends Tag.Service('Logger') {
+				log(message: string) {
+					return message;
+				}
+			}
+
+			class TestService extends Tag.Service('TestService') {
+				constructor(
+					private logger: Logger,
+					public value: string
+				) {
+					super();
+				}
+
+				getLog() {
+					return this.logger.log('test');
+				}
+			}
+
+			class TestServiceLifecycle
+				implements DependencyLifecycle<TestService, typeof Logger>
+			{
+				constructor(private value: string) {}
+
+				async create(ctx: ResolutionContext<typeof Logger>): Promise<TestService> {
+					const logger = await ctx.resolve(Logger);
+					return new TestService(logger, this.value);
+				}
+			}
+
+			const container = Container.empty()
+				.register(Logger, () => new Logger())
+				.register(TestService, new TestServiceLifecycle('test-value'));
+
+			const instance = await container.resolve(TestService);
+			expect(instance).toBeInstanceOf(TestService);
+			expect(instance.value).toBe('test-value');
+			expect(instance.getLog()).toBe('test');
 		});
 
 		it('should allow overriding registration before instantiation', () => {
