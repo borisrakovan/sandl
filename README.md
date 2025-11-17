@@ -756,6 +756,86 @@ await container.destroy();
 // Output: "Disconnected"
 ```
 
+You can also implement `DependencyLifecycle` as a class for better organization and reuse:
+
+```typescript
+import {
+	Container,
+	Tag,
+	type DependencyLifecycle,
+	type ResolutionContext,
+} from 'sandly';
+
+class Logger extends Tag.Service('Logger') {
+	log(message: string) {
+		console.log(message);
+	}
+}
+
+class DatabaseConnection extends Tag.Service('DatabaseConnection') {
+	constructor(
+		private logger: Logger,
+		private url: string
+	) {
+		super();
+	}
+	async connect() {
+		this.logger.log('Connected');
+	}
+	async disconnect() {
+		this.logger.log('Disconnected');
+	}
+}
+
+class DatabaseLifecycle
+	implements DependencyLifecycle<DatabaseConnection, typeof Logger>
+{
+	constructor(private url: string) {}
+
+	async create(
+		ctx: ResolutionContext<typeof Logger>
+	): Promise<DatabaseConnection> {
+		const logger = await ctx.resolve(Logger);
+		const db = new DatabaseConnection(logger, this.url);
+		await db.connect();
+		return db;
+	}
+
+	async cleanup(db: DatabaseConnection): Promise<void> {
+		await db.disconnect();
+	}
+}
+
+const container = Container.empty()
+	.register(Logger, () => new Logger())
+	.register(
+		DatabaseConnection,
+		new DatabaseLifecycle('postgresql://localhost:5432')
+	);
+```
+
+The `cleanup` method is optional, so you can implement classes with only a `create` method:
+
+```typescript
+import { Container, Tag, type DependencyLifecycle } from 'sandly';
+
+class SimpleService extends Tag.Service('SimpleService') {}
+
+class SimpleServiceFactory
+	implements DependencyLifecycle<SimpleService, never>
+{
+	create(): SimpleService {
+		return new SimpleService();
+	}
+	// cleanup is optional
+}
+
+const container = Container.empty().register(
+	SimpleService,
+	new SimpleServiceFactory()
+);
+```
+
 All finalizers run concurrently when you call `destroy()`:
 
 ```typescript
@@ -771,49 +851,6 @@ const container = Container.empty()
 
 // Both finalizers run in parallel
 await container.destroy();
-```
-
-If any finalizer fails, cleanup continues for others and a `DependencyFinalizationError` is thrown with details of all failures:
-
-```typescript
-class Database extends Tag.Service('Database') {
-	async close() {
-		throw new Error('Database close failed');
-	}
-}
-
-class Cache extends Tag.Service('Cache') {
-	async clear() {
-		throw new Error('Cache clear failed');
-	}
-}
-
-const container = Container.empty()
-	.register(Database, {
-		create: () => new Database(),
-		cleanup: async (db) => db.close(),
-	})
-	.register(Cache, {
-		create: () => new Cache(),
-		cleanup: async (cache) => cache.clear(),
-	});
-
-await container.resolve(Database);
-await container.resolve(Cache);
-
-try {
-	await container.destroy();
-} catch (error) {
-	if (error instanceof DependencyFinalizationError) {
-		// Get all root causes of finalization failures
-		const rootCauses = error.getRootCauses();
-		console.error('Finalization failures:', rootCauses);
-		// [
-		//   Error: Database close failed,
-		//   Error: Cache clear failed
-		// ]
-	}
-}
 ```
 
 #### Overriding Registrations
@@ -973,6 +1010,51 @@ try {
 		const rootCause = error.getRootCause();
 		console.log(rootCause);
 		// Error: Database connection failed
+	}
+}
+```
+
+#### Finalization Errors
+
+If any finalizer fails, cleanup continues for others and a `DependencyFinalizationError` is thrown with details of all failures:
+
+```typescript
+class Database extends Tag.Service('Database') {
+	async close() {
+		throw new Error('Database close failed');
+	}
+}
+
+class Cache extends Tag.Service('Cache') {
+	async clear() {
+		throw new Error('Cache clear failed');
+	}
+}
+
+const container = Container.empty()
+	.register(Database, {
+		create: () => new Database(),
+		cleanup: async (db) => db.close(),
+	})
+	.register(Cache, {
+		create: () => new Cache(),
+		cleanup: async (cache) => cache.clear(),
+	});
+
+await container.resolve(Database);
+await container.resolve(Cache);
+
+try {
+	await container.destroy();
+} catch (error) {
+	if (error instanceof DependencyFinalizationError) {
+		// Get all original errors that caused the finalization failure
+		const rootCauses = error.getRootCauses();
+		console.error('Finalization failures:', rootCauses);
+		// [
+		//   Error: Database close failed,
+		//   Error: Cache clear failed
+		// ]
 	}
 }
 ```
