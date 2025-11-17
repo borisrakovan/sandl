@@ -74,8 +74,8 @@ class UserRepository extends Tag.Service('UserRepository') {
 // Register services with their factories
 const container = Container.empty()
 	.register(Database, {
-		factory: () => new Database(),
-		finalizer: (db) => db.close(), // Cleanup when container is destroyed
+		create: () => new Database(),
+		cleanup: (db) => db.close(), // Cleanup when container is destroyed
 	})
 	.register(
 		UserRepository,
@@ -106,8 +106,8 @@ import { layer, autoService, Container } from 'sandly';
 // Layer that provides Database
 const databaseLayer = layer<never, typeof Database>((container) =>
 	container.register(Database, {
-		factory: () => new Database(),
-		finalizer: (db) => db.close(),
+		create: () => new Database(),
+		cleanup: (db) => db.close(),
 	})
 );
 
@@ -330,12 +330,12 @@ class DatabaseConnection extends Tag.Service('DatabaseConnection') {
 }
 
 const container = Container.empty().register(DatabaseConnection, {
-	factory: async () => {
+	create: async () => {
 		const db = new DatabaseConnection();
 		await db.connect(); // Async initialization
 		return db;
 	},
-	finalizer: async (db) => {
+	cleanup: async (db) => {
 		await db.disconnect(); // Async cleanup
 	},
 });
@@ -712,7 +712,7 @@ console.log(logger1 === logger2); // true
 
 #### Finalizers for Cleanup
 
-Register finalizers to clean up resources when the container is destroyed:
+Register finalizers to clean up resources when the container is destroyed. They receive the created instance and should perform any necessary cleanup (closing connections, releasing resources, etc.):
 
 ```typescript
 class DatabaseConnection extends Tag.Service('DatabaseConnection') {
@@ -735,12 +735,14 @@ class DatabaseConnection extends Tag.Service('DatabaseConnection') {
 }
 
 const container = Container.empty().register(DatabaseConnection, {
-	factory: async () => {
+	// Factory
+	create: async () => {
 		const db = new DatabaseConnection();
 		await db.connect();
 		return db;
 	},
-	finalizer: async (db) => {
+	// Finalizer
+	cleanup: async (db) => {
 		await db.disconnect();
 	},
 });
@@ -759,12 +761,12 @@ All finalizers run concurrently when you call `destroy()`:
 ```typescript
 const container = Container.empty()
 	.register(Database, {
-		factory: () => new Database(),
-		finalizer: (db) => db.close(),
+		create: () => new Database(),
+		cleanup: (db) => db.close(),
 	})
 	.register(Cache, {
-		factory: () => new Cache(),
-		finalizer: (cache) => cache.clear(),
+		create: () => new Cache(),
+		cleanup: (cache) => cache.clear(),
 	});
 
 // Both finalizers run in parallel
@@ -788,12 +790,12 @@ class Cache extends Tag.Service('Cache') {
 
 const container = Container.empty()
 	.register(Database, {
-		factory: () => new Database(),
-		finalizer: async (db) => db.close(),
+		create: () => new Database(),
+		cleanup: async (db) => db.close(),
 	})
 	.register(Cache, {
-		factory: () => new Cache(),
-		finalizer: async (cache) => cache.clear(),
+		create: () => new Cache(),
+		cleanup: async (cache) => cache.clear(),
 	});
 
 await container.resolve(Database);
@@ -1451,12 +1453,12 @@ const userRepositoryLayer = service(UserRepository, async (ctx) => {
 
 // With finalizer
 const databaseLayer = service(Database, {
-	factory: async () => {
+	create: async () => {
 		const db = new Database();
 		await db.connect();
 		return db;
 	},
-	finalizer: (db) => db.disconnect(),
+	cleanup: (db) => db.disconnect(),
 });
 ```
 
@@ -1515,12 +1517,12 @@ const apiClientLayer = autoService(ApiClient, [
 
 **Important**: ValueTag dependencies in constructors must be annotated with `Inject<typeof YourTag>`. This preserves type information for `service()` and `autoService()` to infer the dependency. Without `Inject<>`, TypeScript sees it as a regular value and `service()` and `autoService()` won't know to resolve it from the container.
 
-With finalizer:
+With cleanup:
 
 ```typescript
 const databaseLayer = autoService(Database, {
 	dependencies: ['postgresql://localhost:5432/mydb'],
-	finalizer: (db) => db.disconnect(),
+	cleanup: (db) => db.disconnect(),
 });
 ```
 
@@ -1962,13 +1964,13 @@ But use `service()` when you need custom logic:
 ```typescript
 // ✅ Good - custom initialization logic
 const databaseLayer = service(Database, {
-	factory: async () => {
+	create: async () => {
 		const db = new Database();
 		await db.connect();
 		await db.runMigrations();
 		return db;
 	},
-	finalizer: (db) => db.disconnect(),
+	cleanup: (db) => db.disconnect(),
 });
 ```
 
@@ -2318,23 +2320,23 @@ When a scope is destroyed, finalizers run in this order:
 
 ```typescript
 const appScope = ScopedContainer.empty('app').register(Database, {
-	factory: () => new Database(),
-	finalizer: (db) => {
+	create: () => new Database(),
+	cleanup: (db) => {
 		console.log('Closing database');
 		return db.close();
 	},
 });
 
 const request1 = appScope.child('request-1').register(RequestContext, {
-	factory: () => new RequestContext('req-1'),
-	finalizer: (ctx) => {
+	create: () => new RequestContext('req-1'),
+	cleanup: (ctx) => {
 		console.log('Cleaning up request-1');
 	},
 });
 
 const request2 = appScope.child('request-2').register(RequestContext, {
-	factory: () => new RequestContext('req-2'),
-	finalizer: (ctx) => {
+	create: () => new RequestContext('req-2'),
+	cleanup: (ctx) => {
 		console.log('Cleaning up request-2');
 	},
 });
@@ -2606,8 +2608,7 @@ const service = await container.resolve(UserService); // Type-safe
 | -------------------------- | ------- | ---------- | --------------------- | -------- | --------- |
 | Compile-time type safety   | ✅ Full | ❌ None    | ⚠️ Partial            | ❌ None  | ✅ Full   |
 | No experimental decorators | ✅      | ❌         | ❌                    | ❌       | ✅        |
-| Async factories            | ✅      | ✅         | ❌                    | ❌       | ✅        |
-| Async finalizers           | ✅      | ✅         | ❌                    | ❌       | ✅        |
+| Async lifecycle methods    | ✅      | ✅         | ❌                    | ❌       | ✅        |
 | Framework-agnostic         | ✅      | ❌         | ✅                    | ✅       | ✅        |
 | Learning curve             | Low     | Medium     | Medium                | Low      | Very High |
 | Bundle size                | Small   | Large      | Medium                | Small    | Large     |

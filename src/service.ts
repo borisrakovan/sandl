@@ -152,7 +152,7 @@ export type AutoServiceSpec<T extends ServiceTag<TagId, unknown>> =
 	| ServiceDepsTuple<T>
 	| {
 			dependencies: ServiceDepsTuple<T>;
-			finalizer?: Finalizer<TagType<T>>;
+			cleanup?: Finalizer<TagType<T>>;
 	  };
 
 /**
@@ -248,7 +248,7 @@ export type AutoServiceSpec<T extends ServiceTag<TagId, unknown>> =
  *   DatabaseService,
  * 	 {
  * 		dependencies: ['postgresql://localhost:5432/mydb'],
- * 		finalizer: (service) => service.disconnect() // Finalizer for cleanup
+ * 		cleanup: (service) => service.disconnect() // Finalizer for cleanup
  * 	 }
  * );
  * ```
@@ -261,7 +261,7 @@ export function autoService<T extends ServiceTag<TagId, unknown>>(
 		spec = { dependencies: spec };
 	}
 
-	const factory = async (ctx: ResolutionContext<ServiceDependencies<T>>) => {
+	const create = async (ctx: ResolutionContext<ServiceDependencies<T>>) => {
 		// Split out the DI-managed tags from the static params
 		const diDeps: AnyTag[] = [];
 		for (const dep of spec.dependencies) {
@@ -289,10 +289,5 @@ export function autoService<T extends ServiceTag<TagId, unknown>>(
 		return new tag(...args) as TagType<T>;
 	};
 
-	// If finalizer provided, use DependencyLifecycle, otherwise just the factory
-	const finalSpec = spec.finalizer
-		? { factory, finalizer: spec.finalizer }
-		: factory;
-
-	return service(tag, finalSpec);
+	return service(tag, { create, cleanup: spec.cleanup });
 }

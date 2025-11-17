@@ -528,8 +528,8 @@ describe('Layer', () => {
 			const layerWithFinalizer = layer<never, typeof ServiceWithCleanup>(
 				(container) =>
 					container.register(ServiceWithCleanup, {
-						factory: () => new ServiceWithCleanup(),
-						finalizer: (instance) => {
+						create: () => new ServiceWithCleanup(),
+						cleanup: (instance) => {
 							instance.cleanup();
 						},
 					})
@@ -557,8 +557,8 @@ describe('Layer', () => {
 
 			const layerA = layer<never, typeof ServiceA>((container) =>
 				container.register(ServiceA, {
-					factory: () => new ServiceA(),
-					finalizer: (instance) => {
+					create: () => new ServiceA(),
+					cleanup: (instance) => {
 						instance.cleanup();
 					},
 				})
@@ -566,8 +566,8 @@ describe('Layer', () => {
 
 			const layerB = layer<never, typeof ServiceB>((container) =>
 				container.register(ServiceB, {
-					factory: () => new ServiceB(),
-					finalizer: (instance) => {
+					create: () => new ServiceB(),
+					cleanup: (instance) => {
 						instance.cleanup();
 					},
 				})

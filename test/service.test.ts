@@ -165,9 +165,9 @@ describe('Service', () => {
 
 			// Use DependencyLifecycle object with factory and finalizer
 			const dbService = service(DatabaseConnection, {
-				factory: () =>
+				create: () =>
 					new DatabaseConnection('postgresql://localhost:5432'),
-				finalizer: (conn) => {
+				cleanup: (conn) => {
 					conn.disconnect();
 				},
 			});
@@ -203,12 +203,12 @@ describe('Service', () => {
 			}
 
 			const resourceService = service(AsyncResource, {
-				factory: () => {
+				create: () => {
 					const resource = new AsyncResource();
 					resource.initialize();
 					return resource;
 				},
-				finalizer: async (resource) => {
+				cleanup: async (resource) => {
 					await resource.cleanup();
 				},
 			});
@@ -254,11 +254,11 @@ describe('Service', () => {
 			const loggerService = service(Logger, () => new Logger());
 
 			const dbService = service(DatabaseService, {
-				factory: async (ctx) => {
+				create: async (ctx) => {
 					const logger = await ctx.resolve(Logger);
 					return new DatabaseService(logger);
 				},
-				finalizer: (db) => {
+				cleanup: (db) => {
 					db.close();
 				},
 			});
@@ -554,12 +554,12 @@ describe('Service', () => {
 			// Create services with finalizers
 			const dbService = autoService(DatabaseService, {
 				dependencies: ['postgresql://localhost:5432'],
-				finalizer: (service) => service.disconnect(),
+				cleanup: (service) => service.disconnect(),
 			});
 
 			const userService = autoService(UserService, {
 				dependencies: [DatabaseService, 5000],
-				finalizer: (service) => service.cleanup(),
+				cleanup: (service) => service.cleanup(),
 			});
 
 			// Compose layers
@@ -626,12 +626,12 @@ describe('Service', () => {
 
 			const service1 = autoService(AsyncService1, {
 				dependencies: ['service1', 10],
-				finalizer: (service) => service.cleanup(),
+				cleanup: (service) => service.cleanup(),
 			});
 
 			const service2 = autoService(AsyncService2, {
 				dependencies: ['service2', 5],
-				finalizer: (service) => service.cleanup(),
+				cleanup: (service) => service.cleanup(),
 			});
 
 			const appLayer = service1.merge(service2);

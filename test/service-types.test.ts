@@ -643,8 +643,8 @@ describe('Service Type Safety', () => {
 			}
 
 			const dbService = service(DatabaseConnection, {
-				factory: () => new DatabaseConnection(),
-				finalizer: (conn) => {
+				create: () => new DatabaseConnection(),
+				cleanup: (conn) => {
 					conn.disconnect();
 				},
 			});
@@ -662,8 +662,8 @@ describe('Service Type Safety', () => {
 			}
 
 			const resourceService = service(AsyncResource, {
-				factory: () => Promise.resolve(new AsyncResource()),
-				finalizer: async (resource) => {
+				create: () => Promise.resolve(new AsyncResource()),
+				cleanup: async (resource) => {
 					await resource.cleanup();
 				},
 			});
@@ -688,12 +688,12 @@ describe('Service Type Safety', () => {
 			}
 
 			const dbService = service(DatabaseService, {
-				factory: async (ctx) => {
+				create: async (ctx) => {
 					const logger = await ctx.resolve(Logger);
 					expectTypeOf(logger).toEqualTypeOf<Logger>();
 					return new DatabaseService(logger);
 				},
-				finalizer: (db) => {
+				cleanup: (db) => {
 					db.close();
 					db.getLogger(); // Use the logger to avoid unused warning
 				},
@@ -716,7 +716,7 @@ describe('Service Type Safety', () => {
 			}
 
 			const customService = service(CustomService, {
-				factory: () => {
+				create: () => {
 					const instance = new CustomService();
 					expectTypeOf(instance).toEqualTypeOf<CustomService>();
 					expectTypeOf(instance.getValue).toEqualTypeOf<
@@ -724,7 +724,7 @@ describe('Service Type Safety', () => {
 					>();
 					return instance;
 				},
-				finalizer: (instance) => {
+				cleanup: (instance) => {
 					expectTypeOf(instance).toEqualTypeOf<CustomService>();
 					expectTypeOf(instance.getValue).toEqualTypeOf<
 						() => string

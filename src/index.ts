@@ -10,10 +10,10 @@ export type {
 export {
 	CircularDependencyError,
 	ContainerDestroyedError,
-	SandlyError,
 	DependencyAlreadyInstantiatedError,
 	DependencyCreationError,
 	DependencyFinalizationError,
+	SandlyError,
 	UnknownDependencyError,
 } from './errors.js';
 export { Layer, layer } from './layer.js';

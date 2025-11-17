@@ -382,8 +382,8 @@ describe('DependencyContainer Type Safety', () => {
 
 			// Should accept correct finalizer type
 			const c1 = Container.empty().register(ServiceWithCleanup, {
-				factory: () => new ServiceWithCleanup(),
-				finalizer: (instance) => {
+				create: () => new ServiceWithCleanup(),
+				cleanup: (instance) => {
 					expectTypeOf(instance).toEqualTypeOf<ServiceWithCleanup>();
 					instance.cleanup();
 				},
@@ -394,9 +394,9 @@ describe('DependencyContainer Type Safety', () => {
 
 			// Should reject incorrect finalizer type
 			Container.empty().register(ServiceWithCleanup, {
-				factory: () => new ServiceWithCleanup(),
+				create: () => new ServiceWithCleanup(),
 				// @ts-expect-error - Should reject incorrect finalizer type
-				finalizer: (instance: string) => {
+				cleanup: (instance: string) => {
 					return instance.length;
 				},
 			});
@@ -414,8 +414,8 @@ describe('DependencyContainer Type Safety', () => {
 			const container = Container.empty().register(
 				ServiceWithAsyncCleanup,
 				{
-					factory: () => new ServiceWithAsyncCleanup(),
-					finalizer: async (instance) => {
+					create: () => new ServiceWithAsyncCleanup(),
+					cleanup: async (instance) => {
 						expectTypeOf(
 							instance
 						).toEqualTypeOf<ServiceWithAsyncCleanup>();

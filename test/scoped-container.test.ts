@@ -384,8 +384,8 @@ describe('ScopedContainer', () => {
 			const container = ScopedContainer.empty('test').register(
 				TestService,
 				{
-					factory: () => new TestService(),
-					finalizer,
+					create: () => new TestService(),
+					cleanup: finalizer,
 				}
 			);
 
@@ -405,16 +405,16 @@ describe('ScopedContainer', () => {
 			const parent = ScopedContainer.empty('parent').register(
 				ParentService,
 				{
-					factory: () => new ParentService(),
-					finalizer: () => {
+					create: () => new ParentService(),
+					cleanup: () => {
 						destructionOrder.push('parent');
 					},
 				}
 			);
 
 			const child = parent.child('child').register(ChildService, {
-				factory: () => new ChildService(),
-				finalizer: () => {
+				create: () => new ChildService(),
+				cleanup: () => {
 					destructionOrder.push('child');
 				},
 			});
@@ -439,23 +439,23 @@ describe('ScopedContainer', () => {
 			const parent = ScopedContainer.empty('parent').register(
 				ParentService,
 				{
-					factory: () => new ParentService(),
-					finalizer: () => {
+					create: () => new ParentService(),
+					cleanup: () => {
 						destructionOrder.push('parent');
 					},
 				}
 			);
 
 			const child1 = parent.child('child1').register(Child1Service, {
-				factory: () => new Child1Service(),
-				finalizer: () => {
+				create: () => new Child1Service(),
+				cleanup: () => {
 					destructionOrder.push('child1');
 				},
 			});
 
 			const child2 = parent.child('child2').register(Child2Service, {
-				factory: () => new Child2Service(),
-				finalizer: () => {
+				create: () => new Child2Service(),
+				cleanup: () => {
 					destructionOrder.push('child2');
 				},
 			});
@@ -488,23 +488,23 @@ describe('ScopedContainer', () => {
 			const grandparent = ScopedContainer.empty('grandparent').register(
 				GrandparentService,
 				{
-					factory: () => new GrandparentService(),
-					finalizer: () => {
+					create: () => new GrandparentService(),
+					cleanup: () => {
 						destructionOrder.push('grandparent');
 					},
 				}
 			);
 
 			const parent = grandparent.child('parent').register(ParentService, {
-				factory: () => new ParentService(),
-				finalizer: () => {
+				create: () => new ParentService(),
+				cleanup: () => {
 					destructionOrder.push('parent');
 				},
 			});
 
 			const child = parent.child('child').register(ChildService, {
-				factory: () => new ChildService(),
-				finalizer: () => {
+				create: () => new ChildService(),
+				cleanup: () => {
 					destructionOrder.push('child');
 				},
 			});
@@ -531,16 +531,16 @@ describe('ScopedContainer', () => {
 			const parent = ScopedContainer.empty('parent').register(
 				ParentService,
 				{
-					factory: () => new ParentService(),
-					finalizer: () => {
+					create: () => new ParentService(),
+					cleanup: () => {
 						// Parent finalizer succeeds
 					},
 				}
 			);
 
 			const child = parent.child('child').register(ChildService, {
-				factory: () => new ChildService(),
-				finalizer: () => {
+				create: () => new ChildService(),
+				cleanup: () => {
 					throw new Error('Child finalizer error');
 				},
 			});

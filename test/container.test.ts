@@ -79,8 +79,8 @@ describe('DependencyContainer', () => {
 			}
 
 			const container = Container.empty().register(TestService, {
-				factory: () => new TestService(),
-				finalizer: (instance) => {
+				create: () => new TestService(),
+				cleanup: (instance) => {
 					instance.cleanup();
 				},
 			});
@@ -772,8 +772,8 @@ describe('DependencyContainer', () => {
 			});
 
 			const container = Container.empty().register(TestService, {
-				factory: () => new TestService(),
-				finalizer,
+				create: () => new TestService(),
+				cleanup: finalizer,
 			});
 
 			// Instantiate the service
@@ -791,8 +791,8 @@ describe('DependencyContainer', () => {
 			const finalizer = vi.fn();
 
 			const container = Container.empty().register(TestService, {
-				factory: () => new TestService(),
-				finalizer,
+				create: () => new TestService(),
+				cleanup: finalizer,
 			});
 
 			// Do not instantiate the service
@@ -810,20 +810,20 @@ describe('DependencyContainer', () => {
 
 			const container = Container.empty()
 				.register(ServiceA, {
-					factory: () => new ServiceA(),
-					finalizer: () => {
+					create: () => new ServiceA(),
+					cleanup: () => {
 						finalizationOrder.push('A');
 					},
 				})
 				.register(ServiceB, {
-					factory: () => new ServiceB(),
-					finalizer: () => {
+					create: () => new ServiceB(),
+					cleanup: () => {
 						finalizationOrder.push('B');
 					},
 				})
 				.register(ServiceC, {
-					factory: () => new ServiceC(),
-					finalizer: () => {
+					create: () => new ServiceC(),
+					cleanup: () => {
 						finalizationOrder.push('C');
 					},
 				});
@@ -856,8 +856,8 @@ describe('DependencyContainer', () => {
 				});
 
 			const container = Container.empty().register(TestService, {
-				factory: () => new TestService(),
-				finalizer,
+				create: () => new TestService(),
+				cleanup: finalizer,
 			});
 
 			const instance = await container.resolve(TestService);
@@ -873,14 +873,14 @@ describe('DependencyContainer', () => {
 
 			const container = Container.empty()
 				.register(ServiceA, {
-					factory: () => new ServiceA(),
-					finalizer: () => {
+					create: () => new ServiceA(),
+					cleanup: () => {
 						throw new Error('Finalizer A error');
 					},
 				})
 				.register(ServiceB, {
-					factory: () => new ServiceB(),
-					finalizer: () => {
+					create: () => new ServiceB(),
+					cleanup: () => {
 						throw new Error('Finalizer B error');
 					},
 				});
@@ -899,8 +899,8 @@ describe('DependencyContainer', () => {
 
 			const originalError = new Error('Single finalizer error');
 			const container = Container.empty().register(TestService, {
-				factory: () => new TestService(),
-				finalizer: () => {
+				create: () => new TestService(),
+				cleanup: () => {
 					throw originalError;
 				},
 			});
@@ -935,20 +935,20 @@ describe('DependencyContainer', () => {
 
 			const container = Container.empty()
 				.register(ServiceA, {
-					factory: () => new ServiceA(),
-					finalizer: () => {
+					create: () => new ServiceA(),
+					cleanup: () => {
 						throw errorA;
 					},
 				})
 				.register(ServiceB, {
-					factory: () => new ServiceB(),
-					finalizer: () => {
+					create: () => new ServiceB(),
+					cleanup: () => {
 						throw errorB;
 					},
 				})
 				.register(ServiceC, {
-					factory: () => new ServiceC(),
-					finalizer: () => {
+					create: () => new ServiceC(),
+					cleanup: () => {
 						throw errorC;
 					},
 				});
@@ -990,8 +990,8 @@ describe('DependencyContainer', () => {
 			class TestService extends Tag.Service('TestService') {}
 
 			const container = Container.empty().register(TestService, {
-				factory: () => new TestService(),
-				finalizer: () => {
+				create: () => new TestService(),
+				cleanup: () => {
 					throw new Error('Finalizer error');
 				},
 			});
@@ -1075,8 +1075,8 @@ describe('DependencyContainer', () => {
 			});
 
 			const container = Container.empty().register(TestService, {
-				factory: () => new TestService(),
-				finalizer,
+				create: () => new TestService(),
+				cleanup: finalizer,
 			});
 
 			// First cycle

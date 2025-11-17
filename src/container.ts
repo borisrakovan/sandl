@@ -58,21 +58,21 @@ export type Factory<T, TReg extends AnyTag> = (
  *
  * @example Synchronous finalizer
  * ```typescript
- * const finalizer: Finalizer<FileHandle> = (fileHandle) => {
+ * const cleanup: Finalizer<FileHandle> = (fileHandle) => {
  *   fileHandle.close();
  * };
  * ```
  *
  * @example Asynchronous finalizer
  * ```typescript
- * const finalizer: Finalizer<DatabaseConnection> = async (connection) => {
+ * const cleanup: Finalizer<DatabaseConnection> = async (connection) => {
  *   await connection.disconnect();
  * };
  * ```
  *
  * @example Resilient finalizer
  * ```typescript
- * const finalizer: Finalizer<HttpServer> = async (server) => {
+ * const cleanup: Finalizer<HttpServer> = async (server) => {
  *   try {
  *     await server.close();
  *   } catch (error) {
@@ -104,12 +104,12 @@ export type Finalizer<T> = (instance: T) => PromiseOrValue<void>;
  * }
  *
  * const lifecycle: DependencyLifecycle<typeof DatabaseConnection, never> = {
- *   factory: async () => {
+ *   create: async () => {
  *     const conn = new DatabaseConnection();
  *     await conn.connect();
  *     return conn;
  *   },
- *   finalizer: async (conn) => {
+ *   cleanup: async (conn) => {
  *     await conn.disconnect();
  *   }
  * };
@@ -118,8 +118,8 @@ export type Finalizer<T> = (instance: T) => PromiseOrValue<void>;
  * ```
  */
 export type DependencyLifecycle<T, TReg extends AnyTag> = {
-	factory: Factory<T, TReg>;
-	finalizer: Finalizer<T>;
+	create: Factory<T, TReg>;
+	cleanup?: Finalizer<T>;
 };
 
 /**
@@ -143,8 +143,8 @@ export type DependencyLifecycle<T, TReg extends AnyTag> = {
  * @example Lifecycle registration
  * ```typescript
  * const spec: DependencySpec<typeof DatabaseConnection, never> = {
- *   factory: () => new DatabaseConnection(),
- *   finalizer: (conn) => conn.close()
+ *   create: () => new DatabaseConnection(),
+ *   cleanup: (conn) => conn.close()
  * };
  *
  * Container.empty().register(DatabaseConnection, spec);
@@ -440,8 +440,14 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 			// Remove any existing finalizer when registering with just a factory
 			this.finalizers.delete(tag);
 		} else {
-			this.factories.set(tag, spec.factory);
-			this.finalizers.set(tag, spec.finalizer);
+			this.factories.set(tag, spec.create);
+
+			if (spec.cleanup) {
+				this.finalizers.set(tag, spec.cleanup);
+			} else {
+				// Remove any existing finalizer when registering with just a create function
+				this.finalizers.delete(tag);
+			}
 		}
 
 		return this as Container<TReg | T>;
