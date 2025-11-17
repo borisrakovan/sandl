@@ -18,7 +18,7 @@ export {
 } from './errors.js';
 export { Layer, layer } from './layer.js';
 export type { AnyLayer } from './layer.js';
-export { ScopedContainer, scoped } from './scoped-container.js';
+export { ScopedContainer } from './scoped-container.js';
 export type { Scope } from './scoped-container.js';
 export { autoService, service } from './service.js';
 export type { ServiceDependencies, ServiceDepsTuple } from './service.js';

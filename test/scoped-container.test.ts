@@ -1,4 +1,3 @@
-import { Container } from '@/container.js';
 import {
 	ContainerDestroyedError,
 	DependencyAlreadyInstantiatedError,
@@ -6,7 +5,7 @@ import {
 	DependencyFinalizationError,
 	UnknownDependencyError,
 } from '@/errors.js';
-import { scoped, ScopedContainer } from '@/scoped-container.js';
+import { ScopedContainer } from '@/scoped-container.js';
 import { Tag } from '@/tag.js';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -870,116 +869,6 @@ describe('ScopedContainer', () => {
 			await expect(
 				container.resolveAll(ServiceA, ServiceB)
 			).rejects.toThrow(ContainerDestroyedError);
-		});
-	});
-
-	describe('scoped function', () => {
-		it('should convert regular container to scoped container', async () => {
-			class ServiceA extends Tag.Service('ServiceA') {}
-			class ServiceB extends Tag.Service('ServiceB') {}
-
-			const regularContainer = Container.empty()
-				.register(ServiceA, () => new ServiceA())
-				.register(ServiceB, () => new ServiceB());
-
-			const scopedContainer = scoped(regularContainer, 'test-scope');
-
-			expect(scopedContainer).toBeInstanceOf(ScopedContainer);
-			expect(scopedContainer.scope).toBe('test-scope');
-
-			// Should have copied all registrations
-			expect(scopedContainer.has(ServiceA)).toBe(true);
-			expect(scopedContainer.has(ServiceB)).toBe(true);
-
-			// Should be able to get services
-			const serviceA = await scopedContainer.resolve(ServiceA);
-			const serviceB = await scopedContainer.resolve(ServiceB);
-
-			expect(serviceA).toBeInstanceOf(ServiceA);
-			expect(serviceB).toBeInstanceOf(ServiceB);
-		});
-
-		it('should preserve finalizers when converting', async () => {
-			class TestService extends Tag.Service('TestService') {
-				cleanup = vi.fn();
-			}
-
-			const finalizer = vi.fn((instance: TestService) => {
-				instance.cleanup();
-			});
-
-			const regularContainer = Container.empty().register(TestService, {
-				factory: () => new TestService(),
-				finalizer,
-			});
-
-			const scopedContainer = scoped(regularContainer, 'test-scope');
-			const instance = await scopedContainer.resolve(TestService);
-
-			await scopedContainer.destroy();
-
-			expect(finalizer).toHaveBeenCalledWith(instance);
-			expect(instance.cleanup).toHaveBeenCalled();
-		});
-
-		it('should not share instances with original container', async () => {
-			class TestService extends Tag.Service('TestService') {
-				constructor(public id: string = Math.random().toString()) {
-					super();
-				}
-			}
-
-			const regularContainer = Container.empty().register(
-				TestService,
-				() => new TestService()
-			);
-
-			// Get instance from original first
-			const originalInstance =
-				await regularContainer.resolve(TestService);
-
-			const scopedContainer = scoped(regularContainer, 'test-scope');
-			const scopedInstance = await scopedContainer.resolve(TestService);
-
-			// Should be different instances (fresh cache)
-			expect(originalInstance).not.toBe(scopedInstance);
-			expect(originalInstance.id).not.toBe(scopedInstance.id);
-		});
-
-		it('should work with empty container', () => {
-			const emptyContainer = Container.empty();
-			const scopedContainer = scoped(emptyContainer, 'empty-scope');
-
-			expect(scopedContainer).toBeInstanceOf(ScopedContainer);
-			expect(scopedContainer.scope).toBe('empty-scope');
-		});
-
-		it('should accept symbol scope identifiers', () => {
-			class TestService extends Tag.Service('TestService') {}
-			const symbolScope = Symbol('test-scope');
-
-			const regularContainer = Container.empty().register(
-				TestService,
-				() => new TestService()
-			);
-			const scopedContainer = scoped(regularContainer, symbolScope);
-
-			expect(scopedContainer.scope).toBe(symbolScope);
-			expect(scopedContainer.has(TestService)).toBe(true);
-		});
-
-		it('should throw error when converting destroyed container', async () => {
-			class TestService extends Tag.Service('TestService') {}
-
-			const regularContainer = Container.empty().register(
-				TestService,
-				() => new TestService()
-			);
-			await regularContainer.destroy();
-
-			expect(() => scoped(regularContainer, 'test-scope')).toThrow(
-				ContainerDestroyedError
-			);
 		});
 	});
 });

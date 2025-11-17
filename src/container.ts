@@ -202,10 +202,6 @@ export interface IContainer<TReg extends AnyTag = never> {
 		...tags: T
 	) => Promise<{ [K in keyof T]: TagType<T[K]> }>;
 
-	merge<TTarget extends AnyTag>(
-		other: IContainer<TTarget>
-	): IContainer<TReg | TTarget>;
-
 	destroy(): Promise<void>;
 }
 
@@ -622,77 +618,6 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 
 		// TypeScript knows this is the correct tuple type due to the generic constraint
 		return results as { [K in keyof T]: TagType<T[K]> };
-	}
-
-	/**
-	 * Copies all registrations from this container to a target container.
-	 *
-	 * @internal
-	 * @param target - The container to copy registrations to
-	 * @throws {ContainerDestroyedError} If this container has been destroyed
-	 */
-	copyTo<TTarget extends AnyTag>(target: Container<TTarget>): void {
-		if (this.isDestroyed) {
-			throw new ContainerDestroyedError(
-				'Cannot copy registrations from a destroyed container'
-			);
-		}
-
-		// Copy all factories and finalizers
-		for (const [tag, factory] of this.factories) {
-			const finalizer = this.finalizers.get(tag);
-			if (finalizer) {
-				target.register(tag, { factory, finalizer });
-			} else {
-				target.register(tag, factory);
-			}
-		}
-	}
-
-	/**
-	 * Creates a new container by merging this container's registrations with another container.
-	 *
-	 * This method creates a new container that contains all registrations from both containers.
-	 * If there are conflicts (same dependency registered in both containers), this
-	 * container's registration will take precedence.
-	 *
-	 * **Important**: Only the registrations are copied, not any cached instances.
-	 * The new container starts with an empty instance cache.
-	 *
-	 * @param other - The container to merge with
-	 * @returns A new container with combined registrations
-	 * @throws {ContainerDestroyedError} If this container has been destroyed
-	 *
-	 * @example Merging containers
-	 * ```typescript
-	 * const container1 = Container.empty()
-	 *   .register(DatabaseService, () => new DatabaseService());
-	 *
-	 * const container2 = Container.empty()
-	 *   .register(UserService, () => new UserService());
-	 *
-	 * const merged = container1.merge(container2);
-	 * // merged has both DatabaseService and UserService
-	 * ```
-	 */
-	merge<TTarget extends AnyTag>(
-		other: Container<TTarget>
-	): Container<TReg | TTarget> {
-		if (this.isDestroyed) {
-			throw new ContainerDestroyedError(
-				'Cannot merge from a destroyed container'
-			);
-		}
-
-		// Create new container
-		const merged = new Container();
-
-		// Copy from other first
-		other.copyTo(merged);
-		// Then copy from this (will override conflicts)
-		this.copyTo(merged);
-
-		return merged as Container<TReg | TTarget>;
 	}
 
 	/**
