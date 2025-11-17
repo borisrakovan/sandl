@@ -771,7 +771,48 @@ const container = Container.empty()
 await container.destroy();
 ```
 
-If any finalizer fails, cleanup continues for others and a `DependencyFinalizationError` is thrown with details of all failures.
+If any finalizer fails, cleanup continues for others and a `DependencyFinalizationError` is thrown with details of all failures:
+
+```typescript
+class Database extends Tag.Service('Database') {
+	async close() {
+		throw new Error('Database close failed');
+	}
+}
+
+class Cache extends Tag.Service('Cache') {
+	async clear() {
+		throw new Error('Cache clear failed');
+	}
+}
+
+const container = Container.empty()
+	.register(Database, {
+		factory: () => new Database(),
+		finalizer: async (db) => db.close(),
+	})
+	.register(Cache, {
+		factory: () => new Cache(),
+		finalizer: async (cache) => cache.clear(),
+	});
+
+await container.resolve(Database);
+await container.resolve(Cache);
+
+try {
+	await container.destroy();
+} catch (error) {
+	if (error instanceof DependencyFinalizationError) {
+		// Get all root causes of finalization failures
+		const rootCauses = error.getRootCauses();
+		console.error('Finalization failures:', rootCauses);
+		// [
+		//   Error: Database close failed,
+		//   Error: Cache clear failed
+		// ]
+	}
+}
+```
 
 #### Overriding Registrations
 

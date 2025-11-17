@@ -302,7 +302,7 @@ export class DependencyFinalizationError extends SandlyError {
 	 *
 	 * @param errors - Array of errors thrown by individual finalizers
 	 */
-	constructor(errors: unknown[]) {
+	constructor(private readonly errors: unknown[]) {
 		const lambdaErrors = errors.map((error) => SandlyError.ensure(error));
 		super('Error destroying dependency container', {
 			cause: errors[0],
@@ -310,5 +310,15 @@ export class DependencyFinalizationError extends SandlyError {
 				errors: lambdaErrors.map((error) => error.dump()),
 			},
 		});
+	}
+
+	/**
+	 * Returns the root causes of the errors that occurred during finalization.
+	 *
+	 * @returns An array of the errors that occurred during finalization.
+	 * You can expect at least one error in the array.
+	 */
+	getRootCauses(): unknown[] {
+		return this.errors;
 	}
 }

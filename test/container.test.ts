@@ -894,6 +894,98 @@ describe('DependencyContainer', () => {
 			);
 		});
 
+		it('should return all root causes via getRootCauses() with single error', async () => {
+			class TestService extends Tag.Service('TestService') {}
+
+			const originalError = new Error('Single finalizer error');
+			const container = Container.empty().register(TestService, {
+				factory: () => new TestService(),
+				finalizer: () => {
+					throw originalError;
+				},
+			});
+
+			await container.resolve(TestService);
+
+			try {
+				await container.destroy();
+				expect.fail('Should have thrown');
+			} catch (error) {
+				expect(error).toBeInstanceOf(DependencyFinalizationError);
+				const finalizationError = error as DependencyFinalizationError;
+
+				const rootCauses = finalizationError.getRootCauses();
+				expect(rootCauses).toHaveLength(1);
+				expect(rootCauses[0]).toBe(originalError);
+				expect(rootCauses[0]).toBeInstanceOf(Error);
+				expect((rootCauses[0] as Error).message).toBe(
+					'Single finalizer error'
+				);
+			}
+		});
+
+		it('should return all root causes via getRootCauses() with multiple errors', async () => {
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
+			class ServiceC extends Tag.Service('ServiceC') {}
+
+			const errorA = new Error('Finalizer A error');
+			const errorB = new Error('Finalizer B error');
+			const errorC = new Error('Finalizer C error');
+
+			const container = Container.empty()
+				.register(ServiceA, {
+					factory: () => new ServiceA(),
+					finalizer: () => {
+						throw errorA;
+					},
+				})
+				.register(ServiceB, {
+					factory: () => new ServiceB(),
+					finalizer: () => {
+						throw errorB;
+					},
+				})
+				.register(ServiceC, {
+					factory: () => new ServiceC(),
+					finalizer: () => {
+						throw errorC;
+					},
+				});
+
+			// Instantiate all services
+			await container.resolve(ServiceA);
+			await container.resolve(ServiceB);
+			await container.resolve(ServiceC);
+
+			try {
+				await container.destroy();
+				expect.fail('Should have thrown');
+			} catch (error) {
+				expect(error).toBeInstanceOf(DependencyFinalizationError);
+				const finalizationError = error as DependencyFinalizationError;
+
+				const rootCauses = finalizationError.getRootCauses();
+				expect(rootCauses).toHaveLength(3);
+				expect(rootCauses).toContain(errorA);
+				expect(rootCauses).toContain(errorB);
+				expect(rootCauses).toContain(errorC);
+
+				// Verify all are Error instances
+				rootCauses.forEach((cause) => {
+					expect(cause).toBeInstanceOf(Error);
+				});
+
+				// Verify messages
+				const messages = rootCauses.map(
+					(cause) => (cause as Error).message
+				);
+				expect(messages).toContain('Finalizer A error');
+				expect(messages).toContain('Finalizer B error');
+				expect(messages).toContain('Finalizer C error');
+			}
+		});
+
 		it('should clear instance cache even if finalization fails', async () => {
 			class TestService extends Tag.Service('TestService') {}
 
