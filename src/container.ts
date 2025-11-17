@@ -117,10 +117,10 @@ export type Finalizer<T> = (instance: T) => PromiseOrValue<void>;
  * Container.empty().register(DatabaseConnection, lifecycle);
  * ```
  */
-export type DependencyLifecycle<T, TReg extends AnyTag> = {
+export interface DependencyLifecycle<T, TReg extends AnyTag> {
 	create: Factory<T, TReg>;
 	cleanup?: Finalizer<T>;
-};
+}
 
 /**
  * Union type representing all valid dependency registration specifications.
