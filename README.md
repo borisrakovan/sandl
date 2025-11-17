@@ -1,7 +1,5 @@
 # Sandly
 
-**⚠️ This project is under heavy development and APIs may change.**
-
 Dependency injection for TypeScript that actually uses the type system. No runtime reflection, no experimental decorators, just compile-time type safety that prevents entire classes of bugs before your code ever runs.
 
 The name **Sandly** comes from **S**ervices **and** **L**a**y**ers - the two core abstractions for organizing dependencies in large applications.
@@ -29,7 +27,7 @@ const users = await container.resolve(UserService);
 
 // ❌ TypeScript error - OrderService not registered
 const orders = await container.resolve(OrderService);
-// Error: Argument of type 'typeof OrderService' is not assignable to parameter of type 'never'
+// Error: Argument of type 'typeof OrderService' is not assignable to parameter of type 'typeof UserService'
 ```
 
 ## Installation
@@ -42,7 +40,7 @@ pnpm add sandly
 yarn add sandly
 ```
 
-Requires TypeScript 5.0+ and Node.js 18+ (uses AsyncLocalStorage for circular dependency detection).
+Recommended version of TypeScript is 5.0+.
 
 ## Quick Start
 
@@ -125,7 +123,7 @@ const container = appLayer.register(Container.empty());
 const userRepo = await container.resolve(UserRepository);
 ```
 
-Continue reading to learn about all features including value tags, layer composition, scope management, and testing patterns.
+Continue reading to learn about all features including value tags, layer composition, and scope management.
 
 ## Main Features
 
@@ -188,6 +186,7 @@ class UserService extends Tag.Service('UserService') {
 }
 
 // Factory resolution context only allows registered dependencies
+// and must return a value of the same type as the dependency
 const container = Container.empty()
 	.register(CacheService, () => new CacheService())
 	.register(EmailService, () => new EmailService())
@@ -208,15 +207,11 @@ For large applications, organizing dependencies into layers helps manage complex
 import { layer, service, value, Tag, Container } from 'sandly';
 
 // Configuration layer - provides primitive values
-const ApiKeyTag = Tag.of('ApiKey')<string>();
-const DatabaseUrlTag = Tag.of('DatabaseUrl')<string>();
+const Config = Tag.of('Config')<{ databaseUrl: string }>();
 
-const configLayer = Layer.mergeAll(
-	value(ApiKeyTag, process.env.API_KEY!),
-	value(DatabaseUrlTag, process.env.DATABASE_URL!)
-);
+const configLayer = value(Config, { databaseUrl: process.env.DATABASE_URL! });
 
-// Infrastructure layer - depends on config
+// Database layer - depends on config
 class Database extends Tag.Service('Database') {
 	constructor(private url: string) {
 		super();
@@ -228,15 +223,14 @@ class Database extends Tag.Service('Database') {
 	}
 }
 
-const databaseLayer = layer<typeof DatabaseUrlTag, typeof Database>(
-	(container) =>
-		container.register(Database, async (ctx) => {
-			const url = await ctx.resolve(DatabaseUrlTag);
-			return new Database(url);
-		})
+const databaseLayer = layer<typeof Config, typeof Database>((container) =>
+	container.register(Database, async (ctx) => {
+		const config = await ctx.resolve(Config);
+		return new Database(config.databaseUrl);
+	})
 );
 
-// Service layer - depends on infrastructure
+// Service layer - depends on database
 class UserService extends Tag.Service('UserService') {
 	constructor(private db: Database) {
 		super();
@@ -252,14 +246,19 @@ const userServiceLayer = service(
 	async (ctx) => new UserService(await ctx.resolve(Database))
 );
 
+// Or alternatively, using shorter syntax:
+// const userServiceLayer = autoService(UserService, [Database]);
+
 // Compose into complete application layer
-// Dependencies flow: configLayer -> databaseLayer -> userServiceLayer
+// Dependencies flow: Config -> Database -> UserService
 const appLayer = userServiceLayer.provide(databaseLayer).provide(configLayer);
 
 // Apply to container - all dependencies satisfied
 const container = appLayer.register(Container.empty());
 const userService = await container.resolve(UserService);
 ```
+
+Don't worry if you don't understand everything yet - keep reading and you'll learn more about layers and how to use them in practice.
 
 ### Flexible Dependency Values
 
@@ -273,12 +272,12 @@ const PortTag = Tag.of('Port')<number>();
 const DebugModeTag = Tag.of('DebugMode')<boolean>();
 
 // Configuration objects
-interface AppConfig {
+interface Config {
 	apiUrl: string;
 	timeout: number;
 	retries: number;
 }
-const ConfigTag = Tag.of('Config')<AppConfig>();
+const ConfigTag = Tag.of('Config')<Config>();
 
 // Even functions
 type Logger = (msg: string) => void;
@@ -295,7 +294,7 @@ const container = Container.empty()
 	.register(LoggerTag, () => (msg: string) => console.log(msg));
 
 const port = await container.resolve(PortTag); // number
-const config = await container.resolve(ConfigTag); // AppConfig
+const config = await container.resolve(ConfigTag); // Config
 ```
 
 ### Async Lifecycle Management
@@ -461,15 +460,18 @@ class UserService extends Tag.Service('UserService') {
 	}
 }
 
-// Test with mock EmailService
-const mockEmail = { send: vi.fn() };
-
-const testContainer = Container.empty()
-	.register(EmailService, () => mockEmail as EmailService)
+// In the main application, create a live container with real EmailService
+const liveContainer = Container.empty()
+	.register(EmailService, () => new EmailService())
 	.register(
 		UserService,
 		async (ctx) => new UserService(await ctx.resolve(EmailService))
 	);
+
+// In the test, override EmailService with mock
+const mockEmail = { send: vi.fn() };
+
+const testContainer = liveContainer.register(EmailService, () => mockEmail);
 
 const userService = await testContainer.resolve(UserService);
 await userService.registerUser('test@example.com');
@@ -495,7 +497,8 @@ class UserRepository extends Tag.Service('UserRepository') {
 }
 ```
 
-The class itself serves as both the tag and the implementation. The string identifier must be unique across your application.
+The class itself serves as both the tag and the implementation. The string identifier can be anything you want,
+but the best practice is to use a descriptive name that is unique across your application.
 
 **ValueTag** - For non-class dependencies (primitives, objects, functions). Created with `Tag.of()`:
 
@@ -554,7 +557,8 @@ const appLayer = repositoryLayer.provide(databaseLayer);
 
 Layers have two type parameters: requirements (what they need) and provisions (what they provide). This allows TypeScript to verify that all dependencies are satisfied when composing layers.
 
-Layers help avoid "requirement leakage" where service methods expose their dependencies in return types. With layers, dependencies are provided once during construction, keeping service interfaces clean.
+Layers make it easy to structure code in large applications by grouping related dependencies into composable modules. Instead of registering services one-by-one across your codebase, you can define layers that encapsulate entire subsystems (authentication, database access, API clients) and compose them declaratively. This improves code organization, enables module reusability, and makes it easier to swap implementations (production vs. test layers).
+Keep reading to learn more about how to use layers in practice.
 
 ### Scopes
 
@@ -572,8 +576,9 @@ const rootContainer = ScopedContainer.empty('app').register(
 );
 
 // Child scope for each request
-const requestContainer = rootContainer.child('request');
-requestContainer.register(RequestContext, () => new RequestContext());
+const requestContainer = rootContainer
+	.child('request')
+	.register(RequestContext, () => new RequestContext());
 
 // Child can access parent services
 const db = await requestContainer.resolve(Database); // From parent
@@ -831,6 +836,8 @@ try {
 }
 ```
 
+However, thanks to the type system, the code above will produce a type error if you try to resolve a dependency that hasn't been registered, before you even run your code.
+
 #### Circular Dependencies
 
 Circular dependencies are detected at runtime:
@@ -858,7 +865,7 @@ try {
 }
 ```
 
-The error includes the full dependency chain to help debug the issue.
+Similarly to unknown dependencies, the type system will catch this error before you even run your code.
 
 #### Creation Errors
 
@@ -874,6 +881,56 @@ try {
 } catch (error) {
 	console.log(error instanceof DependencyCreationError); // true
 	console.log(error.cause); // Original Error: Connection failed
+}
+```
+
+**Nested Creation Errors**
+
+When dependencies are nested (A depends on B, B depends on C), and C's factory throws, you get nested `DependencyCreationError`s. Use `getRootCause()` to unwrap all the layers and get the original error:
+
+```typescript
+class ServiceC extends Tag.Service('ServiceC') {
+	constructor() {
+		super();
+		throw new Error('Database connection failed');
+	}
+}
+
+class ServiceB extends Tag.Service('ServiceB') {
+	constructor(private c: ServiceC) {
+		super();
+	}
+}
+
+class ServiceA extends Tag.Service('ServiceA') {
+	constructor(private b: ServiceB) {
+		super();
+	}
+}
+
+const container = Container.empty()
+	.register(ServiceC, () => new ServiceC())
+	.register(
+		ServiceB,
+		async (ctx) => new ServiceB(await ctx.resolve(ServiceC))
+	)
+	.register(
+		ServiceA,
+		async (ctx) => new ServiceA(await ctx.resolve(ServiceB))
+	);
+
+try {
+	await container.resolve(ServiceA);
+} catch (error) {
+	if (error instanceof DependencyCreationError) {
+		console.log(error.message);
+		// "Error creating instance of ServiceA"
+
+		// Get the original error that caused the failure
+		const rootCause = error.getRootCause();
+		console.log(rootCause);
+		// Error: Database connection failed
+	}
 }
 ```
 
@@ -950,16 +1007,7 @@ const ServerPort = Tag.of('server.port')<number>();
 const HttpTimeout = Tag.of('http.timeout')<number>();
 ```
 
-**Prefer layers for multiple dependencies** - Once you have 3+ services, layers become cleaner:
-
-```typescript
-// Containers work for small setups
-const container = Container.empty()
-	.register(Database, () => new Database())
-	.register(Logger, () => new Logger());
-
-// But layers are better for larger dependency graphs (see next section)
-```
+**Prefer layers for multiple dependencies** - Once you have larger numbers of services and more complex dependency graphs, layers become cleaner. See the next section for more details.
 
 **Handle cleanup errors** - Finalizers can fail:
 
@@ -974,91 +1022,313 @@ try {
 }
 ```
 
-**Don't resolve during registration** - Keep registration and resolution separate:
-
-```typescript
-// ❌ Bad - resolving during setup creates timing issues
-const container = Container.empty().register(Logger, () => new Logger());
-
-const logger = await container.resolve(Logger); // During setup!
-
-container.register(Database, () => new Database());
-
-// ✅ Good - register everything first, then resolve
-const container = Container.empty()
-	.register(Logger, () => new Logger())
-	.register(Database, () => new Database());
-
-// Now use services
-const logger = await container.resolve(Logger);
-```
-
 ## Working with Layers
 
-Layers are the recommended approach for organizing dependencies in larger applications. They provide composability, prevent requirement leakage, and make dependency graphs explicit at the type level.
+Layers are the recommended approach for organizing dependencies in larger applications. While direct container registration works well for small projects, layers provide better code organization, reusability, and developer experience as your application grows.
 
 ### Why Use Layers?
 
-**Problem: Manual Dependency Wiring**
+Layers solve three key problems with manual container registration: repetitive boilerplate, lack of reusability across entry points, and leakage of implementation details.
 
-Without layers, you manually wire up dependencies everywhere you need them:
+#### Problem 1: Repetitive Factory Boilerplate
+
+With direct container registration, you must write factory functions repeatedly:
 
 ```typescript
-// ❌ Manual wiring in every place you build the container
+// user-repository.ts
+export class UserRepository extends Tag.Service('UserRepository') {
+	constructor(
+		private db: Database,
+		private logger: Logger
+	) {
+		super();
+	}
+	// ... implementation
+}
+
+// app.ts - Far away from the implementation!
 const container = Container.empty()
-	.register(Config, () => loadConfig())
-	.register(Database, async (ctx) => new Database(await ctx.resolve(Config)))
+	.register(Database, () => new Database())
 	.register(Logger, () => new Logger())
+	.register(UserRepository, async (ctx) => {
+		// Manually specify what the constructor needs
+		const [db, logger] = await ctx.resolveAll(Database, Logger);
+		return new UserRepository(db, logger);
+	});
+```
+
+Every service requires manually writing a factory that resolves its dependencies and calls the constructor. This is **repetitive and error-prone** - if you add a dependency to the constructor, you must remember to update the factory too.
+
+**Solution:** Layers provide shorthand helpers (`service`, `autoService`) that eliminate boilerplate and keep the layer definition next to the implementation:
+
+```typescript
+// user-repository.ts
+export class UserRepository extends Tag.Service('UserRepository') {
+	constructor(
+		private db: Database,
+		private logger: Logger
+	) {
+		super();
+	}
+	// ... implementation
+}
+
+// Layer defined right next to the class
+export const userRepositoryLayer = autoService(UserRepository, [
+	Database,
+	Logger,
+]);
+
+// app.ts - Just compose the layers
+const appLayer = userRepositoryLayer.provide(
+	Layer.mergeAll(databaseLayer, loggerLayer)
+);
+const container = appLayer.register(Container.empty());
+```
+
+#### Problem 2: No Reusability Across Entry Points
+
+Applications with multiple entry points (multiple Lambda functions, CLI commands, background workers) need to wire up dependencies separately for each entry point. Without layers, you must duplicate the registration logic:
+
+```typescript
+// functions/create-user.ts - Lambda that creates users
+export async function handler(event: APIGatewayEvent) {
+	// Duplicate ALL the registration logic
+	const container = Container.empty()
+		.register(Config, () => loadConfig())
+		.register(
+			Database,
+			async (ctx) => new Database(await ctx.resolve(Config))
+		)
+		.register(Logger, () => new Logger())
+		.register(
+			UserRepository,
+			async (ctx) =>
+				new UserRepository(
+					await ctx.resolve(Database),
+					await ctx.resolve(Logger)
+				)
+		)
+		.register(
+			UserService,
+			async (ctx) =>
+				new UserService(
+					await ctx.resolve(UserRepository),
+					await ctx.resolve(Logger)
+				)
+		);
+
+	const userService = await container.resolve(UserService);
+	// ... handle request
+}
+
+// functions/get-orders.ts - Lambda that fetches orders
+export async function handler(event: APIGatewayEvent) {
+	// Duplicate the SAME registration logic AGAIN
+	const container = Container.empty()
+		.register(Config, () => loadConfig())
+		.register(
+			Database,
+			async (ctx) => new Database(await ctx.resolve(Config))
+		)
+		.register(Logger, () => new Logger())
+		.register(
+			OrderRepository,
+			async (ctx) =>
+				new OrderRepository(
+					await ctx.resolve(Database),
+					await ctx.resolve(Logger)
+				)
+		)
+		.register(
+			OrderService,
+			async (ctx) =>
+				new OrderService(
+					await ctx.resolve(OrderRepository),
+					await ctx.resolve(Logger)
+				)
+		);
+	// Uses OrderService but had to register Database, Logger, etc again
+
+	const orderService = await container.resolve(OrderService);
+	// ... handle request
+}
+```
+
+This has major problems:
+
+- **Massive duplication**: Registration logic is copy-pasted across entry points
+- **Maintenance nightmare**: When you change `UserRepository`'s dependencies, you must update every Lambda that uses it
+- **Can't compose selectively**: Each entry point must register ALL dependencies, even those it doesn't need
+- **Configuration inconsistency**: Each entry point might configure services differently by accident
+
+**Solution:** Define layers once, compose them differently for each entry point:
+
+```typescript
+// Shared infrastructure - defined once
+// database.ts
+export const databaseLayer = autoService(Database, [ConfigTag]);
+
+// logger.ts
+export const loggerLayer = autoService(Logger, []);
+
+// config.ts
+export const configLayer = value(ConfigTag, loadConfig());
+
+// Infrastructure layer combining all base services
+export const infraLayer = Layer.mergeAll(
+	databaseLayer,
+	loggerLayer,
+	configLayer
+);
+
+// Domain layers - defined once
+// user-repository.ts
+export const userRepositoryLayer = autoService(UserRepository, [
+	Database,
+	Logger,
+]);
+
+// user-service.ts
+export const userServiceLayer = autoService(UserService, [
+	UserRepository,
+	Logger,
+]);
+
+// order-repository.ts
+export const orderRepositoryLayer = autoService(OrderRepository, [
+	Database,
+	Logger,
+]);
+
+// order-service.ts
+export const orderServiceLayer = autoService(OrderService, [
+	OrderRepository,
+	Logger,
+]);
+
+// Now compose differently for each Lambda
+// functions/create-user.ts
+export async function handler(event: APIGatewayEvent) {
+	// Only UserService and its dependencies - no Order code!
+	const appLayer = userServiceLayer
+		.provide(userRepositoryLayer)
+		.provide(infraLayer);
+
+	const container = appLayer.register(Container.empty());
+	const userService = await container.resolve(UserService);
+	// ... handle request
+}
+
+// functions/get-orders.ts
+export async function handler(event: APIGatewayEvent) {
+	// Only OrderService and its dependencies - no User code!
+	const appLayer = orderServiceLayer
+		.provide(orderRepositoryLayer)
+		.provide(infraLayer);
+
+	const container = appLayer.register(Container.empty());
+	const orderService = await container.resolve(OrderService);
+	// ... handle request
+}
+
+// functions/admin-dashboard.ts - Needs both!
+export async function handler(event: APIGatewayEvent) {
+	// Compose BOTH user and order services
+	const appLayer = Layer.mergeAll(
+		userServiceLayer.provide(userRepositoryLayer),
+		orderServiceLayer.provide(orderRepositoryLayer)
+	).provide(infraLayer);
+
+	const container = appLayer.register(Container.empty());
+	const userService = await container.resolve(UserService);
+	const orderService = await container.resolve(OrderService);
+	// ... handle request
+}
+```
+
+Benefits:
+
+- **Zero duplication**: Each layer is defined once, reused everywhere
+- **Easy maintenance**: Change `UserRepository`'s constructor once, all entry points automatically use the new version
+- **Compose exactly what you need**: Each Lambda only includes the services it actually uses
+- **Consistent configuration**: Infrastructure like Database is configured once in `infraLayer`
+
+#### Problem 3: Requirement Leakage
+
+Without layers, internal implementation details leak into your API. Consider a `UserService` that depends on `UserValidator` and `UserNotifier` internally:
+
+```typescript
+// Without layers - internal dependencies leak
+export class UserService {
+	constructor(
+		private validator: UserValidator,
+		private notifier: UserNotifier,
+		private db: Database
+	) {}
+}
+
+// Consumers must know about internal dependencies
+const container = Container.empty()
+	.register(UserValidator, () => new UserValidator())
+	.register(UserNotifier, () => new UserNotifier())
+	.register(Database, () => new Database())
 	.register(
 		UserService,
 		async (ctx) =>
 			new UserService(
-				await ctx.resolve(Database),
-				await ctx.resolve(Logger)
-			)
-	)
-	.register(
-		OrderService,
-		async (ctx) =>
-			new OrderService(
-				await ctx.resolve(Database),
-				await ctx.resolve(Logger)
+				await ctx.resolve(UserValidator),
+				await ctx.resolve(UserNotifier),
+				await ctx.resolve(Database)
 			)
 	);
-// Dependencies repeated everywhere, hard to refactor
 ```
 
-**Solution: Composable Dependency Modules**
+Consumers need to know about `UserValidator` and `UserNotifier`, even though they're internal implementation details. If you refactor UserService's internals, consumers must update their code.
 
-Layers let you organize dependencies into reusable, composable modules:
+#### Solution: Encapsulated Requirements
+
+Layers can hide internal dependencies:
 
 ```typescript
-// ✅ Dependencies organized into layers
-const configLayer = value(ConfigTag, loadConfig());
-const databaseLayer = service(
+// user-service.ts
+export class UserService extends Tag.Service('UserService') {
+	constructor(
+		private validator: UserValidator,
+		private notifier: UserNotifier,
+		private db: Database
+	) {
+		super();
+	}
+}
+
+// Internal dependencies provided inline
+export const userServiceLayer = autoService(UserService, [
+	UserValidator,
+	UserNotifier,
 	Database,
-	async (ctx) => new Database(await ctx.resolve(ConfigTag))
-);
-const loggerLayer = service(Logger, () => new Logger());
+]).provide(Layer.mergeAll(userValidatorLayer, userNotifierLayer));
 
-const userServiceLayer = autoService(UserService, [Database, Logger]);
-const orderServiceLayer = autoService(OrderService, [Database, Logger]);
+// Type: Layer<typeof Database, typeof UserService>
+// Only requires Database externally!
 
-// Compose once
-const appLayer = Layer.mergeAll(userServiceLayer, orderServiceLayer).provide(
-	Layer.mergeAll(databaseLayer, loggerLayer, configLayer)
-);
-
-// Apply to container
-const container = appLayer.register(Container.empty());
+// app.ts - Consumers don't see internal dependencies
+const appLayer = userServiceLayer.provide(databaseLayer);
+// Just provide Database, internal details are hidden
 ```
+
+The layer hides `UserValidator` and `UserNotifier` as implementation details. Consumers only need to provide `Database`. You can refactor internals freely without affecting consumers.
+
+### Benefits Summary
 
 Layers provide:
 
-- **Modularity**: Group related dependencies together
-- **Reusability**: Compose layers across different contexts (tests, dev, prod)
-- **Type safety**: Requirements and provisions tracked at the type level
+- **Cleaner syntax**: `autoService()` and `service()` eliminate repetitive factory boilerplate
+- **Reusability**: Define layers once, compose them differently across multiple entry points (Lambda functions, CLI commands, workers)
+- **Selective composition**: Each entry point only includes the dependencies it actually needs
+- **Better organization**: Dependency construction logic lives next to the implementation (code that changes together stays together)
 - **Encapsulation**: Hide internal dependencies from consumers
+- **Type safety**: Requirements and provisions tracked at the type level
 
 ### Creating Layers
 
@@ -1444,111 +1714,51 @@ const container = databaseLayer.register(baseContainer);
 // Container now has both Logger and Database
 ```
 
-### Complete Example
+#### Type Safety: Requirements Must Be Satisfied
 
-Here's a realistic multi-layer application:
+TypeScript ensures that a layer can only be registered on a container that satisfies all of the layer's requirements. This prevents runtime errors from missing dependencies.
 
 ```typescript
-import {
-	layer,
-	service,
-	autoService,
-	value,
-	Tag,
-	Layer,
-	Container,
-} from 'sandly';
+// Layer that requires Database
+const userServiceLayer = autoService(UserService, [Database, Logger]);
 
-// ============ Configuration Layer ============
-const ApiKeyTag = Tag.of('config.apiKey')<string>();
-const DatabaseUrlTag = Tag.of('config.databaseUrl')<string>();
-
-const configLayer = Layer.mergeAll(
-	value(ApiKeyTag, process.env.API_KEY!),
-	value(DatabaseUrlTag, process.env.DATABASE_URL!)
-);
-
-// ============ Infrastructure Layer ============
-class Logger extends Tag.Service('Logger') {
-	log(msg: string) {
-		console.log(`[LOG] ${msg}`);
-	}
-}
-
-class Database extends Tag.Service('Database') {
-	constructor(private url: string) {
-		super();
-	}
-
-	async query(sql: string) {
-		return [];
-	}
-}
-
-const loggerLayer = service(Logger, () => new Logger());
-
-const databaseLayer = service(Database, async (ctx) => {
-	const url = await ctx.resolve(DatabaseUrlTag);
-	return new Database(url);
-});
-
-const infraLayer = Layer.mergeAll(loggerLayer, databaseLayer).provide(
-	configLayer
-);
-
-// ============ Repository Layer ============
-class UserRepository extends Tag.Service('UserRepository') {
-	constructor(
-		private db: Database,
-		private logger: Logger
-	) {
-		super();
-	}
-
-	async findById(id: string) {
-		this.logger.log(`Finding user ${id}`);
-		return this.db.query(`SELECT * FROM users WHERE id = '${id}'`);
-	}
-}
-
-const userRepositoryLayer = autoService(UserRepository, [Database, Logger]);
-
-// ============ Service Layer ============
-class UserService extends Tag.Service('UserService') {
-	constructor(
-		private repo: UserRepository,
-		private logger: Logger,
-		private apiKey: Inject<typeof ApiKeyTag>
-	) {
-		super();
-	}
-
-	async getUser(id: string) {
-		this.logger.log(`UserService.getUser(${id})`);
-		const user = await this.repo.findById(id);
-		// Use apiKey for external API calls...
-		return user;
-	}
-}
-
-const userServiceLayer = autoService(UserService, [
-	UserRepository,
-	Logger,
-	ApiKeyTag,
-]);
-
-// ============ Compose Application ============
-const appLayer = userServiceLayer
+// ✅ Works - Container.empty() can be used because layer has no requirements
+// (userServiceLayer was composed with all dependencies via .provide())
+const completeLayer = userServiceLayer
 	.provide(userRepositoryLayer)
 	.provide(infraLayer);
+// Type: Layer<never, typeof UserService> - no requirements!
 
-// ============ Bootstrap ============
-const container = appLayer.register(Container.empty());
-const userService = await container.resolve(UserService);
+const container = completeLayer.register(Container.empty());
+// ✅ TypeScript allows this because completeLayer has no requirements
 
-// Use the service
-const user = await userService.getUser('123');
+// ❌ Type error - Layer still has requirements
+const incompleteLayer = userServiceLayer.provide(userRepositoryLayer);
+// Type: Layer<typeof Logger, typeof UserService> - still needs Logger!
+
+const container2 = incompleteLayer.register(Container.empty());
+// ❌ Error: Argument of type 'Container<never>' is not assignable to parameter of type 'IContainer<ServiceTag<"Logger", Logger>>'.
 ```
+
+When applying a layer to an existing container, the container must already have all the layer's requirements:
+
+```typescript
+// Layer requires Database
+const userRepositoryLayer = autoService(UserRepository, [Database, Logger]);
+
+// ✅ Works - baseContainer has Logger, and we provide Database via layer
+const baseContainer = Container.empty().register(Logger, () => new Logger());
+const container = userRepositoryLayer
+	.provide(databaseLayer)
+	.register(baseContainer);
+
+// ❌ Type error - baseContainer doesn't have Database
+const baseContainer2 = Container.empty().register(Logger, () => new Logger());
+const container2 = userRepositoryLayer.register(baseContainer2);
+// ❌ Error: Argument of type 'Conainer<ttypeof Logger>' is not assignable to parameter of type 'IContainer<ServiceTag<"Database", Database> | ServiceTag<"Logger", Logger>>'.
+```
+
+This compile-time checking ensures that all dependencies are satisfied before your code runs, preventing `UnknownDependencyError` at runtime.
 
 ### Best Practices
 
@@ -2225,7 +2435,7 @@ This combines the benefits of:
 **NestJS**:
 
 - **No Type Safety**: Relies on string tokens and runtime reflection. TypeScript can't validate your dependency graph at compile time. This results in common runtime errors like "Unknown dependency" or "Dependency not found" when NestJS app is run.
-- **Decorator-Based**: Uses experimental decorators which are being deprecated in favor of the new TC39 standard.
+- **Decorator-Based**: Uses experimental decorators which are being deprecated in favor of the new TypeScript standard.
 - **Framework Lock-In**: Tightly coupled to the NestJS framework. You can't use the DI system independently.
 - **Heavy**: Pulls in many dependencies and runtime overhead.
 
@@ -2241,16 +2451,16 @@ This combines the benefits of:
 **InversifyJS**:
 
 - **Complex API**: Requires learning container binding DSL, identifiers, and numerous decorators.
-- **Decorator-Heavy**: Relies heavily on experimental decorators.
-- **No Async Factories**: Doesn't support async dependency creation out of the box.
-- **Weak Type Inference**: Type safety requires manual type annotations everywhere.
+- **Decorator-heavy**: Relies heavily on experimental decorators.
+- **No async factory support**: Doesn't support async dependency creation out of the box.
+- **Weak type inference**: Type safety requires manual type annotations everywhere.
 
 **Sandly**:
 
 - **Simple API**: Clean, minimal API surface. Tags, containers, and layers.
-- **No Decorators**: Standard TypeScript classes and functions.
-- **Async First**: Native support for async factories and finalizers.
-- **Strong Type Inference**: Types are automatically inferred from your code.
+- **No decorators**: Standard TypeScript classes and functions.
+- **Async first**: Native support for async factories and finalizers.
+- **Strong type inference**: Types are automatically inferred from your code.
 
 ```typescript
 // InversifyJS - Complex and decorator-heavy
@@ -2286,17 +2496,17 @@ const container = Container.empty()
 
 **TSyringe**:
 
-- **Decorator-Based**: Uses experimental `reflect-metadata` and decorators.
-- **No Type-Safe Container**: The container doesn't track what's registered. Easy to request unregistered dependencies and only find out at runtime.
-- **No Async Support**: Factories must be synchronous.
-- **Global Container**: Relies on a global container which makes testing harder.
+- **Decorator-based**: Uses experimental `reflect-metadata` and decorators.
+- **No type-safe container**: The container doesn't track what's registered. Easy to request unregistered dependencies and only find out at runtime.
+- **No async support**: Factories must be synchronous.
+- **Global container**: Relies on a global container which makes testing harder.
 
 **Sandly**:
 
-- **No Decorators**: Standard TypeScript, no experimental features.
-- **Type-Safe Container**: Container tracks all registered services. TypeScript prevents requesting unregistered dependencies.
-- **Full Async Support**: Factories and finalizers can be async.
-- **Explicit Containers**: Create and manage containers explicitly for better testability.
+- **No decorators**: Standard TypeScript, no experimental features.
+- **Type-Safe container**: Container tracks all registered services. TypeScript prevents requesting unregistered dependencies.
+- **Full async support**: Factories and finalizers can be async.
+- **Explicit containers**: Create and manage containers explicitly for better testability and scope management.
 
 ```typescript
 // TSyringe - Global container, no compile-time safety
@@ -2327,77 +2537,49 @@ const service = await container.resolve(UserService); // Type-safe
 
 **Effect-TS**:
 
-- **Steep Learning Curve**: Requires learning functional programming concepts, Effect type, generators, and extensive API.
-- **All-or-Nothing**: Designed as a complete effect system. Hard to adopt incrementally.
-- **Functional Programming**: Uses FP paradigms which may not fit all teams or codebases.
-- **Large Bundle**: Comprehensive framework with significant bundle size.
+- **Steep learning curve**: Requires learning functional programming concepts, Effect type, generators, and extensive API.
+- **All-or-nothing**: Designed as a complete effect system. Hard to adopt incrementally.
+- **Functional programming**: Uses FP paradigms which may not fit all teams or codebases.
+- **Large bundle**: Comprehensive framework with significant bundle size.
 
 **Sandly**:
 
-- **Easy to Learn**: Simple, familiar API. If you know TypeScript classes, you're ready to use Sandly.
-- **Incremental Adoption**: Add DI to existing codebases without major refactoring.
+- **Easy to learn**: Simple, familiar API. If you know TypeScript classes, you're ready to use Sandly.
+- **Incremental adoption**: Add DI to existing codebases without major refactoring.
 - **Pragmatic**: Works with standard OOP and functional styles.
-- **Minimal Size**: Tiny library focused on DI only.
+- **Minimal size**: Tiny library focused on DI only.
 
 **Similarities with Effect**:
 
 - Both provide full type safety for dependency management
 - Both use the concept of layers for composable dependency graphs
-- Both support complete async lifecycle management
+- Both support complete async lifecycle management and scope management
 
 **When to choose Effect**: If you want a complete effect system with error handling, concurrency, streams, and are comfortable with FP paradigms.
 
 **When to choose Sandly**: If you want just dependency injection with great type safety, without the learning curve or the need to adopt an entire effect system.
 
-```typescript
-// Effect - Functional, effect-based
-import { Effect, Layer, Context } from 'effect';
-
-class Database extends Context.Tag('Database')<Database, DatabaseImpl>() {}
-
-const DatabaseLive = Layer.succeed(Database, new DatabaseImpl());
-
-const program = Effect.gen(function* () {
-	const db = yield* Database;
-	return yield* db.query('SELECT * FROM users');
-});
-
-Effect.runPromise(Effect.provide(program, DatabaseLive));
-
-// Sandly - Pragmatic, class-based
-class Database extends Tag.Service('Database') {
-	query(sql: string) {
-		/* ... */
-	}
-}
-
-const container = Container.empty().register(Database, () => new Database());
-
-const db = await container.resolve(Database);
-const result = await db.query('SELECT * FROM users');
-```
-
 ### Feature Comparison Table
 
-| Feature                    | Sandly  | NestJS  | InversifyJS | TSyringe | Effect-TS |
-| -------------------------- | ------- | ------- | ----------- | -------- | --------- |
-| Compile-time type safety   | ✅ Full | ❌ None | ⚠️ Partial  | ❌ None  | ✅ Full   |
-| No experimental decorators | ✅      | ❌      | ❌          | ❌       | ✅        |
-| Async factories            | ✅      | ✅      | ❌          | ❌       | ✅        |
-| Async finalizers           | ✅      | ✅      | ❌          | ❌       | ✅        |
-| Framework-agnostic         | ✅      | ❌      | ✅          | ✅       | ✅        |
-| Learning curve             | Low     | Medium  | High        | Low      | Very High |
-| Bundle size                | Tiny    | Large   | Medium      | Small    | Large     |
-| Scoped lifetimes           | ✅      | ✅      | ✅          | ✅       | ✅        |
-| Layer composition          | ✅      | ❌      | ❌          | ❌       | ✅        |
-| Zero dependencies          | ✅      | ❌      | ❌          | ❌       | ❌        |
+| Feature                    | Sandly  | NestJS     | InversifyJS           | TSyringe | Effect-TS |
+| -------------------------- | ------- | ---------- | --------------------- | -------- | --------- |
+| Compile-time type safety   | ✅ Full | ❌ None    | ⚠️ Partial            | ❌ None  | ✅ Full   |
+| No experimental decorators | ✅      | ❌         | ❌                    | ❌       | ✅        |
+| Async factories            | ✅      | ✅         | ❌                    | ❌       | ✅        |
+| Async finalizers           | ✅      | ✅         | ❌                    | ❌       | ✅        |
+| Framework-agnostic         | ✅      | ❌         | ✅                    | ✅       | ✅        |
+| Learning curve             | Low     | Medium     | Medium                | Low      | Very High |
+| Bundle size                | Small   | Large      | Medium                | Small    | Large     |
+| Custom scopes              | ✅      | ⚠️ Limited | ⚠️ Request scope only | ❌       | ✅        |
+| Layer composition          | ✅      | ❌         | ❌                    | ❌       | ✅        |
+| Zero dependencies          | ✅      | ❌         | ❌                    | ❌       | ❌        |
 
 ### Why Choose Sandly?
 
 Choose Sandly if you want:
 
 - **Type safety** without sacrificing developer experience
-- **Dependency injection** without the need for experimental features that may break
+- **Dependency injection** without the need for experimental features that won't be supported in the future
 - **Clean architecture** with layers and composable modules
 - **Async support** for real-world scenarios (database connections, API clients, etc.)
 - **Testing-friendly** design with easy mocking and isolation
