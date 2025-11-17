@@ -1096,6 +1096,63 @@ describe('DependencyContainer', () => {
 				// Should be the UserService creation error, with nested DatabaseService error
 			}
 		});
+
+		it('should get root cause from nested DependencyCreationErrors', async () => {
+			class ServiceC extends Tag.Service('ServiceC') {}
+			class ServiceB extends Tag.Service('ServiceB') {}
+			class ServiceA extends Tag.Service('ServiceA') {}
+
+			const rootError = new Error('Root cause error');
+			const container = Container.empty()
+				.register(ServiceC, () => {
+					throw rootError;
+				})
+				.register(
+					ServiceB,
+					async (ctx) => new ServiceB(await ctx.resolve(ServiceC))
+				)
+				.register(
+					ServiceA,
+					async (ctx) => new ServiceA(await ctx.resolve(ServiceB))
+				);
+
+			try {
+				await container.resolve(ServiceA);
+				expect.fail('Should have thrown');
+			} catch (error) {
+				expect(error).toBeInstanceOf(DependencyCreationError);
+				const creationError = error as DependencyCreationError;
+
+				// getRootCause should unwrap all nested DependencyCreationErrors
+				const rootCause = creationError.getRootCause();
+				expect(rootCause).toBe(rootError);
+				expect(rootCause).toBeInstanceOf(Error);
+				expect((rootCause as Error).message).toBe('Root cause error');
+
+				// Should not be a DependencyCreationError
+				expect(rootCause).not.toBeInstanceOf(DependencyCreationError);
+			}
+		});
+
+		it('should return the error itself if it is not nested', async () => {
+			class TestService extends Tag.Service('TestService') {}
+
+			const originalError = new Error('Simple error');
+			const container = Container.empty().register(TestService, () => {
+				throw originalError;
+			});
+
+			try {
+				await container.resolve(TestService);
+				expect.fail('Should have thrown');
+			} catch (error) {
+				expect(error).toBeInstanceOf(DependencyCreationError);
+				const creationError = error as DependencyCreationError;
+
+				const rootCause = creationError.getRootCause();
+				expect(rootCause).toBe(originalError);
+			}
+		});
 	});
 
 	describe('type safety edge cases', () => {

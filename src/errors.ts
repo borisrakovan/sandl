@@ -191,6 +191,9 @@ export class CircularDependencyError extends ContainerError {
  * This wraps the original error with additional context about which dependency
  * failed to be created. The original error is preserved as the `cause` property.
  *
+ * When dependencies are nested (A depends on B depends on C), and C's factory throws,
+ * you get nested DependencyCreationErrors. Use `getRootCause()` to get the original error.
+ *
  * @example Factory throwing error
  * ```typescript
  * class DatabaseService extends Tag.Service('DatabaseService') {}
@@ -205,6 +208,20 @@ export class CircularDependencyError extends ContainerError {
  *   if (error instanceof DependencyCreationError) {
  *     console.error('Failed to create:', error.message);
  *     console.error('Original error:', error.cause);
+ *   }
+ * }
+ * ```
+ *
+ * @example Getting root cause from nested errors
+ * ```typescript
+ * // ServiceA -> ServiceB -> ServiceC (ServiceC throws)
+ * try {
+ *   await container.resolve(ServiceA);
+ * } catch (error) {
+ *   if (error instanceof DependencyCreationError) {
+ *     console.error('Top-level error:', error.message); // "Error creating instance of ServiceA"
+ *     const rootCause = error.getRootCause();
+ *     console.error('Root cause:', rootCause); // Original error from ServiceC
  *   }
  * }
  * ```
@@ -224,6 +241,40 @@ export class DependencyCreationError extends ContainerError {
 				tag: Tag.id(tag),
 			},
 		});
+	}
+
+	/**
+	 * Traverses the error chain to find the root cause error.
+	 *
+	 * When dependencies are nested, each level wraps the error in a DependencyCreationError.
+	 * This method unwraps all the layers to get to the original error that started the failure.
+	 *
+	 * @returns The root cause error (not a DependencyCreationError unless that's the only error)
+	 *
+	 * @example
+	 * ```typescript
+	 * try {
+	 *   await container.resolve(UserService);
+	 * } catch (error) {
+	 *   if (error instanceof DependencyCreationError) {
+	 *     const rootCause = error.getRootCause();
+	 *     console.error('Root cause:', rootCause);
+	 *   }
+	 * }
+	 * ```
+	 */
+	getRootCause(): unknown {
+		let current: unknown = this.cause;
+
+		// Traverse the chain while we have DependencyCreationErrors
+		while (
+			current instanceof DependencyCreationError &&
+			current.cause !== undefined
+		) {
+			current = current.cause;
+		}
+
+		return current;
 	}
 }
 
