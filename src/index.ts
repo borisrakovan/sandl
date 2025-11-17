@@ -10,7 +10,7 @@ export type {
 export {
 	CircularDependencyError,
 	ContainerDestroyedError,
-	ContainerError,
+	SandlyError,
 	DependencyAlreadyInstantiatedError,
 	DependencyCreationError,
 	DependencyFinalizationError,

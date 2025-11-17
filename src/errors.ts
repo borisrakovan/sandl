@@ -17,7 +17,25 @@ export type ErrorDump = {
 	};
 };
 
-export class BaseError extends Error {
+/**
+ * Base error class for all library errors.
+ *
+ * This extends the native Error class to provide consistent error handling
+ * and structured error information across the library.
+ *
+ * @example Catching library errors
+ * ```typescript
+ * try {
+ *   await container.resolve(SomeService);
+ * } catch (error) {
+ *   if (error instanceof SandlyError) {
+ *     console.error('DI Error:', error.message);
+ *     console.error('Details:', error.detail);
+ *   }
+ * }
+ * ```
+ */
+export class SandlyError extends Error {
 	detail: Record<string, unknown> | undefined;
 
 	constructor(message: string, { cause, detail }: ErrorProps = {}) {
@@ -30,16 +48,16 @@ export class BaseError extends Error {
 		}
 	}
 
-	static ensure(error: unknown): BaseError {
-		return error instanceof BaseError
+	static ensure(error: unknown): SandlyError {
+		return error instanceof SandlyError
 			? error
-			: new BaseError('An unknown error occurred', { cause: error });
+			: new SandlyError('An unknown error occurred', { cause: error });
 	}
 
 	dump(): ErrorDump {
 		// Only show the stack trace of the top-level error
 		const cause =
-			this.cause instanceof BaseError
+			this.cause instanceof SandlyError
 				? this.cause.dump().error
 				: this.cause;
 
@@ -64,33 +82,13 @@ export class BaseError extends Error {
 }
 
 /**
- * Base error class for all dependency container related errors.
- *
- * This extends the framework's BaseError to provide consistent error handling
- * and structured error information across the dependency injection system.
- *
- * @example Catching DI errors
- * ```typescript
- * try {
- *   await container.resolve(SomeService);
- * } catch (error) {
- *   if (error instanceof ContainerError) {
- *     console.error('DI Error:', error.message);
- *     console.error('Details:', error.detail);
- *   }
- * }
- * ```
- */
-export class ContainerError extends BaseError {}
-
-/**
  * Error thrown when attempting to register a dependency that has already been instantiated.
  *
  * This error occurs when calling `container.register()` for a tag that has already been instantiated.
  * Registration must happen before any instantiation occurs, as cached instances would still be used
  * by existing dependencies.
  */
-export class DependencyAlreadyInstantiatedError extends ContainerError {}
+export class DependencyAlreadyInstantiatedError extends SandlyError {}
 
 /**
  * Error thrown when attempting to use a container that has been destroyed.
@@ -99,7 +97,7 @@ export class DependencyAlreadyInstantiatedError extends ContainerError {}
  * on a container that has already been destroyed. It indicates a programming error where the container
  * is being used after it has been destroyed.
  */
-export class ContainerDestroyedError extends ContainerError {}
+export class ContainerDestroyedError extends SandlyError {}
 
 /**
  * Error thrown when attempting to retrieve a dependency that hasn't been registered.
@@ -121,7 +119,7 @@ export class ContainerDestroyedError extends ContainerError {}
  * }
  * ```
  */
-export class UnknownDependencyError extends ContainerError {
+export class UnknownDependencyError extends SandlyError {
 	/**
 	 * @internal
 	 * Creates an UnknownDependencyError for the given tag.
@@ -163,7 +161,7 @@ export class UnknownDependencyError extends ContainerError {
  * }
  * ```
  */
-export class CircularDependencyError extends ContainerError {
+export class CircularDependencyError extends SandlyError {
 	/**
 	 * @internal
 	 * Creates a CircularDependencyError with the dependency chain information.
@@ -226,7 +224,7 @@ export class CircularDependencyError extends ContainerError {
  * }
  * ```
  */
-export class DependencyCreationError extends ContainerError {
+export class DependencyCreationError extends SandlyError {
 	/**
 	 * @internal
 	 * Creates a DependencyCreationError wrapping the original factory error.
@@ -297,7 +295,7 @@ export class DependencyCreationError extends ContainerError {
  * }
  * ```
  */
-export class DependencyFinalizationError extends ContainerError {
+export class DependencyFinalizationError extends SandlyError {
 	/**
 	 * @internal
 	 * Creates a DependencyFinalizationError aggregating multiple finalizer failures.
@@ -305,7 +303,7 @@ export class DependencyFinalizationError extends ContainerError {
 	 * @param errors - Array of errors thrown by individual finalizers
 	 */
 	constructor(errors: unknown[]) {
-		const lambdaErrors = errors.map((error) => BaseError.ensure(error));
+		const lambdaErrors = errors.map((error) => SandlyError.ensure(error));
 		super('Error destroying dependency container', {
 			cause: errors[0],
 			detail: {

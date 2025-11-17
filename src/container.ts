@@ -654,12 +654,12 @@ export class Container<TReg extends AnyTag> implements IContainer<TReg> {
 	 * Destroys all instantiated dependencies by calling their finalizers and makes the container unusable.
 	 *
 	 * **Important: After calling destroy(), the container becomes permanently unusable.**
-	 * Any subsequent calls to register(), get(), or destroy() will throw a ContainerError.
+	 * Any subsequent calls to register(), get(), or destroy() will throw a DependencyFinalizationError.
 	 * This ensures proper cleanup and prevents runtime errors from accessing destroyed resources.
 	 *
 	 * All finalizers for instantiated dependencies are called concurrently using Promise.allSettled()
 	 * for maximum cleanup performance.
-	 * If any finalizers fail, all errors are collected and a DependencyContainerFinalizationError
+	 * If any finalizers fail, all errors are collected and a DependencyFinalizationError
 	 * is thrown containing details of all failures.
 	 *
 	 * **Finalizer Concurrency:** Finalizers run concurrently, so there are no ordering guarantees.
