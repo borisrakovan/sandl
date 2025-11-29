@@ -41,7 +41,13 @@ export type ExtractConstructorDeps<T extends readonly unknown[]> =
 				}
 					? // Service tag
 						Id extends TagId
-						? ServiceTag<Id, T[K]>
+						? // Extract instance type from constructor to handle classes with static properties.
+							// Without this, static properties cause T[K] to be the class constructor type
+							// (including static members), but ServiceTag expects the instance type.
+							// This causes the service to incorrectly appear in its own dependencies union.
+							T[K] extends new (...args: unknown[]) => infer Instance
+							? ServiceTag<Id, Instance>
+							: ServiceTag<Id, T[K]>
 						: never
 					: // Value tag
 						ExtractInjectTag<T[K]> extends never
@@ -64,7 +70,13 @@ export type InferConstructorDepsTuple<T extends readonly unknown[]> =
 				}
 					? // Service tag
 						Id extends TagId
-						? ServiceTag<Id, T[K]>
+						? // Extract instance type from constructor to handle classes with static properties.
+							// Without this, static properties cause T[K] to be the class constructor type
+							// (including static members), but ServiceTag expects the instance type.
+							// This causes the service to incorrectly appear in its own dependencies union.
+							T[K] extends new (...args: unknown[]) => infer Instance
+							? ServiceTag<Id, Instance>
+							: ServiceTag<Id, T[K]>
 						: never
 					: // Value tag
 						ExtractInjectTag<T[K]> extends never

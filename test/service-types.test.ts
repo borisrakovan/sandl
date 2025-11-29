@@ -913,5 +913,46 @@ describe('Service Type Safety', () => {
 				Layer<never, typeof UserService>
 			>();
 		});
+
+		it('should handle services with static properties correctly', () => {
+			class ServiceA extends Tag.Service('ServiceA') {}
+			class ServiceB extends Tag.Service('ServiceB') {
+				static readonly foo = 123; // Static property causes the bug
+
+				constructor(private a: ServiceA) {
+					super();
+				}
+			}
+			class ServiceC extends Tag.Service('ServiceC') {
+				constructor(private b: ServiceB) {
+					super();
+				}
+			}
+
+			const serviceA = autoService(ServiceA, []);
+			const serviceB = autoService(ServiceB, [ServiceA]);
+			const serviceC = autoService(ServiceC, [ServiceB]);
+
+			// The bug: when merging, ServiceB should NOT appear in its own dependencies.
+			// Without the fix, static properties cause ServiceB to incorrectly appear
+			// in the requirements because T[K] becomes the constructor type.
+			const merged = serviceC.merge(serviceB);
+
+			// After providing serviceA, only ServiceC and ServiceB should be provided,
+			// with no remaining requirements (ServiceB should not require itself)
+			const composed = merged.provide(serviceA);
+
+			expectTypeOf(composed).branded.toEqualTypeOf<
+				Layer<never, typeof ServiceC | typeof ServiceB>
+			>();
+
+			// Should be able to register to empty container
+			const container = Container.empty();
+			const finalContainer = composed.register(container);
+
+			expectTypeOf(finalContainer).toEqualTypeOf<
+				IContainer<typeof ServiceC | typeof ServiceB>
+			>();
+		});
 	});
 });
