@@ -485,7 +485,7 @@ Before diving into detailed usage, let's understand the four main building block
 
 ### Tags
 
-Tags are unique identifiers for dependencies. They come in two flavors:
+Tags are unique tokens that represent dependencies and serve as a way to reference them in the container. They come in two flavors:
 
 **ServiceTag** - For class-based dependencies. Created by extending `Tag.Service()`:
 
@@ -507,7 +507,7 @@ const ApiKeyTag = Tag.of('ApiKey')<string>();
 const ConfigTag = Tag.of('Config')<{ port: number }>();
 ```
 
-ValueTags separate the identifier from the value type. The string identifier must be unique, which is why configuration values are the main use case (be careful with generic names like `'port'` or `'config'` - prefer namespaced identifiers like `'app.port'`).
+ValueTags separate the identifier from the value type. The string identifier should be unique in order to avoid collisions in TypeScript type error reporting. The main use-case for ValueTags is for injecting configuration values. Be careful with generic names like `'ApiKey'` or `'Config'` - prefer specific identifiers like `'ThirdPartyApiKey'` or `'HttpClientConfig'`.
 
 ### Container
 
@@ -1120,18 +1120,6 @@ container.register(Logger, () => new Logger());
 // TypeScript doesn't track these registrations
 ```
 
-**Use namespaced identifiers for ValueTags** - Prevents collisions:
-
-```typescript
-// ❌ Generic names can collide
-const Port = Tag.of('port')<number>();
-const Timeout = Tag.of('timeout')<number>();
-
-// ✅ Namespaced identifiers
-const ServerPort = Tag.of('server.port')<number>();
-const HttpTimeout = Tag.of('http.timeout')<number>();
-```
-
 **Prefer layers for multiple dependencies** - Once you have larger numbers of services and more complex dependency graphs, layers become cleaner. See the next section for more details.
 
 **Handle cleanup errors** - Finalizers can fail:
@@ -1145,6 +1133,39 @@ try {
 		// Continue with shutdown anyway
 	}
 }
+```
+
+**Avoid resolving during registration if possible** - Once you resolve a dependency, the container will cache it and you won't be able to override the registration. This might become problematic in case you're composing layers and multiple layers reference the same layer in their provisions (see more on layers below). It's better to keep registration and resolution separate:
+
+```typescript
+// ❌ Bad - resolving during setup creates timing issues
+const container = Container.empty().register(Logger, () => new Logger());
+
+const logger = await container.resolve(Logger); // During setup!
+
+container.register(Database, () => new Database());
+
+// ✅ Good - register everything first, then resolve
+const container = Container.empty()
+	.register(Logger, () => new Logger())
+	.register(Database, () => new Database());
+
+// Now use services
+const logger = await container.resolve(Logger);
+```
+
+However, it's perfectly fine to resolve and even use dependencies inside another dependency factory function.
+
+```typescript
+// ✅ Also good - resolve dependency inside factory function during the registration
+const container = Container.empty()
+	.register(Logger, () => new Logger())
+	.register(Database, (ctx) => {
+		const db = new Database();
+		const logger = await ctx.resolve(Logger);
+		logger.log('Database created successfully');
+		return db;
+	});
 ```
 
 ## Working with Layers
