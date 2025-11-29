@@ -1,0 +1,5 @@
+---
+'sandly': patch
+---
+
+Fix release
