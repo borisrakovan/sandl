@@ -1,5 +1,11 @@
 # lambdaverse
 
+## 0.5.1
+
+### Patch Changes
+
+- 63e4f15: Fix release
+
 ## 0.5.0
 
 ### Minor Changes
