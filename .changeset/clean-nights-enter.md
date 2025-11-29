@@ -1,5 +1,0 @@
----
-'sandly': minor
----
-
-Various improvements

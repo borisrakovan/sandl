@@ -1,5 +1,11 @@
 # lambdaverse
 
+## 0.5.0
+
+### Minor Changes
+
+- b9e6553: Various improvements
+
 ## 0.4.0
 
 ### Minor Changes
